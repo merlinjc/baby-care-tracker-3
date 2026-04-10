@@ -1,0 +1,45 @@
+<view class="family-join-container {{darkMode ? 'dark-mode' : ''}}">
+  <!-- 页面标题 -->
+  <view class="page-header">
+    <view class="header-icon">
+      <image src="/images/icons/add-family.png" mode="aspectFit"></image>
+    </view>
+    <view class="header-text">
+      <text class="header-title">加入家庭</text>
+      <text class="header-subtitle">输入邀请码加入家庭成员</text>
+    </view>
+  </view>
+
+  <view class="form-section">
+    <view class="form-item">
+      <view class="form-label">
+        <image src="/images/icons/key.png" mode="aspectFit"></image>
+        <text>邀请码</text>
+      </view>
+      <input 
+        class="form-input code-input" 
+        placeholder="请输入 6 位邀请码"
+        placeholder-class="input-placeholder"
+        value="{{inviteCode}}"
+        bindinput="onInputCode"
+        maxlength="6"
+      />
+    </view>
+
+    <button 
+      class="join-btn" 
+      bindtap="onJoin"
+      loading="{{loading}}"
+      disabled="{{loading}}"
+    >
+      <text wx:if="{{!loading}}">加入家庭</text>
+    </button>
+  </view>
+
+  <view class="tip-section">
+    <view class="tip-icon">
+      <image src="/images/icons/info.png" mode="aspectFit"></image>
+    </view>
+    <view class="tip-text">向家庭成员索取邀请码即可加入家庭</view>
+  </view>
+</view>

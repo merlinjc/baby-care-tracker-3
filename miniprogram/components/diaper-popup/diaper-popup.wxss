@@ -1,0 +1,207 @@
+/* 排便记录弹窗样式 - 美拉德色彩风格 */
+@import '../../styles/popup.wxss';
+
+/* 排便主题色覆盖 */
+.popup-icon {
+  background: linear-gradient(135deg, 
+    rgba(212, 200, 168, 0.15) 0%, 
+    rgba(196, 184, 152, 0.2) 100%
+  );
+}
+
+/* 分段 — 使用硬编码值而非 CSS 变量 */
+.section {
+  margin-bottom: 32rpx;
+}
+
+.section-title {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 16rpx;
+}
+
+/* 排便类型 */
+.types {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.type-item {
+  flex: 1;
+  padding: var(--spacing-md) 0;
+  background: var(--bg-primary);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12rpx;
+  transition: all var(--transition-fast);
+  border: 2rpx solid transparent;
+}
+
+.type-item.active {
+  background: linear-gradient(135deg, 
+    rgba(212, 200, 168, 0.15) 0%, 
+    rgba(196, 184, 152, 0.2) 100%
+  );
+  border-color: var(--diaper-color);
+}
+
+.type-icon {
+  width: 64rpx;
+  height: 64rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.type-icon image {
+  width: 48rpx;
+  height: 48rpx;
+}
+
+.type-label {
+  font-size: 26rpx;
+  color: var(--text-primary);
+}
+
+/* 大便质地 */
+.consistencies {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16rpx;
+}
+
+.consistency-item {
+  padding: 24rpx;
+  background: var(--bg-primary);
+  border-radius: 16rpx;
+  transition: all 0.3s;
+}
+
+.consistency-item.active {
+  background: rgba(212, 184, 150, 0.15);
+  border: 2rpx solid var(--warning-color);
+}
+
+.consistency-label {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 8rpx;
+}
+
+.consistency-desc {
+  font-size: 24rpx;
+  color: var(--text-hint);
+}
+
+/* 大便颜色 */
+.colors {
+  display: flex;
+  gap: 16rpx;
+}
+
+.color-item {
+  flex: 1;
+  padding: 24rpx 0;
+  background: var(--bg-primary);
+  border-radius: 16rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12rpx;
+  transition: all 0.3s;
+}
+
+.color-item.active {
+  background: rgba(212, 184, 150, 0.15);
+  border: 2rpx solid var(--warning-color);
+}
+
+.color-circle {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 50%;
+  border: 2rpx solid var(--border-color);
+}
+
+.color-label {
+  font-size: 24rpx;
+  color: var(--text-primary);
+}
+
+/* 预警信息 */
+.warning-banner {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  padding: 24rpx;
+  border-radius: 16rpx;
+  margin-bottom: 32rpx;
+}
+
+.warning-banner.warning {
+  background: rgba(255, 151, 106, 0.1);
+  border: 2rpx solid var(--warning-color);
+}
+
+.warning-banner.info {
+  background: rgba(91, 143, 249, 0.1);
+  border: 2rpx solid var(--info-color);
+}
+
+.warning-banner.error {
+  background: rgba(255, 77, 79, 0.1);
+  border: 2rpx solid var(--danger-color);
+}
+
+.warning-icon {
+  width: 32rpx;
+  height: 32rpx;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.warning-banner.warning .warning-icon {
+  background: var(--warning-color);
+}
+
+.warning-banner.info .warning-icon {
+  background: var(--info-color);
+}
+
+.warning-banner.error .warning-icon {
+  background: var(--danger-color);
+}
+
+.warning-message {
+  font-size: 24rpx;
+  color: var(--text-primary);
+  line-height: 1.6;
+  flex: 1;
+}
+
+.warning-banner.danger {
+  background: rgba(220, 120, 120, 0.1);
+  border: 2rpx solid var(--danger-color, #DC7878);
+}
+
+.warning-banner.danger .warning-icon {
+  background: var(--danger-color, #DC7878);
+}
+
+/* 备注输入 — 使用硬编码 border-radius，覆盖公共样式 */
+.note-input {
+  border-radius: 16rpx;
+  padding: 24rpx;
+}
+
+/* 提交按钮 - 排便主题色 */
+.submit-btn {
+  background: linear-gradient(135deg, var(--diaper-color) 0%, var(--diaper-gradient-end, #C4B898) 100%);
+  box-shadow: 0 4rpx 24rpx rgba(212, 200, 168, 0.3);
+}

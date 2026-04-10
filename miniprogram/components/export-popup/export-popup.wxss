@@ -1,0 +1,219 @@
+/* 导出弹窗 */
+.export-popup-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--mask-color-dark);
+  display: flex;
+  align-items: flex-end;
+  z-index: 1000;
+}
+
+.export-popup {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  padding: var(--spacing-lg);
+  padding-bottom: calc(var(--spacing-lg) + env(safe-area-inset-bottom));
+  overflow: hidden;
+}
+
+.popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-lg);
+}
+
+.popup-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.popup-close {
+  padding: var(--spacing-xs);
+}
+
+.close-icon {
+  width: 40rpx;
+  height: 40rpx;
+  opacity: 0.4;
+}
+
+.section-label {
+  font-size: 26rpx;
+  color: var(--primary-dark);
+  margin-bottom: var(--spacing-sm);
+  display: block;
+}
+
+/* 格式选择 */
+.format-options {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.format-option {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--spacing-md);
+  background: var(--bg-primary);
+  border-radius: var(--radius-sm);
+  border: 2rpx solid transparent;
+}
+
+.format-option.active {
+  background: var(--warning-bg);
+  border-color: var(--primary-color);
+}
+
+.format-icon-wrap {
+  width: 48rpx;
+  height: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--radius-sm);
+}
+
+.format-icon-text {
+  font-size: 24rpx;
+  color: var(--primary-color);
+  font-weight: 500;
+}
+
+.format-name {
+  font-size: 28rpx;
+  color: var(--text-primary);
+  font-weight: 500;
+  margin-bottom: 4rpx;
+}
+
+.format-desc {
+  font-size: 22rpx;
+  color: var(--primary-dark);
+}
+
+/* 时间范围 */
+.export-range {
+  margin-top: var(--spacing-lg);
+}
+
+.range-options {
+  display: flex;
+  gap: var(--radius-sm);
+}
+
+.range-option {
+  flex: 1;
+  padding: 20rpx;
+  text-align: center;
+  background: var(--bg-primary);
+  border-radius: var(--radius-sm);
+  font-size: 26rpx;
+  color: var(--text-primary);
+}
+
+.range-option.active {
+  background: var(--primary-color);
+  color: var(--white);
+}
+
+/* 导出限制提示 */
+.export-limit {
+  display: flex;
+  align-items: center;
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-sm) 20rpx;
+  background: var(--danger-bg);
+  border-radius: var(--radius-sm);
+}
+
+.limit-warning {
+  font-size: 24rpx;
+  color: var(--danger-color);
+}
+
+/* 操作按钮 */
+.popup-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-lg);
+}
+
+.popup-btn {
+  flex: 1;
+  padding: var(--spacing-md);
+  border-radius: var(--radius-sm);
+  text-align: center;
+  font-size: 30rpx;
+}
+
+.popup-btn.secondary {
+  background: var(--bg-primary);
+  color: var(--primary-dark);
+}
+
+.popup-btn.primary {
+  background: var(--primary-color);
+  color: var(--white);
+  font-weight: 500;
+}
+
+.popup-btn.primary.disabled {
+  background: var(--border-color);
+  color: var(--text-hint);
+}
+
+/* 导出进度 */
+.export-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1001;
+}
+
+.progress-mask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--mask-color-dark);
+}
+
+.progress-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--spacing-xl) 64rpx;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+}
+
+.progress-spinner {
+  width: 64rpx;
+  height: 64rpx;
+  border: 4rpx solid var(--border-color);
+  border-top-color: var(--primary-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.progress-text {
+  margin-top: 20rpx;
+  font-size: 28rpx;
+  color: var(--text-primary);
+}

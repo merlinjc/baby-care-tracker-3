@@ -1,0 +1,247 @@
+<view class="container {{darkMode ? 'dark-mode' : ''}}">
+  <!-- 顶部导航栏（page-header 统一风格，对齐发现页） -->
+  <view class="page-header">
+    <view class="header-icon">
+      <image src="/images/icons/edit-gray.png" mode="aspectFit"></image>
+    </view>
+    <view class="header-text">
+      <text class="header-title">记录</text>
+      <view wx:if="{{todaySummaryText}}">
+        <text class="header-subtitle">{{todaySummaryText}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 数据洞察区（可折叠）- 用 hidden 避免管理模式切换时组件重建 -->
+  <insight-section 
+    hidden="{{manageMode || !currentBaby}}" 
+    babyId="{{currentBaby._id}}"
+    dark-mode="{{darkMode}}"
+    bind:showReport="showReportPopup"
+  />
+
+  <!-- 筛选工具栏：日期 + 类型标签 + 管理按钮，单行横向布局 -->
+  <view class="filter-toolbar" hidden="{{manageMode}}">
+    <view class="toolbar-date-btn" bindtap="showDatePicker">
+      <image class="toolbar-date-icon" src="/images/icons/calendar.png" mode="aspectFit"></image>
+      <text class="toolbar-date-text">{{dateRangeText}}</text>
+    </view>
+    <scroll-view class="toolbar-filters" scroll-x enhanced show-scrollbar="{{false}}">
+      <view class="toolbar-filters-inner">
+        <view 
+          class="filter-item {{currentFilter === index ? 'active' : ''}}"
+          wx:for="{{filters}}"
+          wx:key="index"
+          data-index="{{index}}"
+          bindtap="onFilterChange"
+        >
+          <image 
+            wx:if="{{index > 0}}" 
+            class="filter-icon-small" 
+            src="/images/icons/{{filterIcons[index]}}.png" 
+            mode="aspectFit"
+            lazy-load
+          ></image>
+          <text>{{item}}</text>
+          <view class="filter-count" wx:if="{{filterCounts[index] > 0}}">{{filterCounts[index]}}</view>
+        </view>
+      </view>
+    </scroll-view>
+    <view class="toolbar-manage-btn" bindtap="toggleManageMode" wx:if="{{canEdit}}">
+      <text>管理</text>
+    </view>
+  </view>
+
+  <!-- 批量管理标题栏：取消 | 已选 X 条 | 全选 -->
+  <view class="batch-header" wx:if="{{manageMode}}">
+    <view class="batch-cancel" bindtap="toggleManageMode">
+      <text>取消</text>
+    </view>
+    <view class="batch-info">
+      <text class="batch-count">已选择 {{selectedRecords.length}} 条</text>
+    </view>
+    <view class="batch-actions">
+      <view class="batch-action" bindtap="selectAllVisible">
+        <image class="batch-action-icon" src="/images/icons/check-circle.png" mode="aspectFit" lazy-load></image>
+        <text>全选</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 记录列表 -->
+  <timeline 
+    wx:if="{{records.length > 0}}"
+    records="{{records}}"
+    loading="{{loading}}"
+    manageMode="{{manageMode}}"
+    selectedRecords="{{selectedRecords}}"
+    bind:recordTap="onRecordTap"
+    bind:recordSelect="onRecordSelect"
+    bind:recordLongPress="onRecordLongPress"
+  />
+
+  <!-- 空状态 -->
+  <view class="empty-state" wx:if="{{!loading && records.length === 0}}">
+    <image class="empty-state-icon" src="/images/icons/edit-gray.png" mode="aspectFit" lazy-load></image>
+    <view class="empty-state-text">暂无记录</view>
+    <view class="empty-state-hint">点击右下角按钮添加记录</view>
+  </view>
+
+  <!-- 加载更多 -->
+  <view class="loading" wx:if="{{loading && records.length > 0}}">
+    <view class="loading-spinner"></view>
+    <text class="loading-text">加载中...</text>
+  </view>
+
+  <view class="no-more" wx:if="{{!loading && !hasMore && records.length > 0}}">
+    <text class="no-more-text">— 没有更多了 —</text>
+  </view>
+
+  <!-- 批量操作底部栏 -->
+  <view class="batch-toolbar" wx:if="{{manageMode && selectedRecords.length > 0}}">
+    <view class="toolbar-action danger" bindtap="batchDelete">
+      <image class="toolbar-icon" src="/images/icons/trash-red.png" mode="aspectFit" lazy-load></image>
+      <text class="toolbar-text">删除</text>
+    </view>
+  </view>
+
+  <!-- 日期选择弹窗 -->
+  <view class="date-picker-mask" wx:if="{{showDatePicker}}" bindtap="hideDatePicker">
+    <view class="date-picker-popup" catchtap>
+      <view class="date-picker-title">选择时间范围</view>
+      
+      <view class="date-picker-options">
+        <view class="date-option" data-range="all" bindtap="onDateRangeSelect">
+          <text class="date-option-text">全部时间</text>
+        </view>
+        <view class="date-option" data-range="today" bindtap="onDateRangeSelect">
+          <text class="date-option-text">今天</text>
+        </view>
+        <view class="date-option" data-range="week" bindtap="onDateRangeSelect">
+          <text class="date-option-text">最近7天</text>
+        </view>
+        <view class="date-option" data-range="month" bindtap="onDateRangeSelect">
+          <text class="date-option-text">最近30天</text>
+        </view>
+      </view>
+      
+      <view class="date-picker-cancel" bindtap="hideDatePicker">
+        <text class="cancel-text">取消</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 操作菜单 -->
+  <view class="action-sheet-mask" wx:if="{{showActionSheet}}" bindtap="hideActionSheet">
+    <view class="action-sheet" catchtap>
+      <view class="action-sheet-title">操作</view>
+      
+      <view class="action-sheet-options">
+        <view class="action-option" bindtap="viewRecordDetail">
+          <image class="action-icon" src="/images/icons/visible.png" mode="aspectFit" lazy-load></image>
+          <text class="action-text">查看详情</text>
+        </view>
+        
+        <view class="action-option" bindtap="editRecord" wx:if="{{canEdit}}">
+          <image class="action-icon" src="/images/icons/edit-gray.png" mode="aspectFit" lazy-load></image>
+          <text class="action-text">编辑</text>
+        </view>
+        
+        <view class="action-option danger" bindtap="deleteRecord" wx:if="{{canEdit}}">
+          <image class="action-icon" src="/images/icons/trash-red.png" mode="aspectFit" lazy-load></image>
+          <text class="action-text">删除</text>
+        </view>
+      </view>
+      
+      <view class="action-sheet-cancel" bindtap="hideActionSheet">
+        <text class="cancel-text">取消</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 悬浮添加按钮 - 仅 editor/admin 可见 -->
+  <view class="fab-container" wx:if="{{showFabMenu && canEdit}}" bindtap="hideFabMenu">
+    <view class="fab-menu" catchtap>
+      <view class="fab-menu-item feeding" data-type="feeding" bindtap="onFabAdd">
+        <image class="fab-menu-icon" src="/images/icons/feeding-white.png" mode="aspectFit" lazy-load></image>
+        <text class="fab-menu-text">喂养</text>
+      </view>
+      <view class="fab-menu-item sleep" data-type="sleep" bindtap="onFabAdd">
+        <image class="fab-menu-icon" src="/images/icons/sleep-white.png" mode="aspectFit" lazy-load></image>
+        <text class="fab-menu-text">睡眠</text>
+      </view>
+      <view class="fab-menu-item diaper" data-type="diaper" bindtap="onFabAdd">
+        <image class="fab-menu-icon" src="/images/icons/diaper-white.png" mode="aspectFit" lazy-load></image>
+        <text class="fab-menu-text">排便</text>
+      </view>
+      <view class="fab-menu-item temperature" data-type="temperature" bindtap="onFabAdd">
+        <image class="fab-menu-icon" src="/images/icons/temperature-white.png" mode="aspectFit" lazy-load></image>
+        <text class="fab-menu-text">体温</text>
+      </view>
+      <view class="fab-menu-item growth" data-type="growth" bindtap="onFabAdd">
+        <image class="fab-menu-icon" src="/images/icons/growth-white.png" mode="aspectFit" lazy-load></image>
+        <text class="fab-menu-text">生长</text>
+      </view>
+    </view>
+  </view>
+  
+  <view class="fab-button {{showFabMenu ? 'active' : ''}}" bindtap="toggleFabMenu" wx:if="{{!manageMode && canEdit}}">
+    <image class="fab-icon-img" src="{{showFabMenu ? '/images/icons/x-mark.png' : '/images/icons/plus.png'}}" mode="aspectFit" lazy-load></image>
+  </view>
+
+  <!-- 弹窗组件 -->
+  <feeding-popup 
+    id="feedingPopup"
+    show="{{showFeedingPopup}}"
+    babyId="{{currentBaby._id}}"
+    dark-mode="{{darkMode}}"
+    bind:close="closeFeedingPopup"
+    bind:created="onRecordCreated"
+  />
+
+  <sleep-popup 
+    id="sleepPopup"
+    show="{{showSleepPopup}}"
+    babyId="{{currentBaby._id}}"
+    dark-mode="{{darkMode}}"
+    bind:close="closeSleepPopup"
+    bind:created="onRecordCreated"
+  />
+
+  <diaper-popup 
+    id="diaperPopup"
+    show="{{showDiaperPopup}}"
+    babyId="{{currentBaby._id}}"
+    dark-mode="{{darkMode}}"
+    bind:close="closeDiaperPopup"
+    bind:created="onRecordCreated"
+  />
+
+  <temperature-popup 
+    id="temperaturePopup"
+    show="{{showTemperaturePopup}}"
+    babyId="{{currentBaby._id}}"
+    dark-mode="{{darkMode}}"
+    bind:close="closeTemperaturePopup"
+    bind:created="onRecordCreated"
+  />
+
+  <growth-popup 
+    id="growthPopup"
+    show="{{showGrowthPopup}}"
+    baby-id="{{currentBaby._id}}"
+    dark-mode="{{darkMode}}"
+    bind:close="closeGrowthPopup"
+    bind:saved="onRecordCreated"
+  />
+
+  <!-- 成长报告弹窗 -->
+  <report-popup 
+    id="reportPopup"
+    show="{{showReportPopup}}"
+    babyId="{{currentBaby._id}}"
+    dark-mode="{{darkMode}}"
+    bind:close="closeReportPopup"
+    bind:shareready="onShareReady"
+  />
+</view>

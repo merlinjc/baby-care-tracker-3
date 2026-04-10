@@ -1,0 +1,5 @@
+<!-- components/easter-egg-toast/easter-egg-toast.wxml -->
+<view class="{{darkMode ? 'dark-mode' : ''}} egg-toast {{animState}}" hidden="{{animState === 'idle'}}" bindtap="dismiss">
+  <image class="egg-toast-icon" wx:if="{{icon}}" src="{{icon}}" mode="aspectFit" />
+  <text class="egg-toast-text">{{text}}</text>
+</view>

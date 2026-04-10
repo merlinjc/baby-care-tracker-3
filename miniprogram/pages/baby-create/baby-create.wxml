@@ -1,0 +1,81 @@
+<view class="baby-create-container {{darkMode ? 'dark-mode' : ''}}">
+  <!-- 页面标题 -->
+  <view class="page-header">
+    <view class="header-icon">
+      <image src="/images/default-avatar.svg" mode="aspectFit"></image>
+    </view>
+    <view class="header-text">
+      <text class="header-title">创建宝宝档案</text>
+      <text class="header-subtitle">记录宝贝成长的每一步</text>
+    </view>
+  </view>
+
+  <view class="form-section">
+    <!-- 姓名 -->
+    <view class="form-item">
+      <view class="form-label">
+        <image src="/images/icons/user.png" mode="aspectFit"></image>
+        <text>宝宝姓名</text>
+      </view>
+      <input 
+        class="form-input" 
+        placeholder="请输入宝宝姓名"
+        placeholder-class="input-placeholder"
+        value="{{name}}"
+        bindinput="onInputName"
+        maxlength="20"
+      />
+    </view>
+
+    <!-- 性别 -->
+    <view class="form-item">
+      <view class="form-label">
+        <image src="/images/icons/family.png" mode="aspectFit"></image>
+        <text>性别</text>
+      </view>
+      <radio-group class="gender-group" bindchange="onGenderChange">
+        <label class="gender-option {{gender === 'male' ? 'active' : ''}}">
+          <radio value="male" checked="{{gender === 'male'}}" color="#D4B896" />
+          <text>男孩</text>
+        </label>
+        <label class="gender-option {{gender === 'female' ? 'active' : ''}}">
+          <radio value="female" checked="{{gender === 'female'}}" color="#D4B896" />
+          <text>女孩</text>
+        </label>
+      </radio-group>
+    </view>
+
+    <!-- 出生日期 -->
+    <view class="form-item">
+      <view class="form-label">
+        <image src="/images/icons/calendar.png" mode="aspectFit"></image>
+        <text>出生日期</text>
+      </view>
+      <picker 
+        mode="date" 
+        value="{{birthDate}}" 
+        start="2020-01-01" 
+        end="{{currentDate}}"
+        bindchange="onDateChange"
+        class="date-picker"
+      >
+        <view class="date-picker-content">
+          <text class="{{birthDate ? 'date-value' : 'date-placeholder'}}">
+            {{birthDate || '请选择出生日期'}}
+          </text>
+          <text class="picker-arrow">›</text>
+        </view>
+      </picker>
+    </view>
+
+    <!-- 创建按钮 -->
+    <button 
+      class="create-btn" 
+      bindtap="onCreate"
+      loading="{{loading}}"
+      disabled="{{loading}}"
+    >
+      <text wx:if="{{!loading}}">创建档案</text>
+    </button>
+  </view>
+</view>

@@ -1,0 +1,83 @@
+/**
+ * 通用图标组件样式
+ */
+
+/* 基础样式 */
+.icon {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* 尺寸系统 */
+.icon.small {
+  width: 24rpx;
+  height: 24rpx;
+}
+
+.icon.medium {
+  width: 32rpx;
+  height: 32rpx;
+}
+
+.icon.large {
+  width: 48rpx;
+  height: 48rpx;
+}
+
+.icon.xlarge {
+  width: 64rpx;
+  height: 64rpx;
+}
+
+/* 自定义尺寸支持 */
+.icon.custom {
+  width: var(--icon-width, 32rpx);
+  height: var(--icon-height, 32rpx);
+}
+
+/* 颜色主题（通过CSS变量支持） */
+.icon.primary {
+  --icon-color: #8B6F47;
+}
+
+.icon.secondary {
+  --icon-color: #D4A574;
+}
+
+.icon.accent {
+  --icon-color: #E8C9A0;
+}
+
+.icon.success {
+  --icon-color: #7FB069;
+}
+
+.icon.warning {
+  --icon-color: #E5A853;
+}
+
+.icon.error {
+  --icon-color: #D47B6A;
+}
+
+.icon.info {
+  --icon-color: #7BA3C9;
+}
+
+/* 加载状态 */
+.icon.loading {
+  opacity: 0.6;
+  animation: icon-loading 1s infinite;
+}
+
+@keyframes icon-loading {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
+}
+
+/* 禁用状态 */
+.icon.disabled {
+  opacity: 0.3;
+  pointer-events: none;
+}

@@ -1,0 +1,365 @@
+<!-- 引导页面 - 多步骤流程 -->
+<view class="auth-container {{darkMode ? 'dark-mode' : ''}}">
+  <!-- 装饰背景 -->
+  <view class="decorative-bg">
+    <view class="circle circle-1"></view>
+    <view class="circle circle-2"></view>
+    <view class="circle circle-3"></view>
+  </view>
+
+  <!-- 步骤1: 欢迎页 -->
+  <view class="step-welcome {{currentStep === 1 ? 'active' : ''}}" wx:if="{{currentStep === 1}}">
+    <view class="welcome-content">
+      <!-- 品牌 Logo -->
+      <view class="brand-logo">
+        <image class="logo-icon" src="/images/logo.png" mode="aspectFit"></image>
+      </view>
+      
+      <!-- 品牌标题 -->
+      <view class="brand-info">
+        <text class="brand-name">宝宝成长记录</text>
+        <text class="brand-slogan">记录每一刻成长，陪伴每一个瞬间</text>
+      </view>
+
+      <!-- 功能特点 -->
+      <view class="features">
+        <view class="feature-item">
+          <view class="feature-icon feeding">
+            <image src="/images/icons/feeding-color.png" mode="aspectFit"></image>
+          </view>
+          <text class="feature-text">喂养记录</text>
+        </view>
+        <view class="feature-item">
+          <view class="feature-icon sleep">
+            <image src="/images/icons/sleep-color.png" mode="aspectFit"></image>
+          </view>
+          <text class="feature-text">睡眠追踪</text>
+        </view>
+        <view class="feature-item">
+          <view class="feature-icon diaper">
+            <image src="/images/icons/diaper-color.png" mode="aspectFit"></image>
+          </view>
+          <text class="feature-text">排便监测</text>
+        </view>
+        <view class="feature-item">
+          <view class="feature-icon health">
+            <image src="/images/icons/health-color.png" mode="aspectFit"></image>
+          </view>
+          <text class="feature-text">健康管理</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 开始按钮 -->
+    <view class="welcome-footer">
+      <button class="start-btn" bindtap="startOnboarding">
+        <text>开始使用</text>
+      </button>
+      <view class="login-link" bindtap="handleDirectLogin">
+        <text>已有账号？直接登录</text>
+      </view>
+      <text class="terms-text">开始即表示同意《用户协议》和《隐私政策》</text>
+    </view>
+  </view>
+
+  <!-- 步骤2: 用户信息 + 身份选择 -->
+  <view class="step-profile {{currentStep === 2 ? 'active' : ''}}" wx:if="{{currentStep === 2}}">
+    <!-- 步骤指示器 -->
+    <view class="step-indicator">
+      <view class="step-dot active"></view>
+      <view class="step-line"></view>
+      <view class="step-dot"></view>
+    </view>
+
+    <!-- 标题 -->
+    <view class="section-header">
+      <text class="section-title">完善您的信息</text>
+      <text class="section-subtitle">让我们更好地为您服务</text>
+    </view>
+
+    <!-- 头像 -->
+    <view class="avatar-section">
+      <button class="avatar-wrapper" open-type="chooseAvatar" bind:chooseavatar="onChooseAvatar">
+        <image 
+          class="avatar" 
+          src="{{avatarUrl || '/images/default-avatar.svg'}}" 
+          mode="aspectFill"
+        />
+        <view class="avatar-edit">
+          <image src="/images/icons/camera-white.png" mode="aspectFit" lazy-load></image>
+        </view>
+      </button>
+      <text class="avatar-tip">点击更换头像</text>
+    </view>
+
+    <!-- 昵称 -->
+    <view class="form-section">
+      <view class="input-wrapper">
+        <view class="input-icon">
+          <image src="/images/icons/user.png" mode="aspectFit" lazy-load></image>
+        </view>
+        <input 
+          class="nickname-input" 
+          type="nickname" 
+          placeholder="请输入您的昵称"
+          placeholder-class="input-placeholder"
+          value="{{nickname}}"
+          bindinput="onInputNickname"
+          maxlength="20"
+        />
+      </view>
+    </view>
+
+    <!-- 身份关系选择 -->
+    <view class="relation-section">
+      <text class="section-label">您与宝宝的关系</text>
+      <view class="relation-grid">
+        <!-- 第一行：妈妈、爸爸 -->
+        <view 
+          class="relation-item {{selectedRelation === 'mom' ? 'selected' : ''}}"
+          bindtap="selectRelation"
+          data-relation="mom"
+        >
+          <view class="relation-icon">
+            <image src="/images/icons/mom.png" mode="aspectFit" lazy-load></image>
+          </view>
+          <text class="relation-text">妈妈</text>
+        </view>
+        <view 
+          class="relation-item {{selectedRelation === 'dad' ? 'selected' : ''}}"
+          bindtap="selectRelation"
+          data-relation="dad"
+        >
+          <view class="relation-icon">
+            <image src="/images/icons/dad.png" mode="aspectFit" lazy-load></image>
+          </view>
+          <text class="relation-text">爸爸</text>
+        </view>
+        <!-- 第二行：爷爷、奶奶 -->
+        <view 
+          class="relation-item {{selectedRelation === 'grandpa_m' ? 'selected' : ''}}"
+          bindtap="selectRelation"
+          data-relation="grandpa_m"
+        >
+          <view class="relation-icon">
+            <image src="/images/icons/grandpa.png" mode="aspectFit" lazy-load></image>
+          </view>
+          <text class="relation-text">爷爷</text>
+        </view>
+        <view 
+          class="relation-item {{selectedRelation === 'grandma_m' ? 'selected' : ''}}"
+          bindtap="selectRelation"
+          data-relation="grandma_m"
+        >
+          <view class="relation-icon">
+            <image src="/images/icons/grandma.png" mode="aspectFit" lazy-load></image>
+          </view>
+          <text class="relation-text">奶奶</text>
+        </view>
+        <!-- 第三行：外公、外婆 -->
+        <view 
+          class="relation-item {{selectedRelation === 'grandpa_p' ? 'selected' : ''}}"
+          bindtap="selectRelation"
+          data-relation="grandpa_p"
+        >
+          <view class="relation-icon">
+            <image src="/images/icons/grandpa.png" mode="aspectFit" lazy-load></image>
+          </view>
+          <text class="relation-text">外公</text>
+        </view>
+        <view 
+          class="relation-item {{selectedRelation === 'grandma_p' ? 'selected' : ''}}"
+          bindtap="selectRelation"
+          data-relation="grandma_p"
+        >
+          <view class="relation-icon">
+            <image src="/images/icons/grandma.png" mode="aspectFit" lazy-load></image>
+          </view>
+          <text class="relation-text">外婆</text>
+        </view>
+        <!-- 第四行：保姆、其他 -->
+        <view 
+          class="relation-item {{selectedRelation === 'nanny' ? 'selected' : ''}}"
+          bindtap="selectRelation"
+          data-relation="nanny"
+        >
+          <view class="relation-icon">
+            <image src="/images/icons/nanny.png" mode="aspectFit" lazy-load></image>
+          </view>
+          <text class="relation-text">保姆</text>
+        </view>
+        <view 
+          class="relation-item {{selectedRelation === 'other' ? 'selected' : ''}}"
+          bindtap="selectRelation"
+          data-relation="other"
+        >
+          <view class="relation-icon">
+            <image src="/images/icons/family.png" mode="aspectFit" lazy-load></image>
+          </view>
+          <text class="relation-text">其他</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 下一步按钮 -->
+    <view class="button-section">
+      <button 
+        class="next-btn" 
+        bindtap="goToNextStep"
+        disabled="{{!canGoNext}}"
+      >
+        <text>下一步</text>
+      </button>
+    </view>
+  </view>
+
+  <!-- 步骤3: 家庭协作选择 -->
+  <view class="step-family {{currentStep === 3 ? 'active' : ''}}" wx:if="{{currentStep === 3}}">
+    <!-- 步骤指示器 -->
+    <view class="step-indicator">
+      <view class="step-dot completed"></view>
+      <view class="step-line completed"></view>
+      <view class="step-dot active"></view>
+    </view>
+
+    <!-- 标题 -->
+    <view class="section-header">
+      <text class="section-title">家庭协作</text>
+      <text class="section-subtitle">邀请家人一起记录宝宝的成长</text>
+    </view>
+
+    <!-- 选项卡片 -->
+    <view class="family-options">
+      <!-- 创建家庭 -->
+      <view class="option-card create" bindtap="createFamily">
+        <view class="option-icon">
+          <image src="/images/icons/add-family.png" mode="aspectFit" lazy-load></image>
+        </view>
+        <view class="option-content">
+          <text class="option-title">创建家庭组</text>
+          <text class="option-desc">创建家庭组并邀请家人加入</text>
+        </view>
+        <view class="option-arrow">
+          <image src="/images/icons/arrow-right.png" mode="aspectFit" lazy-load></image>
+        </view>
+      </view>
+
+      <!-- 加入家庭 -->
+      <view class="option-card join" bindtap="showInviteCodeInput">
+        <view class="option-icon">
+          <image src="/images/icons/join-family.png" mode="aspectFit" lazy-load></image>
+        </view>
+        <view class="option-content">
+          <text class="option-title">加入家庭组</text>
+          <text class="option-desc">输入邀请码加入已有家庭</text>
+        </view>
+        <view class="option-arrow">
+          <image src="/images/icons/arrow-right.png" mode="aspectFit" lazy-load></image>
+        </view>
+      </view>
+
+      <!-- 跳过 -->
+      <view class="option-card skip" bindtap="skipFamily">
+        <view class="option-icon">
+          <image src="/images/icons/skip.png" mode="aspectFit" lazy-load></image>
+        </view>
+        <view class="option-content">
+          <text class="option-title">暂不设置</text>
+          <text class="option-desc">稍后可以在个人中心设置</text>
+        </view>
+        <view class="option-arrow">
+          <image src="/images/icons/arrow-right.png" mode="aspectFit" lazy-load></image>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 邀请码输入弹窗 -->
+  <view class="invite-popup {{showInvitePopup ? 'show' : ''}}" catchtouchmove="preventTouchMove">
+    <view class="popup-mask" bindtap="hideInviteCodeInput"></view>
+    <view class="popup-content">
+      <view class="popup-header">
+        <text class="popup-title">输入邀请码</text>
+        <view class="popup-close" bindtap="hideInviteCodeInput">
+          <image src="/images/icons/close.png" mode="aspectFit" lazy-load></image>
+        </view>
+      </view>
+      
+      <view class="popup-body">
+        <view class="invite-input-wrapper">
+          <input 
+            class="invite-input"
+            type="text"
+            placeholder="请输入 6 位邀请码"
+            placeholder-class="input-placeholder"
+            value="{{inviteCode}}"
+            bindinput="onInputInviteCode"
+            maxlength="6"
+          />
+        </view>
+        <text class="invite-hint">邀请码由家庭成员提供，有效期 7 天</text>
+      </view>
+
+      <view class="popup-footer">
+        <button class="cancel-btn" bindtap="hideInviteCodeInput">取消</button>
+        <button class="confirm-btn" bindtap="joinFamily" disabled="{{inviteCode.length !== 6}}" loading="{{joiningFamily}}">
+          <text wx:if="{{!joiningFamily}}">加入</text>
+        </button>
+      </view>
+    </view>
+  </view>
+
+  <!-- Loading 遮罩 -->
+  <view class="loading-mask" wx:if="{{loading}}">
+    <view class="loading-content">
+      <view class="loading-spinner"></view>
+      <text class="loading-text">{{loadingText}}</text>
+    </view>
+  </view>
+
+  <!-- 创建家庭成功弹窗 -->
+  <view class="success-popup {{showSuccessPopup ? 'show' : ''}}" catchtouchmove="preventTouchMove">
+    <view class="popup-mask"></view>
+    <view class="popup-content success-content">
+      <!-- 成功图标 -->
+      <view class="success-icon">
+        <image src="/images/icons/check-circle.png" class="success-icon-img" mode="aspectFit" lazy-load></image>
+      </view>
+      
+      <view class="popup-header success-header">
+        <text class="popup-title">家庭创建成功</text>
+        <text class="popup-subtitle">{{familyName}}</text>
+      </view>
+      
+      <view class="popup-body success-body">
+        <!-- 邀请码展示 -->
+        <view class="invite-code-section">
+          <text class="invite-label">邀请码</text>
+          <view class="invite-code-display">
+            <text class="invite-code-text">{{createdInviteCode}}</text>
+          </view>
+          <text class="invite-hint">分享邀请码给家人，让他们加入您的家庭</text>
+        </view>
+
+        <!-- 操作按钮 -->
+        <view class="invite-actions">
+          <button class="action-btn copy-btn" bindtap="copyCreatedInviteCode">
+            <icon type="navigation" name="copy" size="small" />
+            <text>复制邀请码</text>
+          </button>
+          <button class="action-btn share-btn" open-type="share">
+            <icon type="navigation" name="share" size="small" />
+            <text>分享给好友</text>
+          </button>
+        </view>
+      </view>
+
+      <view class="popup-footer success-footer">
+        <button class="continue-btn" bindtap="closeSuccessPopup">
+          <text>继续创建宝宝档案</text>
+          <text class="btn-arrow">→</text>
+        </button>
+      </view>
+    </view>
+  </view>
+</view>

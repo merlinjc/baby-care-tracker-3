@@ -1,0 +1,96 @@
+{
+  "darkmode": true,
+  "themeLocation": "theme.json",
+  "pages": [
+    "pages/home/home",
+    "pages/record/record",
+    "pages/discover/discover",
+    "pages/profile/profile",
+    "pages/auth/auth",
+    "pages/baby-create/baby-create",
+    "pages/baby-list/baby-list",
+    "pages/guide/guide"
+  ],
+  "subpackages": [
+    {
+      "root": "packageGrowth",
+      "name": "packageGrowth",
+      "pages": [
+        "pages/growth/growth",
+        "pages/vaccine/vaccine",
+        "pages/milestone/milestone",
+        "pages/baby-detail/baby-detail"
+      ]
+    },
+    {
+      "root": "packageSocial",
+      "name": "packageSocial",
+      "pages": [
+        "pages/ai-assistant/ai-assistant",
+        "pages/family/family",
+        "pages/family-create/family-create",
+        "pages/family-join/family-join",
+        "pages/export/export",
+        "pages/settings/settings"
+      ]
+    }
+  ],
+  "preloadRule": {
+    "pages/home/home": {
+      "network": "all",
+      "packages": ["packageGrowth"]
+    },
+    "pages/discover/discover": {
+      "network": "all",
+      "packages": ["packageGrowth", "packageSocial"]
+    },
+    "pages/profile/profile": {
+      "network": "all",
+      "packages": ["packageSocial"]
+    }
+  },
+  "usingComponents": {
+    "error-state": "/components/error-state/error-state"
+  },
+  "window": {
+    "backgroundTextStyle": "@backgroundTextStyle",
+    "navigationBarBackgroundColor": "@navigationBarBackgroundColor",
+    "navigationBarTitleText": "宝宝成长记录",
+    "navigationBarTextStyle": "@navigationBarTextStyle"
+  },
+  "tabBar": {
+    "color": "@tabBarColor",
+    "selectedColor": "@tabBarSelectedColor",
+    "backgroundColor": "@tabBarBackgroundColor",
+    "borderStyle": "@tabBarBorderStyle",
+    "list": [
+      {
+        "pagePath": "pages/home/home",
+        "text": "首页",
+        "iconPath": "images/tab-home.png",
+        "selectedIconPath": "images/tab-home-active.png"
+      },
+      {
+        "pagePath": "pages/record/record",
+        "text": "记录",
+        "iconPath": "images/tab-record.png",
+        "selectedIconPath": "images/tab-record-active.png"
+      },
+      {
+        "pagePath": "pages/discover/discover",
+        "text": "发现",
+        "iconPath": "images/tab-discover.png",
+        "selectedIconPath": "images/tab-discover-active.png"
+      },
+      {
+        "pagePath": "pages/profile/profile",
+        "text": "我的",
+        "iconPath": "images/tab-profile.png",
+        "selectedIconPath": "images/tab-profile-active.png"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+} 

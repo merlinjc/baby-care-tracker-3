@@ -1,0 +1,867 @@
+/* 成长报告弹窗 - V2 成绩单式设计 */
+
+/* ========== 基础结构（保持不变）========== */
+
+/* 遮罩 */
+.popup-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--mask-color-dark);
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+}
+
+/* 弹窗容器 */
+.popup-container {
+  width: 100%;
+  box-sizing: border-box;
+  height: 90vh;
+  background: var(--bg-primary);
+  border-radius: 32rpx 32rpx 0 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: slideUp 0.3s ease;
+}
+
+/* 头部 */
+.popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32rpx;
+  background: var(--bg-secondary);
+  border-bottom: 1rpx solid var(--border-color);
+  position: relative;
+}
+
+.popup-title {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.close-btn {
+  position: absolute;
+  right: 32rpx;
+  width: 56rpx;
+  height: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-icon {
+  font-size: 44rpx;
+  color: var(--text-tertiary);
+  line-height: 1;
+}
+
+/* 时间范围选择 */
+.period-selector {
+  background: var(--bg-secondary);
+  padding: 20rpx 32rpx 16rpx;
+}
+
+.period-tabs {
+  display: flex;
+  gap: 24rpx;
+}
+
+.period-tab {
+  flex: 1;
+  height: 68rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-primary);
+  border-radius: 34rpx;
+  border: 1rpx solid var(--border-color);
+  transition: all 0.3s ease;
+}
+
+.period-tab.active {
+  color: var(--white);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+  border-color: transparent;
+}
+
+/* 子周期选择 */
+.sub-period-tabs {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 16rpx;
+  padding: 0 8rpx;
+}
+
+.sub-period-tab {
+  flex: 1;
+  height: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24rpx;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: transparent;
+  border-radius: 28rpx;
+  border: 1rpx solid var(--border-color);
+  transition: all 0.3s ease;
+}
+
+.sub-period-tab.active {
+  color: var(--primary-color);
+  background: rgba(212, 165, 116, 0.1);
+  border-color: var(--primary-color);
+  font-weight: 600;
+}
+
+/* 内容区域 */
+.report-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 24rpx 24rpx;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+/* ========== ① 标题区 ========== */
+
+.report-title-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40rpx 24rpx 24rpx;
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+  border-radius: var(--radius-lg);
+  margin-top: 24rpx;
+}
+
+.report-main-title {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: var(--white);
+  letter-spacing: 2rpx;
+}
+
+.report-sub-title {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 12rpx;
+}
+
+.report-birth-days {
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.55);
+  margin-top: 8rpx;
+}
+
+/* ========== ② 宝宝信息卡 + 综合评分 ========== */
+
+.baby-score-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28rpx;
+  margin-top: 20rpx;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 4rpx 16rpx rgba(61, 52, 39, 0.06);
+}
+
+.baby-score-left {
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+.baby-avatar-v2 {
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: 50%;
+  border: 4rpx solid rgba(212, 165, 116, 0.3);
+  flex-shrink: 0;
+}
+
+.baby-info-text {
+  margin-left: 20rpx;
+}
+
+.baby-name-v2 {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: block;
+}
+
+.baby-age-v2 {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  display: block;
+  margin-top: 4rpx;
+}
+
+.baby-score-right {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 160rpx;
+}
+
+.score-number {
+  font-size: 56rpx;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.score-number.excellent { color: var(--success-color); }
+.score-number.good { color: var(--score-good, #5ABFB0); }
+.score-number.fair { color: var(--warning-color); }
+.score-number.poor { color: var(--score-poor, #E8745A); }
+.score-number.critical { color: var(--danger-color); }
+
+.score-label-v2 {
+  font-size: 22rpx;
+  font-weight: 600;
+  margin-top: 4rpx;
+}
+
+.score-label-v2.excellent { color: var(--success-color); }
+.score-label-v2.good { color: var(--score-good, #5ABFB0); }
+.score-label-v2.fair { color: var(--warning-color); }
+.score-label-v2.poor { color: var(--score-poor, #E8745A); }
+.score-label-v2.critical { color: var(--danger-color); }
+
+.score-progress-bar {
+  width: 140rpx;
+  height: 12rpx;
+  background: rgba(212, 165, 116, 0.15);
+  border-radius: 6rpx;
+  margin-top: 12rpx;
+  overflow: hidden;
+}
+
+.score-progress-fill {
+  height: 100%;
+  border-radius: 6rpx;
+  transition: width 0.6s ease;
+}
+
+.score-progress-fill.excellent { background: var(--success-color); }
+.score-progress-fill.good { background: var(--score-good, #5ABFB0); }
+.score-progress-fill.fair { background: var(--warning-color); }
+.score-progress-fill.poor { background: var(--score-poor, #E8745A); }
+.score-progress-fill.critical { background: var(--danger-color); }
+
+/* ========== ③ 四维指标卡 ========== */
+
+.indicator-cards-section {
+  margin-top: 20rpx;
+  overflow: hidden;
+}
+
+.indicator-card {
+  display: flex;
+  background: var(--bg-secondary);
+  border-radius: 20rpx;
+  margin-bottom: 16rpx;
+  overflow: hidden;
+  box-shadow: 0 2rpx 12rpx rgba(61, 52, 39, 0.05);
+  box-sizing: border-box;
+}
+
+.indicator-color-bar {
+  width: 8rpx;
+  flex-shrink: 0;
+}
+
+.indicator-body {
+  flex: 1;
+  padding: 24rpx 24rpx 20rpx 20rpx;
+  min-width: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* 标题行 */
+.indicator-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.indicator-left {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.indicator-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.status-tag {
+  padding: 4rpx 16rpx;
+  border-radius: 20rpx;
+  display: inline-flex;
+  align-items: center;
+}
+
+.status-tag.status-normal {
+  background: rgba(123, 201, 80, 0.12);
+}
+
+.status-tag.status-warning {
+  background: rgba(212, 136, 61, 0.12);
+}
+
+.status-tag.status-danger {
+  background: rgba(232, 84, 84, 0.12);
+}
+
+.status-tag.status-muted {
+  background: rgba(153, 153, 153, 0.12);
+}
+
+.status-tag-text {
+  font-size: 22rpx;
+  font-weight: 600;
+}
+
+.status-tag.status-normal .status-tag-text { color: var(--success-color); }
+.status-tag.status-warning .status-tag-text { color: var(--warning-color); }
+.status-tag.status-danger .status-tag-text { color: var(--danger-color); }
+.status-tag.status-muted .status-tag-text { color: var(--text-hint); }
+
+.indicator-right {
+  display: flex;
+  align-items: baseline;
+  gap: 6rpx;
+  flex-shrink: 0;
+}
+
+.indicator-value {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.indicator-unit {
+  font-size: 22rpx;
+  color: var(--text-secondary);
+}
+
+.indicator-change {
+  font-size: 22rpx;
+  font-weight: 500;
+  margin-right: 8rpx;
+}
+
+.indicator-change.up { color: var(--success-color); }
+.indicator-change.down { color: var(--warning-color); }
+
+/* 范围条行 */
+.range-bar-row {
+  display: flex;
+  align-items: center;
+  margin-top: 16rpx;
+  gap: 16rpx;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.range-bar-container {
+  flex: 1;
+  height: 12rpx;
+  position: relative;
+  min-width: 0;
+}
+
+.range-bar-bg {
+  width: 100%;
+  height: 100%;
+  background: rgba(212, 165, 116, 0.12);
+  border-radius: 6rpx;
+  overflow: hidden;
+  position: relative;
+}
+
+.range-bar-normal {
+  position: absolute;
+  left: 20%;
+  width: 60%;
+  height: 100%;
+  background: rgba(123, 201, 80, 0.25);
+}
+
+.range-bar-dot {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 18rpx;
+  height: 18rpx;
+  border-radius: 50%;
+  border: 3rpx solid var(--white);
+  box-shadow: 0 2rpx 6rpx rgba(0, 0, 0, 0.15);
+}
+
+.range-bar-dot.normal { background: var(--success-color); }
+.range-bar-dot.left { background: var(--warning-color); }
+.range-bar-dot.right { background: var(--warning-color); }
+
+.range-text {
+  font-size: 22rpx;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* 提示行 */
+.indicator-tip {
+  display: block;
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  margin-top: 12rpx;
+  line-height: 1.5;
+}
+
+/* ========== ④ 密度条 ========== */
+
+.density-card {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: 24rpx;
+  margin-top: 20rpx;
+  box-shadow: 0 2rpx 12rpx rgba(61, 52, 39, 0.05);
+}
+
+.density-title {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--text-secondary);
+  display: block;
+  margin-bottom: 20rpx;
+}
+
+.density-blocks {
+  display: flex;
+  justify-content: center;
+  gap: 20rpx;
+}
+
+.density-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10rpx;
+}
+
+.density-block {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 10rpx;
+  transition: background 0.3s ease;
+}
+
+.density-block.level-0 {
+  background: var(--density-level-0, #E8E0D8);
+  border: 1rpx solid var(--border-color);
+}
+
+.density-block.level-1 { background: var(--primary-color); }
+.density-block.level-2 { background: var(--density-level-2, #C49A6C); }
+.density-block.level-3 { background: var(--density-level-3, #A0785A); }
+.density-block.level-4 { background: var(--density-level-4, #8B6B4E); }
+
+.density-label {
+  font-size: 22rpx;
+  color: var(--text-secondary);
+}
+
+/* ========== ⑤ 生长发育 ========== */
+
+.growth-card {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: 24rpx;
+  margin-top: 20rpx;
+  box-shadow: 0 2rpx 12rpx rgba(61, 52, 39, 0.05);
+}
+
+.section-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.section-title-v2 {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.section-icon {
+  width: 36rpx;
+  height: 36rpx;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.growth-stale {
+  font-size: 22rpx;
+  color: var(--text-secondary);
+}
+
+.growth-items {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.growth-item {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.growth-label {
+  font-size: 26rpx;
+  color: var(--text-secondary);
+  width: 80rpx;
+}
+
+.growth-value {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.percentile-tag {
+  padding: 4rpx 14rpx;
+  border-radius: 16rpx;
+  margin-left: 8rpx;
+}
+
+.percentile-tag.tag-normal { background: rgba(123, 201, 80, 0.12); }
+.percentile-tag.tag-warning { background: rgba(212, 136, 61, 0.12); }
+.percentile-tag.tag-danger { background: rgba(232, 84, 84, 0.12); }
+
+.percentile-text {
+  font-size: 22rpx;
+  font-weight: 600;
+}
+
+.tag-normal .percentile-text { color: var(--success-color); }
+.tag-warning .percentile-text { color: var(--warning-color); }
+.tag-danger .percentile-text { color: var(--danger-color); }
+
+/* ========== ⑥ 疫苗接种进度 ========== */
+
+.vaccine-card {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: 24rpx;
+  margin-top: 20rpx;
+  box-shadow: 0 2rpx 12rpx rgba(61, 52, 39, 0.05);
+}
+
+.vaccine-count {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.vaccine-count.complete { color: var(--success-color); }
+
+.vaccine-progress-bar {
+  width: 100%;
+  height: 20rpx;
+  background: rgba(212, 165, 116, 0.12);
+  border-radius: 10rpx;
+  overflow: hidden;
+  margin-top: 12rpx;
+}
+
+.vaccine-progress-fill {
+  height: 100%;
+  border-radius: 10rpx;
+  background: var(--score-good, #5ABFB0);
+  transition: width 0.6s ease;
+  min-width: 20rpx;
+}
+
+.vaccine-progress-fill.complete { background: var(--success-color); }
+
+.vaccine-overdue {
+  display: block;
+  font-size: 24rpx;
+  font-weight: 600;
+  color: var(--danger-color);
+  margin-top: 10rpx;
+}
+
+.vaccine-complete {
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+  font-size: 24rpx;
+  color: var(--success-color);
+  margin-top: 10rpx;
+}
+
+.inline-check-icon {
+  width: 28rpx;
+  height: 28rpx;
+  flex-shrink: 0;
+}
+
+/* ========== ⑦ 成长里程碑 ========== */
+
+.milestone-card {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: 24rpx;
+  margin-top: 20rpx;
+  box-shadow: 0 2rpx 12rpx rgba(61, 52, 39, 0.05);
+}
+
+.milestone-achieved {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-top: 16rpx;
+}
+
+.milestone-item {
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+  padding: 8rpx 16rpx;
+  background: rgba(123, 201, 80, 0.08);
+  border-radius: 24rpx;
+}
+
+.milestone-check-icon {
+  width: 28rpx;
+  height: 28rpx;
+  flex-shrink: 0;
+}
+
+.milestone-name {
+  font-size: 24rpx;
+  color: var(--text-primary);
+}
+
+.milestone-next {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  margin-top: 16rpx;
+}
+
+.milestone-next-label {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+
+.milestone-next-badge {
+  padding: 6rpx 16rpx;
+  border: 2rpx dashed var(--text-secondary);
+  border-radius: 24rpx;
+}
+
+.milestone-next-name {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+
+/* ========== ⑧ 本周亮点 ========== */
+
+.achievement-card {
+  background: rgba(212, 165, 116, 0.08);
+  border-radius: var(--radius-lg);
+  padding: 24rpx;
+  margin-top: 20rpx;
+}
+
+.achievement-list {
+  margin-top: 16rpx;
+}
+
+.achievement-item {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  padding: 10rpx 0;
+}
+
+.achievement-icon-img {
+  width: 36rpx;
+  height: 36rpx;
+  flex-shrink: 0;
+}
+
+.achievement-text {
+  font-size: 26rpx;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+/* ========== ⑨ AI 育儿建议 ========== */
+
+.ai-advice-card {
+  background: rgba(212, 165, 116, 0.08);
+  border-radius: var(--radius-lg);
+  border: 1rpx solid rgba(212, 165, 116, 0.2);
+  padding: 24rpx;
+  margin-top: 20rpx;
+}
+
+.ai-advice-header {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-bottom: 16rpx;
+}
+
+.ai-icon {
+  width: 36rpx;
+  height: 36rpx;
+}
+
+.ai-advice-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--primary-color);
+}
+
+.ai-advice-text {
+  font-size: 26rpx;
+  color: var(--text-primary);
+  line-height: 1.8;
+}
+
+/* ========== 分享预览 ========== */
+
+.share-preview {
+  margin-top: 24rpx;
+}
+
+.share-image {
+  width: 100%;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 4rpx 20rpx rgba(61, 52, 39, 0.12);
+  margin-top: 16rpx;
+}
+
+/* ========== 底部操作 ========== */
+
+.popup-footer {
+  display: flex;
+  gap: 24rpx;
+  padding: 24rpx 32rpx;
+  padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
+  background: var(--bg-secondary);
+  border-top: 1rpx solid var(--border-color);
+}
+
+.action-btn {
+  flex: 1;
+  height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  border-radius: 44rpx;
+  font-size: 28rpx;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  line-height: 1;
+}
+
+.action-btn.secondary {
+  background: var(--bg-primary);
+  border: 1rpx solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.action-btn.secondary:active {
+  background: var(--border-color);
+}
+
+.action-btn.primary {
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+  color: var(--white);
+  box-shadow: 0 4rpx 16rpx rgba(212, 165, 116, 0.3);
+}
+
+.action-btn.primary:active {
+  transform: scale(0.98);
+}
+
+.btn-icon {
+  width: 36rpx;
+  height: 36rpx;
+  display: block;
+  flex-shrink: 0;
+}
+
+.btn-text {
+  font-size: 28rpx;
+  line-height: 1;
+  display: block;
+}
+
+/* 分享按钮样式重置 */
+.share-button {
+  padding: 0 !important;
+  margin: 0 !important;
+  line-height: 1 !important;
+  font-size: inherit;
+  color: inherit;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  flex: 1;
+  height: 88rpx;
+  border-radius: 44rpx;
+  background: var(--bg-primary) !important;
+  border: 1rpx solid var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+.share-button::after {
+  border: none !important;
+}
+
+.share-button:active {
+  background: var(--border-color) !important;
+}
+
+/* Canvas 离屏方案 */
+.share-canvas {
+  position: fixed;
+  left: -9999px;
+  top: 0;
+  width: 750px;
+  z-index: -1;
+}

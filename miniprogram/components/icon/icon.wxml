@@ -1,0 +1,17 @@
+<!--
+  通用图标组件
+  统一管理项目中所有图标的使用
+  
+  使用示例：
+  <icon type="functional" name="rocket" size="medium" color="primary" />
+  <icon type="status" name="success" size="large" />
+  <icon type="milestone" name="running" />
+-->
+<image 
+  class="icon {{size}} {{customClass}}"
+  src="{{iconSrc}}"
+  mode="aspectFit"
+  bindtap="handleTap"
+  bindload="handleLoad"
+  binderror="handleError"
+/>

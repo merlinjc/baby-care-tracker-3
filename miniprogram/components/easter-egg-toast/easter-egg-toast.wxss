@@ -1,0 +1,46 @@
+/* components/easter-egg-toast/easter-egg-toast.wxss */
+
+.egg-toast {
+  position: fixed;
+  bottom: calc(180rpx + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%) translateY(40rpx);
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  padding: 20rpx 32rpx;
+  background: rgba(61, 61, 61, 0.88);
+  border-radius: 48rpx;
+  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.15);
+  z-index: 3000;
+  opacity: 0;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+              opacity 0.3s ease;
+  max-width: 80%;
+}
+
+.egg-toast.entering,
+.egg-toast.visible {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}
+
+.egg-toast.leaving {
+  transform: translateX(-50%) translateY(-20rpx);
+  opacity: 0;
+  transition: transform 0.3s ease-in, opacity 0.3s ease-in;
+}
+
+.egg-toast-icon {
+  width: 36rpx;
+  height: 36rpx;
+  flex-shrink: 0;
+}
+
+.egg-toast-text {
+  font-size: 26rpx;
+  color: var(--white);
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+}

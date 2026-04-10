@@ -1,0 +1,75 @@
+<view class="{{darkMode ? 'dark-mode' : ''}} export-popup-mask" wx:if="{{show}}" bindtap="onClose">
+  <view class="{{darkMode ? 'dark-mode' : ''}} export-popup" catchtap>
+    <view class="popup-header">
+      <text class="popup-title">导出数据</text>
+      <view class="popup-close" bindtap="onClose">
+        <image class="close-icon" src="/images/icons/x-mark.png" mode="aspectFit" lazy-load></image>
+      </view>
+    </view>
+    
+    <!-- 导出格式选择 -->
+    <view class="export-format">
+      <text class="section-label">选择格式</text>
+      <view class="format-options">
+        <view class="format-option {{exportFormat === 'image' ? 'active' : ''}}"
+              bindtap="selectFormat" data-format="image">
+          <view class="format-icon-wrap">
+            <text class="format-icon-text">图片</text>
+          </view>
+          <text class="format-name">长图片</text>
+          <text class="format-desc">适合分享</text>
+        </view>
+        <view class="format-option {{exportFormat === 'excel' ? 'active' : ''}}"
+              bindtap="selectFormat" data-format="excel">
+          <view class="format-icon-wrap">
+            <text class="format-icon-text">表格</text>
+          </view>
+          <text class="format-name">Excel</text>
+          <text class="format-desc">原始数据</text>
+        </view>
+        <view class="format-option {{exportFormat === 'pdf' ? 'active' : ''}}"
+              bindtap="selectFormat" data-format="pdf">
+          <view class="format-icon-wrap">
+            <text class="format-icon-text">PDF</text>
+          </view>
+          <text class="format-name">PDF报告</text>
+          <text class="format-desc">看医生</text>
+        </view>
+      </view>
+    </view>
+    
+    <!-- 时间范围选择 -->
+    <view class="export-range">
+      <text class="section-label">时间范围</text>
+      <view class="range-options">
+        <view class="range-option {{exportRange === 'week' ? 'active' : ''}}"
+              bindtap="selectRange" data-range="week">近7天</view>
+        <view class="range-option {{exportRange === 'month' ? 'active' : ''}}"
+              bindtap="selectRange" data-range="month">近30天</view>
+        <view class="range-option {{exportRange === 'all' ? 'active' : ''}}"
+              bindtap="selectRange" data-range="all">全部</view>
+      </view>
+    </view>
+    
+    <!-- 导出次数提示 -->
+    <view class="export-limit" wx:if="{{exportLimitReached}}">
+      <text class="limit-warning">今日导出次数已达上限（5次），请明天再试</text>
+    </view>
+    
+    <!-- 操作按钮 -->
+    <view class="popup-actions">
+      <view class="popup-btn secondary" bindtap="onClose">取消</view>
+      <view class="popup-btn primary {{exportLimitReached ? 'disabled' : ''}}" 
+            bindtap="startExport">开始导出</view>
+    </view>
+  </view>
+</view>
+
+<!-- 导出进度 -->
+<view class="export-progress" wx:if="{{exporting}}">
+  <view class="progress-mask"></view>
+  <view class="progress-content">
+    <view class="progress-spinner"></view>
+    <text class="progress-text">{{exportProgress}}</text>
+  </view>
+</view>

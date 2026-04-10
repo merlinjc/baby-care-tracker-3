@@ -1,0 +1,121 @@
+/*
+ * 公共页面头部样式 - 美拉德色彩风格
+ * 从 baby-create/family-create/family-join/discover 4个页面提取
+ * 使用方法：在页面 wxss 顶部添加 @import '/styles/page-header.wxss';
+ */
+
+/* 页面头部容器 */
+.page-header {
+  display: flex;
+  align-items: center;
+  padding: var(--spacing-md) 0;
+  margin-bottom: var(--spacing-lg);
+}
+
+/* 头部图标 */
+.header-icon {
+  width: 72rpx;
+  height: 72rpx;
+  margin-right: var(--spacing-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(
+    135deg,
+    rgba(212, 184, 150, 0.2) 0%,
+    rgba(184, 212, 184, 0.2) 100%
+  );
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
+}
+
+.header-icon image {
+  width: 44rpx;
+  height: 44rpx;
+}
+
+/* 头部文字区域 */
+.header-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 头部主标题 */
+.header-title {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4rpx;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 头部副标题 */
+.header-subtitle {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+/* 带返回按钮的页面头部 */
+.page-header-with-back {
+  display: flex;
+  align-items: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-secondary);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  border-bottom: 1rpx solid rgba(212, 165, 116, 0.12);
+}
+
+.back-btn {
+  display: flex;
+  align-items: center;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  margin-right: var(--spacing-sm);
+}
+
+.back-icon {
+  width: 40rpx;
+  height: 40rpx;
+  opacity: 0.65;
+}
+
+.nav-title {
+  flex: 1;
+  font-size: 34rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: center;
+  letter-spacing: 0.5rpx;
+}
+
+/* 大标题风格（用于首屏欢迎等场景） */
+.page-hero-header {
+  padding: var(--spacing-xl) var(--spacing-lg) var(--spacing-lg);
+  text-align: center;
+}
+
+.hero-icon {
+  width: 120rpx;
+  height: 120rpx;
+  margin: 0 auto var(--spacing-md);
+}
+
+.hero-title {
+  font-size: 44rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-sm);
+  letter-spacing: 1rpx;
+}
+
+.hero-subtitle {
+  font-size: 28rpx;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}

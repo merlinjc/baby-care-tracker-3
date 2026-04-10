@@ -1,0 +1,47 @@
+<!--宝宝管理页-->
+<view class="page-container {{darkMode ? 'dark-mode' : ''}}">
+  <!-- 加载中 -->
+  <view wx:if="{{loading}}" class="loading-container">
+    <view class="loading-text">加载中...</view>
+  </view>
+
+  <!-- 宝宝列表 -->
+  <view wx:else class="baby-list">
+    <block wx:for="{{babies}}" wx:key="_id">
+      <view class="baby-card {{item.isCurrent ? 'current' : ''}}">
+        <view class="baby-main" bindtap="selectBaby" data-id="{{item._id}}">
+          <image class="baby-avatar" src="{{item.avatar || '/images/default-avatar.svg'}}" mode="aspectFill" lazy-load></image>
+          <view class="baby-info">
+            <view class="baby-name-row">
+              <text class="baby-name">{{item.name}}</text>
+              <image class="gender-icon" src="{{item.genderIcon}}" lazy-load></image>
+            </view>
+            <text class="baby-age">{{item.ageText}}</text>
+          </view>
+          <view wx:if="{{item.isCurrent}}" class="current-badge">当前</view>
+        </view>
+        
+        <view class="baby-actions">
+          <view class="action-btn" catchtap="viewBabyDetail" data-id="{{item._id}}">
+            <text class="action-text">详情</text>
+          </view>
+          <view class="action-btn danger" catchtap="deleteBaby" data-id="{{item._id}}" data-name="{{item.name}}">
+            <text class="action-text">删除</text>
+          </view>
+        </view>
+      </view>
+    </block>
+  </view>
+
+  <!-- 空状态 -->
+  <view wx:if="{{!loading && babies.length === 0}}" class="empty-state">
+    <text class="empty-text">还没有添加宝宝</text>
+    <view class="empty-btn" bindtap="addBaby">添加宝宝</view>
+  </view>
+
+  <!-- 添加按钮 -->
+  <view class="add-button" bindtap="addBaby">
+    <text class="add-icon">+</text>
+    <text class="add-text">添加宝宝</text>
+  </view>
+</view>

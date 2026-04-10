@@ -1,0 +1,321 @@
+/* 数据洞察区 - 增强版 */
+.insight-section {
+  margin: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  border: 1rpx solid var(--border-color);
+}
+
+.insight-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-lg) 36rpx;
+  background: var(--bg-primary);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.insight-header:active {
+  background: var(--bg-primary);
+}
+
+.insight-title-group {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+}
+
+.insight-icon {
+  width: 44rpx;
+  height: 44rpx;
+  opacity: 0.75;
+}
+
+.insight-title {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.5rpx;
+}
+
+.insight-period {
+  font-size: 24rpx;
+  color: var(--primary-dark);
+  margin-left: 18rpx;
+  font-weight: 400;
+}
+
+.toggle-icon {
+  width: 36rpx;
+  height: 36rpx;
+  opacity: 0.5;
+  transition: transform var(--transition-normal);
+}
+
+.insight-content {
+  padding: 24rpx 36rpx 36rpx;
+}
+
+/* ============================================
+   趋势列表 - 纵向卡片布局
+   ============================================ */
+
+.trend-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+/* 趋势卡片 - 全宽 */
+.trend-card {
+  padding: 24rpx 28rpx;
+  background: var(--bg-primary);
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+/* ---- 卡片顶部行：左侧（图标+名称+标签）+ 右侧（数值+环比）---- */
+.card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-left {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  flex-shrink: 0;
+}
+
+.card-right {
+  display: flex;
+  align-items: baseline;
+  gap: 6rpx;
+  flex-shrink: 0;
+}
+
+.trend-type-icon {
+  width: 32rpx;
+  height: 32rpx;
+  opacity: 0.7;
+}
+
+.trend-label {
+  font-size: 28rpx;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+/* 状态标签胶囊 */
+.status-tag {
+  font-size: 20rpx;
+  font-weight: 500;
+  padding: 2rpx 12rpx;
+  border-radius: 16rpx;
+  line-height: 1.4;
+  margin-left: 8rpx;
+}
+
+.status-tag.status-normal {
+  color: var(--success-color);
+  background: rgba(123, 201, 80, 0.1);
+}
+
+.status-tag.status-low,
+.status-tag.status-high,
+.status-tag.status-attention {
+  color: var(--warning-color);
+  background: rgba(212, 136, 61, 0.1);
+}
+
+.status-tag.status-veryLow,
+.status-tag.status-veryHigh,
+.status-tag.status-alert {
+  color: var(--danger-color);
+  background: rgba(232, 84, 84, 0.1);
+}
+
+.status-tag.status-noData {
+  color: var(--text-hint);
+  background: rgba(153, 153, 153, 0.1);
+}
+
+/* 数值区域 */
+.trend-avg-num {
+  font-size: 36rpx;
+  color: var(--text-primary);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.trend-avg-unit {
+  font-size: 22rpx;
+  color: var(--text-hint);
+  font-weight: 400;
+}
+
+.trend-temp-latest {
+  font-size: 22rpx;
+  color: var(--text-secondary);
+  margin-left: 8rpx;
+}
+
+/* 环比变化 */
+.trend-change {
+  font-size: 22rpx;
+  font-weight: 500;
+  margin-left: 8rpx;
+}
+
+.trend-change.change-minor {
+  color: var(--text-hint);
+}
+
+.trend-change.change-up {
+  color: var(--success-color);
+}
+
+.trend-change.change-down {
+  color: var(--warning-color);
+}
+
+.trend-change.change-danger {
+  color: var(--danger-color);
+}
+
+.trend-change.change-new {
+  color: var(--info-color);
+  font-size: 22rpx;
+}
+
+/* ---- 范围条行：范围条 + 参考文字 ---- */
+.card-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.range-bar {
+  position: relative;
+  flex: 1;
+  height: 8rpx;
+  background: rgba(212, 165, 116, 0.12);
+  border-radius: 4rpx;
+  overflow: visible;
+}
+
+.range-bar-normal {
+  position: absolute;
+  left: 20%;
+  width: 60%;
+  height: 100%;
+  background: var(--success-color);
+  border-radius: 4rpx;
+  opacity: 0.3;
+}
+
+.range-bar-dot {
+  position: absolute;
+  top: 50%;
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: left var(--transition-fast);
+}
+
+.range-bar-dot.dot-normal {
+  background: var(--success-color);
+}
+
+.range-bar-dot.dot-left {
+  background: var(--warning-color);
+}
+
+.range-bar-dot.dot-right {
+  background: var(--warning-color);
+}
+
+.trend-ref {
+  font-size: 22rpx;
+  color: var(--text-hint);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* ---- 智能提示行 ---- */
+.trend-tip {
+  font-size: 22rpx;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+/* ============================================
+   骨架屏（加载态）
+   ============================================ */
+
+.trend-card-skeleton {
+  padding: 24rpx 28rpx;
+  background: var(--bg-primary);
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.skeleton-line {
+  height: 28rpx;
+  background: linear-gradient(90deg, var(--bg-primary) 25%, rgba(212, 184, 150, 0.15) 50%, var(--bg-primary) 75%);
+  background-size: 200% 100%;
+  border-radius: 4rpx;
+  animation: shimmer 1.5s infinite;
+}
+
+.skeleton-line.w60 { width: 60%; }
+.skeleton-line.w80 { width: 80%; }
+.skeleton-line.w100 { width: 100%; }
+.skeleton-line.h8 { height: 8rpx; }
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ============================================
+   查看报告链接
+   ============================================ */
+
+.view-report-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28rpx 0;
+  margin-top: 28rpx;
+  border-top: 1rpx solid rgba(212, 165, 116, 0.12);
+  gap: 10rpx;
+  transition: opacity 0.25s ease;
+  cursor: pointer;
+}
+
+.view-report-link:active {
+  opacity: 0.7;
+}
+
+.link-text {
+  font-size: 30rpx;
+  color: var(--primary-color);
+  font-weight: 600;
+  letter-spacing: 0.5rpx;
+}
+
+.link-arrow {
+  width: 36rpx;
+  height: 36rpx;
+  opacity: 0.6;
+}

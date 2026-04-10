@@ -1,0 +1,122 @@
+/* 创建宝宝页面样式 - 美拉德色彩风格 */
+@import '../../styles/page-header.wxss';
+@import '../../styles/form.wxss';
+
+.baby-create-container {
+  padding: var(--spacing-lg);
+  background: var(--bg-secondary);
+  min-height: 100vh;
+}
+
+/* 性别选择 */
+.gender-group {
+  display: flex;
+  gap: var(--spacing-md);
+}
+
+.gender-option {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 88rpx;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  border: 2rpx solid transparent;
+  transition: all var(--transition-fast);
+}
+
+.gender-option.active {
+  background: linear-gradient(135deg, 
+    rgba(212, 184, 150, 0.15) 0%, 
+    rgba(196, 168, 134, 0.2) 100%
+  );
+  border-color: var(--primary-color);
+}
+
+.gender-option radio {
+  margin-right: var(--spacing-sm);
+}
+
+.gender-option text {
+  font-size: 32rpx;
+  color: var(--text-primary);
+}
+
+/* 日期选择器 */
+.date-picker {
+  height: 96rpx;
+  display: flex;
+  align-items: center;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  border: 2rpx solid transparent;
+  transition: all var(--transition-fast);
+}
+
+.date-picker:focus {
+  border-color: var(--primary-color);
+  background: var(--bg-primary);
+}
+
+.date-picker-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 100%;
+  padding: 0 var(--spacing-lg);
+}
+
+.date-value {
+  font-size: 32rpx;
+  color: var(--text-primary);
+}
+
+.date-placeholder {
+  font-size: 30rpx;
+  color: var(--text-hint);
+}
+
+.date-picker-content .picker-arrow {
+  font-size: 28rpx;
+  color: var(--text-hint);
+}
+
+.date-picker-content image {
+  width: 24rpx;
+  height: 24rpx;
+  opacity: 0.3;
+}
+
+/* 创建按钮 */
+.create-btn {
+  width: 100%;
+  height: 96rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32rpx;
+  font-weight: 500;
+  color: var(--white);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--gradient-end) 100%);
+  border-radius: var(--radius-lg);
+  border: none;
+  margin-top: var(--spacing-lg);
+  box-shadow: 0 8rpx 32rpx rgba(212, 184, 150, 0.4);
+  transition: all var(--transition-fast);
+}
+
+.create-btn::after {
+  border: none;
+}
+
+.create-btn:active {
+  transform: scale(0.98);
+}
+
+.create-btn[disabled] {
+  background: linear-gradient(135deg, var(--disabled-start) 0%, var(--disabled-end) 100%);
+  box-shadow: none;
+  opacity: 0.6;
+}

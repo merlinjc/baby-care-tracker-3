@@ -1,0 +1,34 @@
+<!--使用指南页-->
+<view class="page-container {{darkMode ? 'dark-mode' : ''}}">
+  <!-- 顶部介绍 -->
+  <view class="header-section">
+    <text class="header-title">使用指南</text>
+    <text class="header-subtitle">了解如何使用宝宝护理追踪</text>
+  </view>
+
+  <!-- 指南列表 -->
+  <view class="guide-list">
+    <view class="guide-section" wx:for="{{guides}}" wx:key="title">
+      <view class="section-header">
+        <icon type="{{item.iconType}}" name="{{item.iconName}}" size="medium" class="section-icon" />
+        <text class="section-title">{{item.title}}</text>
+      </view>
+      
+      <view class="guide-items">
+        <view class="guide-item" wx:for="{{item.items}}" wx:for-item="guide" wx:for-index="gindex" wx:key="title">
+          <view class="guide-dot"></view>
+          <view class="guide-content">
+            <text class="guide-title">{{guide.title}}</text>
+            <text class="guide-desc">{{guide.desc}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部提示 -->
+  <view class="footer-section">
+    <text class="footer-text">如有其他问题，请在"设置"页面联系我们</text>
+    <view class="footer-btn" bindtap="goToHome">返回首页</view>
+  </view>
+</view>

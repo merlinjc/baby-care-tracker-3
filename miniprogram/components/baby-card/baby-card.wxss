@@ -1,0 +1,73 @@
+/* 宝宝卡片 - 美拉德色彩风格 */
+.baby-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 36rpx 32rpx 32rpx 28rpx;
+  background: var(--bg-secondary);
+  border-radius: 24rpx;
+  box-shadow: var(--shadow-card);
+  border: 1rpx solid var(--border-color);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: fadeInUpShort 0.6s ease-out;
+}
+
+.baby-card:active {
+  transform: scale(0.98);
+  box-shadow: 0 2rpx 12rpx rgba(139, 115, 85, 0.12);
+}
+
+.baby-info {
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+.baby-avatar {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 50%;
+  margin-right: 24rpx;
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+  box-shadow: 0 2rpx 12rpx rgba(212, 165, 116, 0.3);
+}
+
+.baby-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.baby-name {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8rpx;
+}
+
+.baby-age {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.baby-gender {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gender-icon {
+  width: 48rpx;
+  height: 48rpx;
+}
+
+@keyframes fadeInUpShort {
+  from {
+    opacity: 0;
+    transform: translateY(20rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

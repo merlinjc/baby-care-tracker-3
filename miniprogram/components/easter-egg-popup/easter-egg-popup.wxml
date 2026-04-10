@@ -1,0 +1,114 @@
+<!-- components/easter-egg-popup/easter-egg-popup.wxml -->
+<view class="{{darkMode ? 'dark-mode' : ''}} egg-mask {{animState !== 'idle' ? 'visible' : ''}}" 
+      hidden="{{animState === 'idle'}}"
+      bindtap="onMaskTap">
+  
+  <view class="egg-popup {{animState}} type-{{type}}" catchtap="stopPropagation">
+    
+    <!-- 粒子背景（仅 365day 周岁） -->
+    <view class="egg-particles" wx:if="{{type === '365day'}}">
+      <view class="particle" wx:for="{{16}}" wx:key="*this" 
+            style="--delay: {{item * 0.3}}s; --x: {{item * 22 % 100}}%;"></view>
+    </view>
+
+    <!-- 祥云纹理背景（仅 100day 百日） -->
+    <view class="egg-cloud-bg" wx:if="{{type === '100day'}}"></view>
+
+    <!-- 关闭按钮 -->
+    <view class="egg-close" bindtap="close">
+      <text>×</text>
+    </view>
+
+    <!-- 顶部图标区 -->
+    <view class="egg-icon-area">
+      <!-- 30day: 月亮图标 -->
+      <image wx:if="{{type === '30day'}}" 
+             class="egg-hero-icon scale-bounce" 
+             src="{{eggData.icon}}" mode="aspectFit" />
+      
+      <!-- 100day: 数字「100」翻转动画 + 祥云装饰 -->
+      <view wx:elif="{{type === '100day'}}" class="egg-number-flip">
+        <text class="flip-digit" style="animation-delay: 0s">1</text>
+        <text class="flip-digit" style="animation-delay: 0.15s">0</text>
+        <text class="flip-digit" style="animation-delay: 0.3s">0</text>
+      </view>
+      
+      <!-- 365day: 蛋糕 + 数字「1」 -->
+      <view wx:elif="{{type === '365day'}}" class="egg-birthday-visual">
+        <image class="egg-hero-icon bounce-in" src="{{eggData.icon}}" mode="aspectFit" />
+        <text class="egg-age-number">1</text>
+      </view>
+
+      <!-- streak_30: 火焰图标 -->
+      <image wx:else class="egg-hero-icon scale-bounce" 
+             src="{{eggData.icon}}" mode="aspectFit" />
+    </view>
+
+    <!-- 标题区 -->
+    <view class="egg-title-area">
+      <text class="egg-title">{{eggData.title}}</text>
+      <text class="egg-subtitle">{{eggData.subtitle}}</text>
+    </view>
+
+    <!-- EE-2 百日：生长数据对比（优先级高于通用回顾） -->
+    <view class="egg-growth-comparison" wx:if="{{type === '100day' && retrospect.growthComparison}}">
+      <view class="growth-compare-row" wx:if="{{retrospect.growthComparison.birthWeight && retrospect.growthComparison.latestWeight}}">
+        <text class="growth-label">体重</text>
+        <text class="growth-from">{{retrospect.growthComparison.birthWeight}}kg</text>
+        <text class="growth-arrow">→</text>
+        <text class="growth-to">{{retrospect.growthComparison.latestWeight}}kg</text>
+      </view>
+      <view class="growth-compare-row" wx:if="{{retrospect.growthComparison.birthHeight && retrospect.growthComparison.latestHeight}}">
+        <text class="growth-label">身长</text>
+        <text class="growth-from">{{retrospect.growthComparison.birthHeight}}cm</text>
+        <text class="growth-arrow">→</text>
+        <text class="growth-to">{{retrospect.growthComparison.latestHeight}}cm</text>
+      </view>
+    </view>
+
+    <!-- 数据回顾区（30day / 100day无生长记录时 / 365day） -->
+    <view class="egg-retrospect" wx:if="{{retrospect && !(type === '100day' && retrospect.growthComparison)}}">
+      <scroll-view class="retrospect-scroll" scroll-x enhanced show-scrollbar="{{false}}">
+        <view class="retrospect-cards">
+          <view class="retrospect-card">
+            <text class="retrospect-value">{{retrospect.feedingCount}}</text>
+            <text class="retrospect-label">累计喂养（次）</text>
+          </view>
+          <view class="retrospect-card">
+            <text class="retrospect-value">{{retrospect.sleepHours}}</text>
+            <text class="retrospect-label">总睡眠（小时）</text>
+          </view>
+          <view class="retrospect-card">
+            <text class="retrospect-value">{{retrospect.diaperCount}}</text>
+            <text class="retrospect-label">换了尿布（片）</text>
+          </view>
+          <!-- EE-3 周岁：第4张卡片 — 总记录数 -->
+          <view class="retrospect-card" wx:if="{{type === '365day'}}">
+            <text class="retrospect-value">{{retrospect.totalCount}}</text>
+            <text class="retrospect-label">总记录（条）</text>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+
+    <!-- 数据回顾加载中 -->
+    <view class="egg-retrospect-loading" wx:elif="{{retrospectLoading}}">
+      <view class="loading-dot"></view>
+      <view class="loading-dot"></view>
+      <view class="loading-dot"></view>
+    </view>
+
+    <!-- streak_30 的专属数据 -->
+    <view class="egg-streak-data" wx:if="{{type === 'streak_30' && eggData.streakDays}}">
+      <text class="streak-number">{{eggData.streakDays}}</text>
+      <text class="streak-label">天连续记录</text>
+    </view>
+
+    <!-- 底部按钮 -->
+    <view class="egg-footer">
+      <view class="egg-btn" bindtap="close">
+        <text>我知道了</text>
+      </view>
+    </view>
+  </view>
+</view>

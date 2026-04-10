@@ -1,0 +1,165 @@
+<view class="insight-section {{darkMode ? 'dark-mode' : ''}}">
+  <!-- 标题栏 -->
+  <view class="insight-header" bindtap="toggleInsight">
+    <view class="insight-title-group">
+      <image class="insight-icon" src="/images/icons/chart-line.png" mode="aspectFit" lazy-load></image>
+      <text class="insight-title">本周趋势</text>
+      <text class="insight-period">{{trendPeriod}}</text>
+    </view>
+    <view class="insight-toggle">
+      <image class="toggle-icon" src="{{expanded ? '/images/icons/chevron-up.png' : '/images/icons/chevron-down.png'}}" mode="aspectFit" lazy-load></image>
+    </view>
+  </view>
+  
+  <!-- 趋势指标（可折叠） -->
+  <view class="insight-content" wx:if="{{expanded}}">
+    <!-- 骨架屏加载态 -->
+    <view class="trend-list" wx:if="{{loading}}">
+      <view class="trend-card-skeleton" wx:for="{{4}}" wx:key="index">
+        <view class="skeleton-line w60"></view>
+        <view class="skeleton-line w100 h8"></view>
+        <view class="skeleton-line w80"></view>
+      </view>
+    </view>
+    
+    <!-- 实际数据 -->
+    <view class="trend-list" wx:else>
+      
+      <!-- ====== 喂养趋势卡片 ====== -->
+      <view class="trend-card">
+        <view class="card-top">
+          <view class="card-left">
+            <image class="trend-type-icon" src="/images/icons/feeding.png" mode="aspectFit" lazy-load></image>
+            <text class="trend-label">喂养</text>
+            <view class="status-tag status-{{feedingEnhanced.statusClass}}" 
+                  wx:if="{{feedingEnhanced.statusText}}">
+              {{feedingEnhanced.statusText}}
+            </view>
+          </view>
+          <view class="card-right">
+            <text class="trend-avg-num">{{trendData.feeding.thisWeekAvg}}</text>
+            <text class="trend-avg-unit">次/日</text>
+            <text class="trend-change {{feedingEnhanced.changeClass}}" 
+                  wx:if="{{trendData.feeding.changePercent > 0}}">
+              {{trendData.feeding.isUp ? '↑' : '↓'}}{{trendData.feeding.changePercent}}%
+            </text>
+            <text class="trend-change change-new" 
+                  wx:elif="{{trendData.feeding.lastWeekAvg === 0 && trendData.feeding.thisWeekAvg > 0}}">
+              新
+            </text>
+          </view>
+        </view>
+        <!-- 范围条 + 参考范围 -->
+        <view class="card-bar-row" wx:if="{{hasReference && feedingEnhanced.reference}}">
+          <view class="range-bar">
+            <view class="range-bar-normal"></view>
+            <view class="range-bar-dot dot-{{feedingEnhanced.barZone}}" 
+                  style="left: {{feedingEnhanced.barPosition}}%"></view>
+          </view>
+          <text class="trend-ref">{{feedingEnhanced.referenceText}}</text>
+        </view>
+        <!-- 智能提示 -->
+        <text class="trend-tip" wx:if="{{feedingEnhanced.tip}}">{{feedingEnhanced.tip}}</text>
+      </view>
+      
+      <!-- ====== 睡眠趋势卡片 ====== -->
+      <view class="trend-card">
+        <view class="card-top">
+          <view class="card-left">
+            <image class="trend-type-icon" src="/images/icons/sleep.png" mode="aspectFit" lazy-load></image>
+            <text class="trend-label">睡眠</text>
+            <view class="status-tag status-{{sleepEnhanced.statusClass}}" 
+                  wx:if="{{sleepEnhanced.statusText}}">
+              {{sleepEnhanced.statusText}}
+            </view>
+          </view>
+          <view class="card-right">
+            <text class="trend-avg-num">{{trendData.sleep.thisWeekAvg}}</text>
+            <text class="trend-avg-unit">h/日</text>
+            <text class="trend-change {{sleepEnhanced.changeClass}}" 
+                  wx:if="{{trendData.sleep.changePercent > 0}}">
+              {{trendData.sleep.isUp ? '↑' : '↓'}}{{trendData.sleep.changePercent}}%
+            </text>
+            <text class="trend-change change-new" 
+                  wx:elif="{{trendData.sleep.lastWeekAvg === 0 && trendData.sleep.thisWeekAvg > 0}}">
+              新
+            </text>
+          </view>
+        </view>
+        <view class="card-bar-row" wx:if="{{hasReference && sleepEnhanced.reference}}">
+          <view class="range-bar">
+            <view class="range-bar-normal"></view>
+            <view class="range-bar-dot dot-{{sleepEnhanced.barZone}}" 
+                  style="left: {{sleepEnhanced.barPosition}}%"></view>
+          </view>
+          <text class="trend-ref">{{sleepEnhanced.referenceText}}</text>
+        </view>
+        <text class="trend-tip" wx:if="{{sleepEnhanced.tip}}">{{sleepEnhanced.tip}}</text>
+      </view>
+      
+      <!-- ====== 排便趋势卡片 ====== -->
+      <view class="trend-card">
+        <view class="card-top">
+          <view class="card-left">
+            <image class="trend-type-icon" src="/images/icons/diaper-color.png" mode="aspectFit" lazy-load></image>
+            <text class="trend-label">排便</text>
+            <view class="status-tag status-{{diaperEnhanced.statusClass}}" 
+                  wx:if="{{diaperEnhanced.statusText}}">
+              {{diaperEnhanced.statusText}}
+            </view>
+          </view>
+          <view class="card-right">
+            <text class="trend-avg-num">{{trendData.diaper.thisWeekAvg}}</text>
+            <text class="trend-avg-unit">次/日</text>
+            <text class="trend-change {{diaperEnhanced.changeClass}}" 
+                  wx:if="{{trendData.diaper.changePercent > 0}}">
+              {{trendData.diaper.isUp ? '↑' : '↓'}}{{trendData.diaper.changePercent}}%
+            </text>
+            <text class="trend-change change-new" 
+                  wx:elif="{{trendData.diaper.lastWeekAvg === 0 && trendData.diaper.thisWeekAvg > 0}}">
+              新
+            </text>
+          </view>
+        </view>
+        <view class="card-bar-row" wx:if="{{hasReference && diaperEnhanced.reference}}">
+          <view class="range-bar">
+            <view class="range-bar-normal"></view>
+            <view class="range-bar-dot dot-{{diaperEnhanced.barZone}}" 
+                  style="left: {{diaperEnhanced.barPosition}}%"></view>
+          </view>
+          <text class="trend-ref">{{diaperEnhanced.referenceText}}</text>
+        </view>
+        <text class="trend-tip" wx:if="{{diaperEnhanced.tip}}">{{diaperEnhanced.tip}}</text>
+      </view>
+      
+      <!-- ====== 体温趋势卡片（无范围条） ====== -->
+      <view class="trend-card">
+        <view class="card-top">
+          <view class="card-left">
+            <image class="trend-type-icon" src="/images/icons/temperature.png" mode="aspectFit" lazy-load></image>
+            <text class="trend-label">体温</text>
+            <view class="status-tag status-{{temperatureEnhanced.statusClass}}" 
+                  wx:if="{{temperatureEnhanced.statusText}}">
+              {{temperatureEnhanced.statusText}}
+            </view>
+          </view>
+          <view class="card-right">
+            <text class="trend-avg-num">{{trendData.temperature.abnormalCount}}</text>
+            <text class="trend-avg-unit">次异常</text>
+            <text class="trend-temp-latest" wx:if="{{trendData.temperature.latestValue !== '--'}}">
+              最近 {{trendData.temperature.latestValue}}°C
+            </text>
+          </view>
+        </view>
+        <text class="trend-tip" wx:if="{{temperatureEnhanced.tip}}">{{temperatureEnhanced.tip}}</text>
+      </view>
+      
+    </view>
+    
+    <!-- 查看详细报告 -->
+    <view class="view-report-link" bindtap="showReportPopup">
+      <text class="link-text">查看详细报告</text>
+      <image class="link-arrow" src="/images/icons/chevron-right.png" mode="aspectFit" lazy-load></image>
+    </view>
+  </view>
+</view>

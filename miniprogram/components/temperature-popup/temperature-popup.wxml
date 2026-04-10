@@ -1,0 +1,90 @@
+<!--体温记录弹窗-->
+<view class="{{darkMode ? 'dark-mode' : ''}} popup-mask popup-mask-visible" 
+      hidden="{{!show}}"
+      bindtap="close"
+      catchtouchmove="preventMove">
+  <view class="popup-container {{show ? 'popup-enter' : ''}}" 
+        style="transform: translateY({{popupTranslateY}}px)"
+        catchtap="stopPropagation"
+        bindtouchstart="onTouchStart"
+        bindtouchmove="onTouchMove"
+        bindtouchend="onTouchEnd">
+    <!-- 下滑指示条 -->
+    <view class="swipe-indicator"></view>
+    <!-- 标题栏 -->
+    <view class="popup-header">
+      <view class="popup-icon">
+        <image class="popup-icon-img" src="/images/icons/temperature.png" 
+               mode="aspectFit" lazy-load></image>
+      </view>
+      <text class="popup-title">体温记录</text>
+      <view class="popup-close" bindtap="close">
+        <text>×</text>
+      </view>
+    </view>
+
+    <!-- 可滚动内容区域 -->
+    <scroll-view class="popup-content" scroll-y enhanced show-scrollbar="{{false}}">
+      <view class="popup-inner">
+      <!-- 体温输入 -->
+      <view class="section">
+        <text class="section-title">体温 (°C)</text>
+        <input 
+          class="temperature-input"
+          type="digit"
+          placeholder="请输入体温"
+          value="{{temperature}}"
+          bindinput="onTemperatureInput"
+        />
+      </view>
+
+      <!-- 发热等级显示 -->
+      <view class="fever-level {{feverLevel}}" wx:if="{{feverLevel}}">
+        <text class="fever-level-text">
+          <text wx:if="{{feverLevel === 'low'}}">体温偏低</text>
+          <text wx:if="{{feverLevel === 'normal'}}">体温正常</text>
+          <text wx:if="{{feverLevel === 'low-fever'}}">低热</text>
+          <text wx:if="{{feverLevel === 'moderate-fever'}}">中度发热</text>
+          <text wx:if="{{feverLevel === 'high-fever'}}">高热</text>
+          <text wx:if="{{feverLevel === 'ultra-high-fever'}}">超高热</text>
+        </text>
+      </view>
+
+      <!-- 测量方式 -->
+      <view class="section">
+        <text class="section-title">测量方式</text>
+        <view class="methods">
+          <view 
+            wx:for="{{methods}}" 
+            wx:key="value"
+            class="method-item {{method === item.value ? 'active' : ''}}"
+            data-value="{{item.value}}"
+            bindtap="selectMethod"
+          >
+            <view class="method-icon">
+              <image class="method-icon-img" src="{{item.iconUrl}}" mode="aspectFit" lazy-load></image>
+            </view>
+            <text class="method-label">{{item.label}}</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 预警信息 -->
+      <view class="warning-banner {{warning.type}}" wx:if="{{warning}}">
+        <view class="warning-icon"></view>
+        <text class="warning-message">{{warning.message}}</text>
+      </view>
+
+      <!-- 提交按钮 -->
+      <button 
+        class="submit-btn {{loading ? 'loading disabled' : ''}}"
+        bindtap="submit"
+        disabled="{{loading}}"
+      >
+        <text wx:if="{{!loading}}">保存记录</text>
+        <text wx:else>保存中...</text>
+      </button>
+      </view>
+    </scroll-view>
+  </view>
+</view>

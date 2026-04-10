@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "宝宝档案",
+  "usingComponents": {
+    "baby-edit-popup": "/components/baby-edit-popup/baby-edit-popup"
+  }
+}

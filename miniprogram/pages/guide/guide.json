@@ -1,0 +1,7 @@
+{
+  "usingComponents": {
+    "icon": "/components/icon/icon"
+  },
+  "navigationBarTitleText": "使用指南",
+  "backgroundTextStyle": "light"
+}

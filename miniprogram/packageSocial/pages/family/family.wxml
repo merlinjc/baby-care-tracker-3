@@ -1,0 +1,216 @@
+<!--家庭管理页-->
+<view class="page-container {{darkMode ? 'dark-mode' : ''}}">
+  <!-- 加载中 -->
+  <view wx:if="{{loading}}" class="loading-container">
+    <view class="loading-text">加载中...</view>
+  </view>
+
+  <block wx:else>
+    <!-- 家庭信息 -->
+    <view class="family-card" wx:if="{{familyInfo}}">
+      <view class="family-header">
+        <view class="family-icon">
+          <icon type="functional" name="users" size="medium" />
+        </view>
+        <view class="family-info">
+          <text class="family-name">{{familyInfo.name || '我的家庭'}}</text>
+          <text class="family-members">{{members.length}} 位成员</text>
+        </view>
+        <view class="family-role-badge role-{{currentRole}}">
+          <text class="role-badge-text">{{currentRoleText}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 成员列表 -->
+    <view class="members-section">
+      <view class="section-header">
+        <text class="section-title">家庭成员</text>
+        <text wx:if="{{isAdmin}}" class="section-hint">长按可管理成员</text>
+      </view>
+      
+      <view class="members-list">
+        <view 
+          class="member-card {{item.isMe ? 'member-card-me' : ''}}" 
+          wx:for="{{members}}" 
+          wx:key="userId"
+          bindlongpress="onMemberLongPress"
+          data-member="{{item}}"
+        >
+          <image class="member-avatar" src="{{item.avatar || item.avatarUrl || '/images/default-avatar.svg'}}" mode="aspectFill" lazy-load></image>
+          <view class="member-info">
+            <view class="member-name-row">
+              <text class="member-name">{{item.name || item.nickName || '家庭成员'}}</text>
+              <text wx:if="{{item.isMe}}" class="me-badge">我</text>
+            </view>
+            <view class="member-meta">
+              <text class="member-role-tag role-tag-{{item.role}}">{{item.roleText}}</text>
+              <text class="member-relation" wx:if="{{item.relation}}">· {{item.relation}}</text>
+            </view>
+          </view>
+          <text class="member-time">{{item.joinTimeText}}</text>
+          
+          <!-- 管理员操作按钮（仅对非自己的成员显示） -->
+          <view 
+            wx:if="{{isAdmin && !item.isMe}}" 
+            class="member-actions"
+            catchtap="onMemberAction"
+            data-member="{{item}}"
+          >
+            <view class="action-dot"></view>
+            <view class="action-dot"></view>
+            <view class="action-dot"></view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 邀请码（仅管理员可见完整操作） -->
+    <view class="invite-section">
+      <view class="section-header">
+        <text class="section-title">邀请家人</text>
+      </view>
+      
+      <view class="invite-card">
+        <view class="invite-code-area">
+          <text class="invite-label">邀请码</text>
+          <text class="invite-code">{{inviteCode || '未生成'}}</text>
+          <!-- 有效期显示 -->
+          <view wx:if="{{inviteCodeExpiry}}" class="invite-expiry {{inviteExpiryWarning ? 'expiry-warning' : ''}}">
+            <text class="expiry-text">{{inviteExpiryText}}</text>
+          </view>
+        </view>
+        <view class="invite-actions">
+          <view class="invite-btn" bindtap="copyInviteCode">复制</view>
+          <view class="invite-btn" bindtap="shareInvite">分享</view>
+          <view wx:if="{{isAdmin}}" class="invite-btn secondary" bindtap="regenerateCode">重新生成</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 退出家庭 -->
+    <view class="leave-section">
+      <view class="leave-btn" bindtap="leaveFamily">
+        <text class="leave-text">退出家庭</text>
+      </view>
+    </view>
+  </block>
+
+  <!-- 无家庭 -->
+  <view wx:if="{{!loading && !familyInfo}}" class="empty-state">
+    <text class="empty-text">还没有加入家庭</text>
+    <view class="empty-btn" bindtap="goToCreate">创建家庭</view>
+  </view>
+
+  <!-- 权限编辑弹窗 -->
+  <view wx:if="{{showRoleModal}}" class="modal-mask" catchtap="closeRoleModal">
+    <view class="modal-content" catchtap="preventBubble">
+      <view class="modal-header">
+        <text class="modal-title">修改成员权限</text>
+        <view class="modal-close" bindtap="closeRoleModal">✕</view>
+      </view>
+      
+      <view class="modal-body">
+        <view class="target-member-info">
+          <image class="target-avatar" src="{{targetMember.avatar || targetMember.avatarUrl || '/images/default-avatar.svg'}}" mode="aspectFill" lazy-load></image>
+          <text class="target-name">{{targetMember.name || targetMember.nickName}}</text>
+          <text class="target-current-role">当前: {{targetMember.roleText}}</text>
+        </view>
+
+        <view class="role-options">
+          <view 
+            class="role-option {{selectedRole === 'admin' ? 'role-option-selected' : ''}}"
+            bindtap="selectRole"
+            data-role="admin"
+          >
+            <view class="role-radio {{selectedRole === 'admin' ? 'radio-selected' : ''}}"></view>
+            <view class="role-option-info">
+              <text class="role-option-name">管理员</text>
+              <text class="role-option-desc">可管理成员和所有设置</text>
+            </view>
+          </view>
+          <view 
+            class="role-option {{selectedRole === 'editor' ? 'role-option-selected' : ''}}"
+            bindtap="selectRole"
+            data-role="editor"
+          >
+            <view class="role-radio {{selectedRole === 'editor' ? 'radio-selected' : ''}}"></view>
+            <view class="role-option-info">
+              <text class="role-option-name">成员</text>
+              <text class="role-option-desc">可添加和编辑记录</text>
+            </view>
+          </view>
+          <view 
+            class="role-option {{selectedRole === 'viewer' ? 'role-option-selected' : ''}}"
+            bindtap="selectRole"
+            data-role="viewer"
+          >
+            <view class="role-radio {{selectedRole === 'viewer' ? 'radio-selected' : ''}}"></view>
+            <view class="role-option-info">
+              <text class="role-option-name">仅查看</text>
+              <text class="role-option-desc">只能查看记录</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view class="modal-footer">
+        <view class="modal-btn cancel" bindtap="closeRoleModal">取消</view>
+        <view class="modal-btn confirm" bindtap="confirmRoleChange">确认修改</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 管理员转让弹窗（退出时触发） -->
+  <view wx:if="{{showTransferModal}}" class="modal-mask" catchtap="closeTransferModal">
+    <view class="modal-content" catchtap="preventBubble">
+      <view class="modal-header">
+        <text class="modal-title">转让管理员</text>
+        <view class="modal-close" bindtap="closeTransferModal">✕</view>
+      </view>
+      
+      <view class="modal-body">
+        <text class="transfer-hint">您是唯一管理员，退出前请选择新管理员或解散家庭</text>
+        
+        <view class="transfer-members">
+          <view 
+            class="transfer-member {{selectedTransferId === item.userId ? 'transfer-selected' : ''}}"
+            wx:for="{{transferCandidates}}"
+            wx:key="userId"
+            bindtap="selectTransferTarget"
+            data-user-id="{{item.userId}}"
+          >
+            <image class="transfer-avatar" src="{{item.avatar || item.avatarUrl || '/images/default-avatar.svg'}}" mode="aspectFill" lazy-load></image>
+            <text class="transfer-name">{{item.name || item.nickName}}</text>
+            <view wx:if="{{selectedTransferId === item.userId}}" class="transfer-check">✓</view>
+          </view>
+        </view>
+      </view>
+
+      <view class="modal-footer transfer-footer">
+        <view class="modal-btn cancel" bindtap="closeTransferModal">取消</view>
+        <view class="modal-btn danger" bindtap="dissolveAndLeave">解散家庭</view>
+        <view class="modal-btn confirm {{!selectedTransferId ? 'btn-disabled' : ''}}" bindtap="transferAndLeave">转让并退出</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 成员操作菜单 -->
+  <view wx:if="{{showMemberMenu}}" class="modal-mask" catchtap="closeMemberMenu">
+    <view class="action-sheet" catchtap="preventBubble">
+      <view class="action-sheet-header">
+        <text class="action-sheet-title">{{menuMember.name || menuMember.nickName}}</text>
+      </view>
+      <view class="action-sheet-item" bindtap="editMemberRole">
+        <text class="action-item-text">修改权限</text>
+        <text class="action-item-hint">当前: {{menuMember.roleText}}</text>
+      </view>
+      <view class="action-sheet-item action-danger" bindtap="removeMemberConfirm">
+        <text class="action-item-text">移除成员</text>
+      </view>
+      <view class="action-sheet-cancel" bindtap="closeMemberMenu">
+        <text>取消</text>
+      </view>
+    </view>
+  </view>
+</view>

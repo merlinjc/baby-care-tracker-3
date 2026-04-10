@@ -1,0 +1,328 @@
+<!--发育里程碑页-->
+<view class="page-container {{darkMode ? 'dark-mode' : ''}}">
+  <!-- 本月需关注区域 -->
+  <view class="focus-section" wx:if="{{focusMilestones.length > 0 || overdueMilestones.length > 0}}">
+    <!-- 逾期里程碑 -->
+    <view class="focus-group overdue" wx:if="{{overdueMilestones.length > 0}}">
+      <view class="focus-header overdue">
+        <icon type="status" name="warning" size="small" />
+        <text class="focus-title">逾期需关注</text>
+        <text class="focus-count">{{overdueMilestones.length}}项</text>
+      </view>
+      <view class="focus-cards">
+        <view 
+          class="focus-card overdue" 
+          wx:for="{{overdueMilestones}}" 
+          wx:key="name"
+          bindtap="quickAchieve"
+          data-cindex="{{item.cindex}}"
+          data-mindex="{{item.mindex}}"
+        >
+          <view class="card-category">{{item.categoryName}}</view>
+          <view class="card-name">{{item.name}}</view>
+          <view class="card-window">窗口: {{item.whoWindow}}</view>
+          <view class="card-action">
+            <text class="action-btn overdue">标记达成</text>
+          </view>
+        </view>
+      </view>
+    </view>
+    
+    <!-- 当前阶段里程碑 -->
+    <view class="focus-group current" wx:if="{{focusMilestones.length > 0}}">
+      <view class="focus-header current">
+        <icon type="navigation" name="target" size="small" />
+        <text class="focus-title">本月需关注</text>
+        <text class="focus-count">{{focusMilestones.length}}项</text>
+      </view>
+      <view class="focus-cards">
+        <view 
+          class="focus-card {{item.achieved ? 'achieved' : ''}}" 
+          wx:for="{{focusMilestones}}" 
+          wx:key="name"
+          bindtap="quickAchieve"
+          data-cindex="{{item.cindex}}"
+          data-mindex="{{item.mindex}}"
+        >
+          <view class="card-category">{{item.categoryName}}</view>
+          <view class="card-name">{{item.name}}</view>
+          <view class="card-window">窗口: {{item.whoWindow}}</view>
+          <view class="card-action" wx:if="{{!item.achieved}}">
+            <text class="action-btn">标记达成</text>
+          </view>
+          <view class="card-action" wx:else>
+            <text class="action-btn achieved">已达成 ✓</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 月龄选择器 -->
+  <view class="month-selector-card">
+    <view class="selector-header">
+      <view class="baby-age-info">
+        <text class="age-label">宝宝月龄</text>
+        <text class="age-value">{{babyAgeMonths}}个月</text>
+      </view>
+      <view 
+        class="back-to-current {{viewMode === 'current' ? 'active' : ''}}" 
+        bindtap="goToCurrentAge"
+        wx:if="{{viewMode !== 'current'}}"
+      >
+        <text>回到当前月龄</text>
+      </view>
+    </view>
+    
+    <!-- 视图模式切换 -->
+    <view class="view-mode-tabs">
+      <view 
+        class="mode-tab {{viewMode === 'current' ? 'active' : ''}}" 
+        bindtap="onViewModeChange"
+        data-mode="current"
+      >
+        <icon type="milestone" name="baby" size="small" />
+        <text class="tab-text">当前阶段</text>
+      </view>
+      <view 
+        class="mode-tab {{viewMode === 'all' ? 'active' : ''}}" 
+        bindtap="onViewModeChange"
+        data-mode="all"
+      >
+        <icon type="navigation" name="list" size="small" />
+        <text class="tab-text">全部里程碑</text>
+      </view>
+    </view>
+    
+    <!-- 月份快速选择（仅在选择特定月份时显示） -->
+    <view class="month-quick-select" wx:if="{{viewMode !== 'all'}}">
+      <scroll-view class="month-scroll" scroll-x enhanced show-scrollbar="{{false}}">
+        <view class="month-options">
+          <view 
+            class="month-option {{currentMonth === item.value ? 'active' : ''}} {{item.value === babyAgeMonths ? 'is-baby-age' : ''}}"
+            wx:for="{{monthOptions}}" 
+            wx:key="value"
+            bindtap="onMonthSelect"
+            data-month="{{item.value}}"
+          >
+            <text>{{item.label}}</text>
+            <view class="baby-age-dot" wx:if="{{item.value === babyAgeMonths}}"></view>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+
+  <!-- 进度概览 -->
+  <view class="progress-card">
+    <view class="progress-header">
+      <text class="progress-title">发育进度</text>
+      <text class="progress-count">{{progress.completed}}/{{progress.total}} 已达成</text>
+    </view>
+    <view class="progress-bar">
+      <view class="progress-fill" style="width: {{progress.percent}}%"></view>
+    </view>
+    <view class="progress-summary">
+      <view class="summary-item" wx:if="{{progress.overdue > 0}}">
+        <text class="summary-icon warning">!</text>
+        <text class="summary-text">{{progress.overdue}}项逾期需关注</text>
+      </view>
+      <view class="summary-item" wx:elif="{{progress.completed === progress.total && progress.total > 0}}">
+        <text class="summary-icon success">✓</text>
+        <text class="summary-text">恭喜！本月里程碑全部达成</text>
+      </view>
+      <view class="summary-item" wx:else>
+        <text class="summary-icon info">ℹ</text>
+        <text class="summary-text">继续加油，关注宝宝发育</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 标准来源说明 -->
+  <view class="reference-tip" bindtap="showStandardInfo">
+    <image class="tip-icon" src="/images/icons/info.png" mode="aspectFit" lazy-load></image>
+    <text class="tip-text">数据来源：WHO/CDC儿童发育标准</text>
+    <text class="tip-arrow">›</text>
+  </view>
+
+  <!-- 加载中 -->
+  <view wx:if="{{loading}}" class="loading-container">
+    <view class="loading-spinner"></view>
+    <text class="loading-text">加载中...</text>
+  </view>
+
+  <!-- 里程碑列表 -->
+  <view wx:else class="milestone-list">
+    <block wx:for="{{milestones}}" wx:key="category">
+      <view class="category-section" wx:if="{{item.filteredCount > 0}}">
+        <view class="category-header">
+          <icon type="milestone" name="{{item.icon}}" size="small" class="category-icon" />
+          <text class="category-name">{{item.category}}</text>
+          <text class="category-count">{{item.completedCount}}/{{item.items.length}}</text>
+        </view>
+        
+        <view class="milestone-items">
+          <view 
+            class="milestone-item {{milestone.status}}" 
+            wx:for="{{item.filteredItems}}" 
+            wx:for-item="milestone" 
+            wx:for-index="mindex" 
+            wx:key="name"
+            bindtap="showMilestoneDetail" 
+            data-cindex="{{index}}"
+            data-mindex="{{milestone.mindex}}"
+          >
+            <view class="milestone-status">
+              <text wx:if="{{milestone.achieved}}" class="status-icon done">✓</text>
+              <text wx:elif="{{milestone.isOverdue}}" class="status-icon overdue">!</text>
+              <text wx:else class="status-icon pending">○</text>
+            </view>
+            
+            <view class="milestone-info">
+              <view class="milestone-name">
+                {{milestone.name}}
+                <text class="standard-badge" wx:if="{{milestone.standard}}">{{milestone.standard}}</text>
+              </view>
+              <view class="milestone-window {{milestone.isOverdue ? 'overdue-text' : ''}} {{milestone.inWindow ? 'in-window' : ''}}">
+                WHO窗口: {{milestone.whoWindow || milestone.window}}
+                <icon wx:if="{{milestone.isOverdue}}" type="status" name="warning" size="mini" class="inline-icon" />
+                <text wx:if="{{milestone.isOverdue}}" class="overdue-warning"> 已逾期</text>
+                <text wx:elif="{{milestone.inWindow}}" class="in-window-hint"> ✓ 当前阶段</text>
+              </view>
+              <view class="milestone-desc">{{milestone.description}}</view>
+              <view wx:if="{{milestone.achieved}}" class="milestone-date">
+                达成: {{milestone.achievedDate}} ✓
+              </view>
+            </view>
+            
+            <view class="milestone-arrow">
+              <text>›</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </block>
+  </view>
+
+  <!-- 里程碑详情弹窗 -->
+  <view class="popup-mask" wx:if="{{showDetailPopup}}" bindtap="hideDetailPopup">
+    <view class="detail-popup" catchtap>
+      <view class="popup-header">
+        <text class="popup-title">{{selectedMilestone.name}}</text>
+        <view class="popup-close" bindtap="hideDetailPopup">
+          <text>×</text>
+        </view>
+      </view>
+      
+      <scroll-view class="popup-content" scroll-y>
+        <view class="detail-section">
+          <text class="detail-label">发育领域</text>
+          <text class="detail-value">{{selectedMilestone.categoryName}}</text>
+        </view>
+        
+        <view class="detail-section">
+          <text class="detail-label">发育描述</text>
+          <text class="detail-text">{{selectedMilestone.description}}</text>
+        </view>
+        
+        <view class="detail-section">
+          <text class="detail-label">正常时间窗口</text>
+          <text class="detail-value">{{selectedMilestone.whoWindow || selectedMilestone.window}}</text>
+        </view>
+        
+        <view class="detail-section" wx:if="{{selectedMilestone.howToHelp}}">
+          <text class="detail-label">如何帮助宝宝</text>
+          <text class="detail-text tip">{{selectedMilestone.howToHelp}}</text>
+        </view>
+        
+
+        
+        <view class="detail-section" wx:if="{{selectedMilestone.standard}}">
+          <text class="detail-label">数据来源</text>
+          <text class="detail-text">{{selectedMilestone.standard}} 儿童发育标准</text>
+        </view>
+        
+        <view class="detail-section" wx:if="{{selectedMilestone.achieved}}">
+          <text class="detail-label">达成时间</text>
+          <text class="detail-value success">{{selectedMilestone.achievedDate}}</text>
+        </view>
+      </scroll-view>
+      
+      <view class="popup-footer">
+        <view 
+          class="btn-action {{selectedMilestone.achieved ? 'secondary' : 'primary'}}" 
+          bindtap="toggleAchieved"
+        >
+          <text wx:if="{{selectedMilestone.achieved}}">取消达成</text>
+          <text wx:else>标记达成</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 标准说明弹窗 -->
+  <view class="popup-mask" wx:if="{{showStandardPopup}}" bindtap="hideStandardPopup">
+    <view class="standard-popup" catchtap>
+      <view class="popup-header">
+        <text class="popup-title">发育标准说明</text>
+        <view class="popup-close" bindtap="hideStandardPopup">
+          <text>×</text>
+        </view>
+      </view>
+      
+      <scroll-view class="popup-content" scroll-y>
+        <view class="standard-section">
+          <view class="standard-header">
+            <text class="standard-name">WHO</text>
+            <text class="standard-full">世界卫生组织</text>
+          </view>
+          <text class="standard-desc">WHO Motor Development Study (2006) 婴幼儿运动发育研究，基于加纳、印度、挪威、阿曼、巴西和美国6个国家的健康婴儿数据。</text>
+        </view>
+        
+        <view class="standard-section">
+          <view class="standard-header">
+            <text class="standard-name">CDC</text>
+            <text class="standard-full">美国疾控中心</text>
+          </view>
+          <text class="standard-desc">CDC发育里程碑指南，涵盖0-5岁儿童大运动、精细动作、语言、社交和认知五大发育领域。</text>
+        </view>
+        
+        <view class="standard-section">
+          <text class="standard-label">五大发育领域</text>
+          <view class="domain-list">
+            <view class="domain-item">
+              <icon type="milestone" name="running" size="small" class="domain-icon" />
+              <text class="domain-name">大运动</text>
+              <text class="domain-desc">抬头、翻身、坐、爬、站、走</text>
+            </view>
+            <view class="domain-item">
+              <icon type="milestone" name="hand" size="small" class="domain-icon" />
+              <text class="domain-name">精细动作</text>
+              <text class="domain-desc">抓握、传递、捏取</text>
+            </view>
+            <view class="domain-item">
+              <icon type="milestone" name="comments" size="small" class="domain-icon" />
+              <text class="domain-name">语言</text>
+              <text class="domain-desc">发音、咿呀学语、叫人</text>
+            </view>
+            <view class="domain-item">
+              <icon type="milestone" name="baby" size="small" class="domain-icon" />
+              <text class="domain-name">社交</text>
+              <text class="domain-desc">微笑、认生、互动</text>
+            </view>
+            <view class="domain-item">
+              <icon type="milestone" name="brain" size="small" class="domain-icon" />
+              <text class="domain-name">认知</text>
+              <text class="domain-desc">追视、探索、因果关系</text>
+            </view>
+          </view>
+        </view>
+        
+        <view class="standard-section">
+          <text class="standard-label">温馨提示</text>
+          <text class="standard-desc">每个宝宝发育节奏不同，时间窗口内的达成均属正常。如逾期未达成，建议咨询儿科医生。</text>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+</view>

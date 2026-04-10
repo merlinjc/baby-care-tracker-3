@@ -1,0 +1,8 @@
+{
+  "usingComponents": {
+    "icon": "/components/icon/icon"
+  },
+  "navigationBarTitleText": "发育里程碑",
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "light"
+}

@@ -1,0 +1,261 @@
+<!--疫苗追踪页-->
+<view class="page-container {{darkMode ? 'dark-mode' : ''}}">
+  <!-- 待办疫苗快速入口 -->
+  <view class="todo-section" wx:if="{{todoVaccines.length > 0}}">
+    <view class="todo-header">
+      <text class="todo-title">待办疫苗</text>
+      <text class="todo-count">{{todoVaccines.length}}剂待接种</text>
+    </view>
+    <scroll-view class="todo-scroll" scroll-x>
+      <view class="todo-cards">
+        <view 
+          class="todo-card {{item.isOverdue ? 'overdue' : ''}}" 
+          wx:for="{{todoVaccines}}" 
+          wx:key="name"
+          bindtap="quickVaccinate"
+          data-index="{{item.index}}"
+          data-vindex="{{item.vindex}}"
+        >
+          <view class="todo-status" wx:if="{{item.isOverdue}}">
+            <text class="status-badge overdue">逾期</text>
+          </view>
+          <view class="todo-name">{{item.name}}</view>
+          <view class="todo-dose">{{item.dose}}</view>
+          <view class="todo-date">
+            <text wx:if="{{item.isOverdue}}">已逾期 {{item.overdueDays}}天</text>
+            <text wx:else>计划 {{item.plannedDateText}}</text>
+          </view>
+          <view class="todo-action">
+            <text class="action-btn">标记接种</text>
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+
+  <!-- 统计概览 -->
+  <view class="stats-card">
+    <view class="stat-item">
+      <text class="stat-value">{{stats.total}}</text>
+      <text class="stat-label">总剂次</text>
+    </view>
+    <view class="stat-divider"></view>
+    <view class="stat-item">
+      <text class="stat-value done">{{stats.done}}</text>
+      <text class="stat-label">已接种</text>
+    </view>
+    <view class="stat-divider"></view>
+    <view class="stat-item">
+      <text class="stat-value pending">{{stats.pending}}</text>
+      <text class="stat-label">待接种</text>
+    </view>
+    <view class="stat-divider"></view>
+    <view class="stat-item">
+      <text class="stat-value overdue">{{stats.overdue}}</text>
+      <text class="stat-label">已逾期</text>
+    </view>
+  </view>
+
+  <!-- 状态筛选 -->
+  <view class="filter-tabs">
+    <view 
+      class="filter-tab {{filterStatus === 'all' ? 'active' : ''}}" 
+      bindtap="onFilterChange" 
+      data-status="all"
+    >全部</view>
+    <view 
+      class="filter-tab {{filterStatus === 'pending' ? 'active' : ''}}" 
+      bindtap="onFilterChange" 
+      data-status="pending"
+    >待接种</view>
+    <view 
+      class="filter-tab {{filterStatus === 'done' ? 'active' : ''}}" 
+      bindtap="onFilterChange" 
+      data-status="done"
+    >已接种</view>
+    <view 
+      class="filter-tab {{filterStatus === 'overdue' ? 'active' : ''}}" 
+      bindtap="onFilterChange" 
+      data-status="overdue"
+    >已逾期</view>
+  </view>
+
+  <!-- 专业参考提示 -->
+  <view class="reference-tip" bindtap="showVaccineInfo">
+    <image class="tip-icon" src="/images/icons/info.png" mode="aspectFit"></image>
+    <text class="tip-text">数据来源：国家免疫规划疫苗儿童免疫程序（2025年版）</text>
+    <text class="tip-arrow">›</text>
+  </view>
+
+  <!-- 加载中 -->
+  <view wx:if="{{loading}}" class="loading-container">
+    <view class="loading-spinner"></view>
+    <text class="loading-text">加载中...</text>
+  </view>
+
+  <!-- 疫苗列表 -->
+  <view wx:else class="vaccine-list">
+    <block wx:for="{{vaccineList}}" wx:key="age">
+      <view class="age-group" wx:if="{{item.filteredCount > 0}}">
+        <view class="age-header">
+          <text class="age-title">{{item.age}}</text>
+          <text class="age-count">{{item.filteredCount}}剂</text>
+        </view>
+        
+        <view class="vaccine-cards">
+          <block wx:for="{{item.filteredVaccines}}" wx:for-item="vaccine" wx:for-index="vindex" wx:key="name">
+            <view 
+              class="vaccine-card status-{{vaccine.status}}"
+              bindtap="showVaccineDetail"
+              data-index="{{index}}"
+              data-vindex="{{vaccine._origIndex}}"
+            >
+              <view class="vaccine-status-icon">
+                <text wx:if="{{vaccine.status === 'done'}}">✓</text>
+                <text wx:elif="{{vaccine.status === 'overdue'}}">!</text>
+                <text wx:else>○</text>
+              </view>
+              
+              <view class="vaccine-info">
+                <view class="vaccine-name">
+                  {{vaccine.name}}
+                  <text class="vaccine-note" wx:if="{{vaccine.note}}">{{vaccine.note}}</text>
+                </view>
+                <view class="vaccine-dose">{{vaccine.dose}}</view>
+                <view class="vaccine-date">
+                  <text wx:if="{{vaccine.status === 'done'}}">
+                    已接种: {{vaccine.record.vaccinatedDate}}
+                  </text>
+                  <text wx:elif="{{vaccine.status === 'overdue'}}">
+                    已逾期: {{vaccine.plannedDateText}}
+                  </text>
+                  <text wx:else>
+                    计划: {{vaccine.plannedDateText}}
+                  </text>
+                </view>
+              </view>
+              
+              <view class="vaccine-arrow">
+                <text>›</text>
+              </view>
+            </view>
+          </block>
+        </view>
+      </view>
+    </block>
+  </view>
+
+  <!-- 空状态 -->
+  <view wx:if="{{!loading && filteredTotal === 0}}" class="empty-state">
+    <image class="empty-icon" src="/images/icons/vaccine-color.png" mode="aspectFit" lazy-load></image>
+    <text class="empty-text">暂无疫苗记录</text>
+    <text class="empty-hint">点击疫苗卡片查看详情并记录接种</text>
+  </view>
+
+  <!-- 疫苗详情弹窗 -->
+  <view class="popup-mask" wx:if="{{showDetailPopup}}" bindtap="hideDetailPopup">
+    <view class="detail-popup" catchtap>
+      <view class="popup-header">
+        <text class="popup-title">{{selectedVaccine.name}}</text>
+        <view class="popup-close" bindtap="hideDetailPopup">
+          <text>×</text>
+        </view>
+      </view>
+      
+      <scroll-view class="popup-content" scroll-y>
+        <!-- 基本信息 -->
+        <view class="detail-section">
+          <text class="detail-label">疫苗信息</text>
+          <view class="detail-row">
+            <text class="detail-key">剂次</text>
+            <text class="detail-value">{{selectedVaccine.dose}}</text>
+          </view>
+          <view class="detail-row">
+            <text class="detail-key">接种年龄</text>
+            <text class="detail-value">{{selectedVaccine.ageText}}</text>
+          </view>
+          <view class="detail-row">
+            <text class="detail-key">计划日期</text>
+            <text class="detail-value">{{selectedVaccine.plannedDateText}}</text>
+          </view>
+          <view class="detail-row" wx:if="{{selectedVaccine.status === 'done'}}">
+            <text class="detail-key">接种日期</text>
+            <text class="detail-value done">{{selectedVaccine.record.vaccinatedDate}}</text>
+          </view>
+        </view>
+        
+        <!-- 疫苗说明 -->
+        <view class="detail-section">
+          <text class="detail-label">疫苗说明</text>
+          <text class="detail-text">{{selectedVaccine.description}}</text>
+        </view>
+        
+        <!-- 接种部位 -->
+        <view class="detail-section" wx:if="{{selectedVaccine.site}}">
+          <text class="detail-label">接种部位</text>
+          <text class="detail-text">{{selectedVaccine.site}}</text>
+        </view>
+        
+        <!-- 注意事项 -->
+        <view class="detail-section" wx:if="{{selectedVaccine.precautions}}">
+          <text class="detail-label">注意事项</text>
+          <text class="detail-text warning">{{selectedVaccine.precautions}}</text>
+        </view>
+        
+        <!-- 禁忌症 -->
+        <view class="detail-section" wx:if="{{selectedVaccine.contraindications}}">
+          <text class="detail-label">禁忌症</text>
+          <text class="detail-text">{{selectedVaccine.contraindications}}</text>
+        </view>
+      </scroll-view>
+      
+      <view class="popup-footer">
+        <view 
+          class="btn-action {{selectedVaccine.status === 'done' ? 'secondary' : 'primary'}}" 
+          bindtap="onVaccineAction"
+        >
+          <text wx:if="{{selectedVaccine.status === 'done'}}">修改记录</text>
+          <text wx:else>标记已接种</text>
+        </view>
+        <view class="btn-action danger" wx:if="{{selectedVaccine.status === 'done'}}" bindtap="deleteVaccineRecord">
+          <text>删除记录</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 接种日期选择弹窗 -->
+  <view class="popup-mask" wx:if="{{showDatePopup}}" bindtap="hideDatePopup">
+    <view class="date-popup" catchtap>
+      <view class="popup-header">
+        <text class="popup-title">选择接种日期</text>
+        <view class="popup-close" bindtap="hideDatePopup">
+          <text>×</text>
+        </view>
+      </view>
+      
+      <view class="date-picker-content">
+        <picker-view 
+          class="date-picker-view"
+          value="{{pickerValue}}"
+          bindchange="onPickerChange"
+        >
+          <picker-view-column>
+            <view wx:for="{{years}}" wx:key="*this" class="picker-item">{{item}}年</view>
+          </picker-view-column>
+          <picker-view-column>
+            <view wx:for="{{months}}" wx:key="*this" class="picker-item">{{item}}月</view>
+          </picker-view-column>
+          <picker-view-column>
+            <view wx:for="{{days}}" wx:key="*this" class="picker-item">{{item}}日</view>
+          </picker-view-column>
+        </picker-view>
+      </view>
+      
+      <view class="popup-footer">
+        <view class="btn-action secondary" bindtap="hideDatePopup">取消</view>
+        <view class="btn-action primary" bindtap="confirmVaccinate">确认</view>
+      </view>
+    </view>
+  </view>
+</view>

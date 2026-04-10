@@ -1,0 +1,163 @@
+# Baby Care Tracker 数据模型文档
+
+> **版本**: v3.1 | **更新日期**: 2026-04-08
+
+---
+
+## 1. 数据库集合总览
+
+项目使用 **CloudBase NoSQL** 数据库，共 **6 个集合**：
+
+| 集合名 | 用途 | 主要操作服务 |
+|--------|------|-------------|
+| `users` | 用户信息 | AuthService |
+| `families` | 家庭组 | FamilyService |
+| `babies` | 宝宝档案 | BabyService |
+| `records` | 核心记录（喂养/睡眠/排便/体温/生长）| RecordService |
+| `vaccine_records` | 疫苗接种记录 | TodoService、vaccine.js |
+| `milestone_records` | 发育里程碑记录 | TodoService、milestone.js |
+
+---
+
+## 2. 集合详细定义
+
+### 2.1 `users` 用户集合
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `_id` | string | 系统 | 系统自动生成 |
+| `_openid` | string | 系统 | 微信自动添加 |
+| `nickname` | string | 是 | 昵称 |
+| `avatar` | string | 否 | 头像 URL |
+| `role` | enum | 是 | `'parent'` \| `'family_member'` |
+| `relation` | string | 是 | 身份关系标识（mom/dad/grandma_m 等）|
+| `relationText` | string | 是 | 身份关系中文文本 |
+| `familyId` | string | 否 | 关联家庭 ID |
+| `familyRole` | enum | 否 | `'admin'` \| `'editor'` \| `'viewer'` |
+| `createdAt` | serverDate | 是 | 创建时间 |
+| `updatedAt` | serverDate | 是 | 更新时间 |
+
+### 2.2 `families` 家庭组集合
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `_id` | string | 系统 | 系统自动生成 |
+| `name` | string | 是 | 家庭名称 |
+| `creatorId` | string | 是 | 创建者 openid |
+| `creatorName` | string | 是 | 创建者名称 |
+| `members` | string[] | 是 | 成员 openid 数组 |
+| `memberDetails` | Object[] | 是 | 成员详情数组 |
+| `memberDetails[].userId` | string | 是 | 成员 openid |
+| `memberDetails[].name` | string | 是 | 成员名称 |
+| `memberDetails[].role` | enum | 是 | `'admin'`\|`'editor'`\|`'viewer'` |
+| `memberDetails[].relation` | string | 否 | 与宝宝关系 |
+| `memberDetails[].joinedAt` | string(ISO) | 是 | 加入时间 |
+| `babies` | string[] | 是 | 宝宝 ID 数组 |
+| `inviteCode` | string | 是 | 6位邀请码（去除 I/O/0/1） |
+| `inviteCodeExpiry` | string(ISO) | 是 | 邀请码过期时间（7天有效） |
+| `createdAt` | string(ISO) | 是 | 创建时间 |
+| `updatedAt` | string(ISO) | 是 | 更新时间 |
+
+### 2.3 `babies` 宝宝集合
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `_id` | string | 系统 | 系统自动生成 |
+| `familyId` | string | 是 | 所属家庭 ID |
+| `name` | string | 是 | 姓名 |
+| `gender` | enum | 是 | `'male'` \| `'female'` |
+| `birthDate` | Date | 是 | 出生日期 |
+| `avatar` | string | 否 | 头像（云存储 fileID） |
+| `vaccinePlan` | string[] | 否 | 疫苗计划 ID 列表 |
+| `createdAt` | Date | 是 | 创建时间 |
+| `updatedAt` | Date | 是 | 更新时间 |
+
+### 2.4 `records` 核心记录集合
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `_id` | string | 系统 | 系统自动生成 |
+| `babyId` | string | 是 | 宝宝 ID |
+| `recordType` | enum | 是 | `'feeding'`\|`'sleep'`\|`'diaper'`\|`'temperature'`\|`'growth'` |
+| `startTime` | serverDate | 是 | 开始时间（服务器时间） |
+| `startTimeTs` | number | 是 | 开始时间数值时间戳 |
+| `endTime` | Date | 否 | 结束时间（睡眠等） |
+| `endTimeTs` | number | 否 | 结束时间数值时间戳 |
+| `data` | Object | 是 | **类型特定数据**（见下方） |
+| `note` | string | 否 | 备注 |
+| `createdBy` | Object | 是(新) | `{ userId, nickName, avatar }` |
+| `creatorId` | string | 是(旧) | 创建者 openid（兼容） |
+| `createdByName` | string | 否(旧) | 创建者名称（兼容） |
+| `createdByAvatar` | string | 否(旧) | 创建者头像（兼容） |
+| `createdAt` | serverDate | 是 | 创建时间 |
+| `createdAtTs` | number | 是 | 创建时间数值时间戳 |
+| `updatedAt` | serverDate | 是 | 更新时间 |
+| `updatedAtTs` | number | 是 | 更新时间数值时间戳 |
+
+**`data` 子结构按 `recordType` 区分：**
+
+| recordType | data 字段 |
+|-----------|----------|
+| feeding | `feedingType: 'breast'\|'formula'\|'solid'`, `amount?: number(ml)`, `duration?: number(秒)`, `breastSide?: 'left'\|'right'\|'both'` |
+| sleep | `sleepType: 'night'\|'nap'`, `duration: number(秒)`, `location?: string` |
+| diaper | `diaperType: 'pee'\|'poop'\|'both'`, `consistency?: 'watery'\|'soft'\|'formed'\|'hard'`, `color?: 'normal'\|'yellow'\|'green'\|'black'\|'red'` |
+| temperature | `temperature: number(°C)`, `method?: 'oral'\|'axillary'\|'rectal'\|'ear'` |
+| growth | `height?: number(cm)`, `weight?: number(kg)`, `headCircumference?: number(cm)` |
+
+### 2.5 `vaccine_records` 疫苗接种记录
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `_id` | string | 系统 | 系统自动生成 |
+| `babyId` | string | 是 | 宝宝 ID |
+| `name` | string | 是 | 疫苗名称 |
+| `dose` | string | 是 | 剂次（如 "第1剂"） |
+| `vaccinatedDate` | Date | 是 | 接种日期 |
+| `note` | string | 否 | 备注 |
+
+### 2.6 `milestone_records` 里程碑达成记录
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `_id` | string | 系统 | 系统自动生成 |
+| `babyId` | string | 是 | 宝宝 ID |
+| `name` | string | 是 | 里程碑名称 |
+| `category` | string | 是 | 分类（大运动/精细动作/语言/社交） |
+| `achievedDate` | Date | 是 | 达成日期 |
+| `note` | string | 否 | 备注 |
+
+---
+
+## 3. 缓存策略
+
+| 数据类型 | 缓存键 | 存储位置 | TTL |
+|---------|--------|---------|-----|
+| 用户信息 | `user_info` | wx.localStorage | 长期 |
+| 当前宝宝 | `current_baby` | wx.localStorage | 长期 |
+| 家庭信息 | `family_info` | wx.localStorage | 长期 |
+| 记录缓存 | `records_{babyId}` | wx.localStorage | 实时同步，最多 200 条 |
+| 离线队列 | `offline_queue` | wx.localStorage | 持久 |
+| AI 配额 | `ai_quota` | wx.localStorage | 每日重置 `{ date, used }` |
+| AI 洞察 | `ai_insight_{babyId}_{date}` | wx.localStorage | 当日有效，7天自动清理 |
+| 活动睡眠 | `active_sleep_{babyId}` | wx.localStorage | 手动清理 |
+| 今日统计 | `_todayStatsCache` | 内存(RecordService) | **15 秒** |
+| 待办统计 | `_cache` | 内存(TodoService) | **30 秒** |
+| 趋势数据 | `_cache` / `_periodCache` | 内存(TrendService) | **30 秒** |
+| 主题偏好 | `app_theme_mode` | wx.localStorage | 长期（`'light'`/`'dark'`/`'system'`） |
+| 去重操作 | `pendingOperations` | 内存(DeduplicationUtil) | **30 秒** 自动清理 |
+
+---
+
+## 4. 原子操作使用约定
+
+| 操作 | 云数据库 Command | 应用场景 |
+|------|----------------|---------|
+| 向数组追加 | `db.command.push()` | 添加家庭成员、宝宝 |
+| 从数组移除 | `db.command.pull()` | 移除成员、宝宝 |
+| 批量查询 | `db.command.in()` | 批量获取宝宝信息 |
+| 删除字段 | `db.command.remove()` | 清除 familyId |
+| 范围查询 | `db.command.gte()/lte()/and()` | 时间范围筛选 |
+
+---
+
+*文档维护：新增集合或字段时同步更新此文档。*

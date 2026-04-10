@@ -1,0 +1,218 @@
+/* 体温记录弹窗样式 - 美拉德色彩风格 */
+@import '../../styles/popup.wxss';
+
+/* 体温主题色覆盖 */
+.popup-icon {
+  background: linear-gradient(135deg, 
+    rgba(212, 168, 168, 0.15) 0%, 
+    rgba(196, 152, 152, 0.2) 100%
+  );
+}
+
+/* 体温弹窗 popup-content 覆盖：增加 overflow */
+.popup-content {
+  overflow: hidden;
+  max-height: calc(80vh - 180rpx);
+}
+
+.popup-icon-img {
+  width: 48rpx;
+  height: 48rpx;
+}
+
+/* 分段 — 使用硬编码值 */
+.section {
+  margin-bottom: 32rpx;
+}
+
+.section-title {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 16rpx;
+}
+
+/* 体温输入 */
+.temperature-input {
+  width: 100%;
+  height: 96rpx;
+  background: var(--bg-primary);
+  border-radius: 16rpx;
+  padding: 0 24rpx;
+  font-size: 48rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: center;
+  box-sizing: border-box;
+}
+
+/* 发热等级 */
+.fever-level {
+  text-align: center;
+  padding: 24rpx 0;
+  border-radius: 16rpx;
+  margin-bottom: 32rpx;
+}
+
+.fever-level.low {
+  background: rgba(91, 143, 249, 0.1);
+}
+
+.fever-level.normal {
+  background: rgba(7, 193, 96, 0.1);
+}
+
+.fever-level.low-fever {
+  background: rgba(255, 197, 61, 0.1);
+}
+
+.fever-level.moderate-fever {
+  background: rgba(255, 151, 106, 0.1);
+}
+
+.fever-level.high-fever {
+  background: rgba(255, 120, 117, 0.1);
+}
+
+.fever-level.ultra-high-fever {
+  background: rgba(255, 77, 79, 0.1);
+}
+
+.fever-level-text {
+  font-size: 32rpx;
+  font-weight: 600;
+}
+
+.fever-level.low .fever-level-text {
+  color: var(--fever-low, #5B8FF9);
+}
+
+.fever-level.normal .fever-level-text {
+  color: var(--fever-normal, #07C160);
+}
+
+.fever-level.low-fever .fever-level-text {
+  color: var(--fever-low-fever, #FFC53D);
+}
+
+.fever-level.moderate-fever .fever-level-text {
+  color: var(--fever-moderate, #FF976A);
+}
+
+.fever-level.high-fever .fever-level-text {
+  color: var(--fever-high, #FF7875);
+}
+
+.fever-level.ultra-high-fever .fever-level-text {
+  color: var(--fever-ultra-high, #FF4D4F);
+}
+
+/* 测量方式 */
+.methods {
+  display: flex;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+
+.method-item {
+  flex: 1;
+  min-width: 140rpx;
+  padding: var(--spacing-md) 0;
+  background: var(--bg-primary);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12rpx;
+  transition: all var(--transition-fast);
+  border: 2rpx solid transparent;
+}
+
+.method-item.active {
+  background: linear-gradient(135deg, 
+    rgba(212, 168, 168, 0.15) 0%, 
+    rgba(196, 152, 152, 0.2) 100%
+  );
+  border-color: var(--temperature-color);
+}
+
+.method-icon {
+  width: 64rpx;
+  height: 64rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.method-icon-img {
+  width: 48rpx;
+  height: 48rpx;
+}
+
+.method-label {
+  font-size: 26rpx;
+  color: var(--text-primary);
+}
+
+/* 预警信息 */
+.warning-banner {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  padding: 24rpx;
+  border-radius: 16rpx;
+  margin-bottom: 32rpx;
+}
+
+.warning-banner.warning {
+  background: rgba(255, 151, 106, 0.1);
+  border: 2rpx solid var(--warning-color);
+}
+
+.warning-banner.info {
+  background: rgba(91, 143, 249, 0.1);
+  border: 2rpx solid var(--info-color);
+}
+
+.warning-banner.error {
+  background: rgba(255, 77, 79, 0.1);
+  border: 2rpx solid var(--danger-color);
+}
+
+.warning-icon {
+  width: 32rpx;
+  height: 32rpx;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.warning-banner.warning .warning-icon {
+  background: var(--warning-color);
+}
+
+.warning-banner.info .warning-icon {
+  background: var(--info-color);
+}
+
+.warning-banner.error .warning-icon {
+  background: var(--danger-color);
+}
+
+.warning-message {
+  font-size: 24rpx;
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+
+/* 备注输入 — 使用硬编码 border-radius，覆盖公共样式 */
+.note-input {
+  border-radius: 16rpx;
+  padding: 24rpx;
+}
+
+/* 提交按钮 - 体温主题色 */
+.submit-btn {
+  background: linear-gradient(135deg, var(--temperature-color) 0%, var(--temperature-gradient-end, #C49898) 100%);
+  box-shadow: 0 4rpx 24rpx rgba(212, 168, 168, 0.3);
+}

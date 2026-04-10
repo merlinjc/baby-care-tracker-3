@@ -1,0 +1,67 @@
+<view class="baby-detail-container {{darkMode ? 'dark-mode' : ''}}">
+  <!-- 头像和基本信息 -->
+  <view class="header-section">
+    <view class="avatar-wrapper" bindtap="onChooseAvatar">
+      <image
+        class="baby-avatar"
+        src="{{baby.avatar || '/images/default-baby-avatar.svg'}}"
+        mode="aspectFill"
+      />
+      <view class="avatar-edit-hint" wx:if="{{!uploading}}">
+        <image src="/images/icons/camera.png" mode="aspectFit"></image>
+      </view>
+      <view class="avatar-uploading" wx:if="{{uploading}}">
+        <view class="upload-spinner"></view>
+      </view>
+      <view class="avatar-badge">
+        <image src="/images/default-baby-avatar.svg" mode="aspectFit"></image>
+      </view>
+    </view>
+    <view class="baby-name">{{baby.name}}</view>
+    <view class="baby-age">{{ageText}}</view>
+  </view>
+
+  <!-- 详细信息卡片 -->
+  <view class="info-card">
+    <view class="info-item">
+      <view class="info-left">
+        <image src="/images/icons/family.png" mode="aspectFit"></image>
+        <text class="info-label">性别</text>
+      </view>
+      <text class="info-value">{{baby.gender === 'male' ? '男孩' : '女孩'}}</text>
+    </view>
+    <view class="info-item">
+      <view class="info-left">
+        <image src="/images/icons/calendar.png" mode="aspectFit"></image>
+        <text class="info-label">出生日期</text>
+      </view>
+      <text class="info-value">{{baby.birthDate}}</text>
+    </view>
+  </view>
+
+  <!-- 操作按钮 -->
+  <view class="action-section">
+    <button class="action-btn primary" bindtap="onSwitch">
+      <image src="/images/icons/swap.png" mode="aspectFit"></image>
+      <text>切换为当前宝宝</text>
+    </button>
+    <button class="action-btn" bindtap="onEdit">
+      <image src="/images/icons/edit.png" mode="aspectFit"></image>
+      <text>编辑信息</text>
+    </button>
+    <button class="action-btn" bindtap="onShare">
+      <image src="/images/icons/share.png" mode="aspectFit"></image>
+      <text>分享档案</text>
+    </button>
+  </view>
+</view>
+
+<!-- 编辑宝宝信息弹窗 -->
+<baby-edit-popup 
+  id="editPopup"
+  show="{{showEditPopup}}"
+  baby="{{baby}}"
+  dark-mode="{{darkMode}}"
+  bind:close="closeEditPopup"
+  bind:updated="onBabyUpdated"
+/>

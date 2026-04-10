@@ -1,0 +1,139 @@
+<!--喂养记录弹窗-->
+<view class="{{darkMode ? 'dark-mode' : ''}} popup-mask popup-mask-visible" 
+      hidden="{{!show}}"
+      bindtap="close"
+      catchtouchmove="preventMove">
+  <view class="popup-container popup-enter" 
+        style="transform: translateY({{popupTranslateY}}px)"
+        catchtap="stopPropagation"
+        bindtouchstart="onTouchStart"
+        bindtouchmove="onTouchMove"
+        bindtouchend="onTouchEnd">
+    <!-- 下滑指示条 -->
+    <view class="swipe-indicator"></view>
+    <!-- 标题栏 -->
+    <view class="popup-header">
+      <view class="popup-icon">
+        <image src="/images/icons/feeding-color.png" 
+               mode="aspectFit" lazy-load></image>
+      </view>
+      <text class="popup-title">喂养记录</text>
+      <view class="popup-close" bindtap="close">
+        <text>×</text>
+      </view>
+    </view>
+
+    <!-- 可滚动内容区域 -->
+    <scroll-view class="popup-content" scroll-y enhanced show-scrollbar="{{false}}">
+      <view class="popup-inner">
+      <!-- 喂养类型选择 -->
+      <view class="feeding-types">
+        <view 
+          wx:for="{{feedingTypes}}" 
+          wx:key="value"
+          class="feeding-type-item {{feedingType === item.value ? 'active' : ''}}"
+          data-type="{{item.value}}"
+          bindtap="selectFeedingType"
+        >
+          <view class="feeding-type-icon">
+            <image src="{{item.iconUrl}}" mode="aspectFit" lazy-load></image>
+          </view>
+          <text class="feeding-type-label">{{item.label}}</text>
+        </view>
+      </view>
+
+      <!-- 母乳选项 -->
+      <view class="section" wx:if="{{feedingType === 'breast'}}">
+        <text class="section-title">喂养侧</text>
+        <view class="breast-sides">
+          <view 
+            wx:for="{{breastSides}}" 
+            wx:key="value"
+            class="breast-side-item {{breastSide === item.value ? 'active' : ''}}"
+            data-side="{{item.value}}"
+            bindtap="selectBreastSide"
+          >
+            <text>{{item.label}}</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 配方奶选项 -->
+      <view class="section" wx:if="{{feedingType === 'formula'}}">
+        <text class="section-title">喂养量（点击累加）</text>
+        
+        <!-- 快捷用量选择 -->
+        <view class="quick-amount">
+          <view 
+            wx:for="{{quickAmounts}}" 
+            wx:key="*this"
+            class="quick-amount-item"
+            data-amount="{{item}}"
+            bindtap="selectQuickAmount"
+          >
+            <text>{{item}}ml</text>
+          </view>
+        </view>
+        
+        <!-- 总奶量显示 -->
+        <view class="amount-display">
+          <text class="amount-label">总奶量</text>
+          <text class="amount-value">{{amountDisplay}}</text>
+          <view class="amount-clear" bindtap="clearAmount" wx:if="{{amount > 0}}">
+            <text>清零</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 辅食选项 -->
+      <view class="section" wx:if="{{feedingType === 'solid'}}">
+        <text class="section-title">喂养量 (ml)</text>
+        <input 
+          class="amount-input"
+          type="number"
+          placeholder="请输入喂养量"
+          value="{{solidAmount}}"
+          bindinput="onAmountInput"
+        />
+      </view>
+
+      <!-- 喂养时长（点击累加） -->
+      <view class="section">
+        <text class="section-title">喂养时长（点击累加）</text>
+        
+        <!-- 快捷时长选择 -->
+        <view class="quick-duration">
+          <view 
+            wx:for="{{quickDurations}}" 
+            wx:key="*this"
+            class="quick-duration-item"
+            data-minutes="{{item}}"
+            bindtap="selectQuickDuration"
+          >
+            <text>{{item}}分钟</text>
+          </view>
+        </view>
+        
+        <!-- 时长显示 -->
+        <view class="duration-display">
+          <text class="duration-label">累计时长</text>
+          <text class="duration-value">{{durationDisplay}}</text>
+          <view class="duration-clear" bindtap="clearDuration" wx:if="{{duration > 0}}">
+            <text>清零</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 提交按钮 -->
+      <button 
+        class="submit-btn {{loading ? 'loading' : ''}}"
+        bindtap="submit"
+        disabled="{{loading}}"
+      >
+        <text wx:if="{{!loading}}">保存记录</text>
+        <text wx:else>保存中...</text>
+      </button>
+      </view>
+    </scroll-view>
+  </view>
+</view>

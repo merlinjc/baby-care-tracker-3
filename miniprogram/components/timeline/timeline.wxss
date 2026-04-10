@@ -1,0 +1,332 @@
+/* 时间线组件样式 - 优化版 */
+
+.timeline-container {
+  padding: 0;
+  background: transparent;
+}
+
+/* 空状态 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 56rpx var(--spacing-lg);
+}
+
+.empty-icon {
+  width: 120rpx;
+  height: 120rpx;
+  margin-bottom: 28rpx;
+  opacity: 0.35;
+}
+
+.empty-text {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--radius-sm);
+}
+
+.empty-hint {
+  font-size: 26rpx;
+  color: var(--text-secondary);
+}
+
+/* 日期分组 */
+.date-group {
+  margin-bottom: 28rpx;
+}
+
+.date-header {
+  display: flex;
+  align-items: center;
+  padding: var(--radius-sm) 0;
+  margin: 0 var(--spacing-lg) var(--spacing-sm);
+  position: relative;
+}
+
+.date-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1rpx;
+  background: linear-gradient(90deg, transparent 0%, rgba(212, 165, 116, 0.15) 20%, rgba(212, 165, 116, 0.15) 80%, transparent 100%);
+}
+
+.date-text {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--primary-dark);
+  padding: 0 20rpx;
+  background: var(--bg-primary);
+  z-index: 1;
+  letter-spacing: 0.5rpx;
+}
+
+/* 记录项 */
+.record-item {
+  display: flex;
+  padding: var(--spacing-md) 28rpx;
+  position: relative;
+  background: var(--bg-secondary);
+  margin: 0 var(--spacing-lg) 20rpx;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-soft);
+  border: 1rpx solid var(--border-color);
+  transition: transform var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1), box-shadow var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.record-item:active {
+  transform: scale(0.98);
+  box-shadow: 0 2rpx 8rpx rgba(61, 52, 39, 0.06);
+}
+
+.record-item.selected {
+  background: linear-gradient(135deg, var(--warning-bg) 0%, var(--bg-secondary) 100%);
+  border: 2rpx solid var(--primary-color);
+  box-shadow: 0 4rpx 20rpx rgba(212, 165, 116, 0.15);
+}
+
+/* 批量选择复选框 */
+.batch-checkbox {
+  margin-right: 18rpx;
+  display: flex;
+  align-items: center;
+}
+
+.checkbox {
+  width: 48rpx;
+  height: 48rpx;
+  border: 3rpx solid rgba(212, 165, 116, 0.25);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.25s ease, border-color 0.25s ease;
+  background: var(--white);
+}
+
+.checkbox.checked {
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+  border-color: var(--primary-color);
+  box-shadow: 0 2rpx 8rpx rgba(212, 165, 116, 0.25);
+}
+
+.check-icon {
+  width: 30rpx;
+  height: 30rpx;
+  filter: brightness(0) invert(1);
+}
+
+/* 记录者头像 */
+.creator-avatar {
+  position: relative;
+  width: 52rpx;
+  height: 52rpx;
+  margin-right: 14rpx;
+  flex-shrink: 0;
+}
+
+.avatar-img {
+  width: 52rpx;
+  height: 52rpx;
+  border-radius: 50%;
+  border: 2rpx solid rgba(212, 165, 116, 0.15);
+  box-shadow: 0 2rpx 8rpx rgba(61, 52, 39, 0.06);
+}
+
+.history-badge {
+  position: absolute;
+  bottom: -3rpx;
+  right: -3rpx;
+  width: 22rpx;
+  height: 22rpx;
+  background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-dark) 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2rpx solid var(--white);
+}
+
+.history-icon {
+  width: 12rpx;
+  height: 12rpx;
+  filter: brightness(0) invert(1);
+}
+
+/* 时间点圆点 */
+.record-dot {
+  width: 60rpx;
+  height: 60rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 22rpx;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 3rpx 12rpx rgba(0, 0, 0, 0.08);
+}
+
+.record-dot.feeding {
+  background: linear-gradient(145deg, var(--feeding-color) 0%, #7BC47B 100%);
+}
+
+.record-dot.sleep {
+  background: linear-gradient(145deg, var(--sleep-color) 0%, #9A8BC4 100%);
+}
+
+.record-dot.diaper {
+  background: linear-gradient(145deg, var(--diaper-color) 0%, #C4B088 100%);
+}
+
+.record-dot.temperature {
+  background: linear-gradient(145deg, var(--temperature-color) 0%, #C48888 100%);
+}
+
+/* 默认颜色 */
+.record-dot {
+  background: linear-gradient(145deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+}
+
+.dot-icon {
+  width: 34rpx;
+  height: 34rpx;
+  filter: brightness(0) invert(1);
+}
+
+/* 记录内容 */
+.record-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.record-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-xs);
+}
+
+.record-type {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.record-time {
+  font-size: 24rpx;
+  color: var(--primary-dark);
+}
+
+.record-summary {
+  font-size: 26rpx;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* 记录者信息 */
+.record-creator {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin-top: var(--spacing-xs);
+}
+
+.creator-icon {
+  width: 24rpx;
+  height: 24rpx;
+  opacity: 0.5;
+}
+
+.creator-text {
+  font-size: 22rpx;
+  color: var(--text-secondary);
+}
+
+.record-operator {
+  margin-top: var(--radius-sm);
+}
+
+.operator-text {
+  font-size: 22rpx;
+  color: var(--text-secondary);
+}
+
+/* 备注 */
+.record-note {
+  margin-top: var(--radius-sm);
+  padding: var(--radius-sm) var(--spacing-sm);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  border-left: 4rpx solid var(--primary-color);
+}
+
+.note-text {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+
+/* ========== FR-11: 左滑编辑样式 ========== */
+.record-item-wrapper {
+  position: relative;
+  overflow: hidden;
+}
+
+.record-item.swiped {
+  transform: translateX(-180rpx);
+}
+
+.swipe-actions {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: stretch;
+  opacity: 0;
+  transform: translateX(100%);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  margin: 0 var(--spacing-lg, 24rpx) 20rpx 0;
+  border-radius: 0 var(--radius-md, 16rpx) var(--radius-md, 16rpx) 0;
+  overflow: hidden;
+}
+
+.swipe-actions.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.swipe-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 90rpx;
+  padding: 16rpx;
+  color: var(--white, #FFFFFF);
+  font-size: 22rpx;
+  font-weight: 500;
+}
+
+.swipe-btn.edit {
+  background: var(--primary-color, #D4B896);
+}
+
+.swipe-btn.delete {
+  background: var(--danger-color, #E85454);
+}
+
+.swipe-btn:active {
+  opacity: 0.85;
+}
+
+.swipe-btn-icon {
+  width: 36rpx;
+  height: 36rpx;
+  margin-bottom: 6rpx;
+  filter: brightness(0) invert(1);
+}

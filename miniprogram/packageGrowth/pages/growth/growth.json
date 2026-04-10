@@ -1,0 +1,8 @@
+{
+  "usingComponents": {
+    "icon": "/components/icon/icon"
+  },
+  "navigationBarTitleText": "生长发育追踪",
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "light"
+}

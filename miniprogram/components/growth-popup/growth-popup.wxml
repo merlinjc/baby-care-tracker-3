@@ -1,0 +1,99 @@
+<!--生长数据录入弹窗组件-->
+<view class="popup-mask {{darkMode ? 'dark-mode' : ''}}" hidden="{{!show}}" bindtap="onMaskTap">
+  <view class="add-popup" 
+        catchtap="stopPropagation"
+        style="transform: translateY({{popupTranslateY}}px)"
+        bindtouchstart="onTouchStart"
+        bindtouchmove="onTouchMove"
+        bindtouchend="onTouchEnd">
+    <!-- 下滑指示条 -->
+    <view class="swipe-indicator"></view>
+    <view class="popup-header">
+      <text class="popup-title">添加生长数据</text>
+      <view class="popup-close" bindtap="onClose">
+        <text>×</text>
+      </view>
+    </view>
+    
+    <scroll-view class="popup-content" scroll-y>
+      <view class="popup-inner">
+        <view class="form-section">
+          <view class="form-label">测量日期</view>
+          <picker mode="date" value="{{formData.date}}" bindchange="onDateChange">
+            <view class="form-picker">
+              <text class="picker-value">{{formData.date || '请选择日期'}}</text>
+              <text class="picker-arrow">›</text>
+            </view>
+          </picker>
+        </view>
+        
+        <view class="form-section">
+          <view class="form-label">
+            <text>体重</text>
+            <text class="label-unit">(kg)</text>
+          </view>
+          <input 
+            class="form-input" 
+            type="digit" 
+            placeholder="请输入体重"
+            value="{{formData.weight}}"
+            bindinput="onWeightInput"
+          />
+          <text class="form-hint">{{weightRange}}</text>
+        </view>
+        
+        <view class="form-section">
+          <view class="form-label">
+            <text>身高</text>
+            <text class="label-unit">(cm)</text>
+          </view>
+          <input 
+            class="form-input" 
+            type="digit" 
+            placeholder="请输入身高"
+            value="{{formData.height}}"
+            bindinput="onHeightInput"
+          />
+          <text class="form-hint">{{heightRange}}</text>
+        </view>
+        
+        <view class="form-section">
+          <view class="form-label">
+            <text>头围</text>
+            <text class="label-unit">(cm)</text>
+            <text class="label-optional">可选</text>
+          </view>
+          <input 
+            class="form-input" 
+            type="digit" 
+            placeholder="请输入头围"
+            value="{{formData.headCircumference}}"
+            bindinput="onHeadInput"
+          />
+          <text class="form-hint">{{headRange}}</text>
+        </view>
+        
+        <view class="form-section">
+          <view class="form-label">
+            <text>备注</text>
+            <text class="label-optional">可选</text>
+          </view>
+          <textarea 
+            class="form-textarea" 
+            placeholder="添加备注信息"
+            value="{{formData.note}}"
+            bindinput="onNoteInput"
+          ></textarea>
+        </view>
+      </view>
+    </scroll-view>
+    
+    <view class="popup-footer">
+      <view class="btn-cancel" bindtap="onClose">取消</view>
+      <view class="btn-save" bindtap="onSave">
+        <text wx:if="{{!saving}}">保存</text>
+        <text wx:else>保存中...</text>
+      </view>
+    </view>
+  </view>
+</view>

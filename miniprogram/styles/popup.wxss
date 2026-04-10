@@ -1,0 +1,157 @@
+/* 
+ * 公共弹窗样式 - 美拉德色彩风格
+ * 从 feeding/sleep/diaper/temperature 4个弹窗组件提取
+ * 使用方法：在组件 wxss 顶部添加 @import '../../styles/popup.wxss';
+ *
+ * 各弹窗需自行覆盖的差异化样式：
+ *   - .popup-icon { background } — 各组件主题色渐变
+ *   - .popup-content { height } — sleep-popup 为 85vh 对应值
+ *   - .submit-btn { background, box-shadow } — 各组件主题色
+ *   - .popup-container { max-height } — sleep-popup 为 85vh
+ */
+
+/* 遮罩层 */
+.popup-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--mask-color);
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.popup-mask-visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* 弹窗容器 */
+.popup-container {
+  width: 100%;
+  box-sizing: border-box;
+  max-height: 80vh;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  padding: var(--spacing-lg) 0;
+  padding-bottom: calc(var(--spacing-lg) + env(safe-area-inset-bottom));
+  box-shadow: var(--shadow-popup);
+  transform: translateY(100%);
+  transition: transform 0.3s ease-out;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.popup-enter {
+  transform: translateY(0);
+}
+
+/* 可滚动内容区域 */
+.popup-content {
+  flex: 1;
+  height: calc(80vh - 180rpx);
+}
+
+/* 内部容器 - 承载左右 padding，避免 scroll-view 裁剪 */
+.popup-inner {
+  padding: 0 var(--spacing-lg);
+}
+
+/* 下滑指示条 */
+.swipe-indicator {
+  width: 80rpx;
+  height: 8rpx;
+  background: var(--border-color);
+  border-radius: 4rpx;
+  margin: 0 auto 24rpx;
+}
+
+/* 标题栏 */
+.popup-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--spacing-lg);
+  padding: 0 var(--spacing-lg) var(--spacing-md);
+  border-bottom: 1rpx solid var(--border-color);
+}
+
+.popup-icon {
+  width: 64rpx;
+  height: 64rpx;
+  margin-right: var(--spacing-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+}
+
+.popup-icon image {
+  width: 48rpx;
+  height: 48rpx;
+}
+
+.popup-title {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.popup-close {
+  width: 48rpx;
+  height: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48rpx;
+  color: var(--text-hint);
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.popup-close:active {
+  color: var(--text-secondary);
+}
+
+/* 备注输入 */
+.note-input {
+  width: 100%;
+  height: 160rpx;
+  background: var(--bg-primary);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  font-size: 26rpx;
+  color: var(--text-primary);
+  box-sizing: border-box;
+}
+
+/* 提交按钮 */
+.submit-btn {
+  width: 100%;
+  height: 88rpx;
+  border-radius: var(--radius-lg);
+  color: var(--white);
+  font-size: 32rpx;
+  font-weight: 500;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  margin-top: var(--spacing-lg);
+  margin-bottom: 32rpx;
+}
+
+.submit-btn:active {
+  transform: scale(0.98);
+}
+
+.submit-btn.loading {
+  opacity: 0.7;
+}

@@ -1,0 +1,18 @@
+<!--错误状态组件-->
+<view class="error-container">
+  <view class="error-icon">
+    <image wx:if="{{icon === 'error'}}" src="/images/icons/warning.png" class="icon-img" mode="aspectFit" lazy-load></image>
+    <image wx:elif="{{icon === 'network'}}" src="/images/icons/wifi.png" class="icon-img" mode="aspectFit" lazy-load></image>
+    <image wx:else src="/images/icons/error.png" class="icon-img" mode="aspectFit" lazy-load></image>
+  </view>
+  <view class="error-message">{{message}}</view>
+  <button 
+    wx:if="{{showRetry}}" 
+    class="retry-btn {{retrying ? 'loading' : ''}}" 
+    bindtap="onRetry"
+    disabled="{{retrying}}"
+  >
+    <text wx:if="{{!retrying}}">{{retryText}}</text>
+    <text wx:else>加载中...</text>
+  </button>
+</view>

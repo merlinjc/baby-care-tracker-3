@@ -1,0 +1,148 @@
+/* 设置页样式 */
+.page-container {
+  min-height: 100vh;
+  background: var(--bg-primary, #F5F1EB);
+  padding: 24rpx;
+  padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
+}
+
+/* 区块 */
+.section {
+  background: var(--bg-secondary, #FFFFFF);
+  border-radius: var(--radius-lg, 32rpx);
+  margin-bottom: 24rpx;
+  overflow: hidden;
+  box-shadow: var(--shadow-card, 0 4rpx 24rpx rgba(139, 123, 107, 0.08));
+}
+
+.section-title {
+  padding: 24rpx 32rpx 16rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text-hint, #999999);
+}
+
+/* 设置项 */
+.setting-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 28rpx 32rpx;
+  border-bottom: 1rpx solid rgba(139, 123, 107, 0.08);
+}
+
+.setting-item:last-child {
+  border-bottom: none;
+}
+
+.setting-label {
+  font-size: 30rpx;
+  color: var(--text-primary, #3D3D3D);
+}
+
+/* 菜单项 */
+.menu-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 28rpx 32rpx;
+  border-bottom: 1rpx solid rgba(139, 123, 107, 0.08);
+  transition: background 0.2s ease;
+}
+
+.menu-item:last-child {
+  border-bottom: none;
+}
+
+.menu-item:active {
+  background: var(--bg-primary, #F5F1EB);
+}
+
+.menu-label {
+  font-size: 30rpx;
+  color: var(--text-primary, #3D3D3D);
+}
+
+.menu-value {
+  font-size: 28rpx;
+  color: var(--text-hint, #999999);
+}
+
+.menu-arrow {
+  font-size: 32rpx;
+  color: var(--text-hint, #CCCCCC);
+}
+
+/* 危险操作项 */
+.danger-item {
+  background: rgba(232, 84, 84, 0.05);
+}
+
+.danger-item:active {
+  background: rgba(232, 84, 84, 0.1);
+}
+
+.danger-text {
+  color: var(--danger-color);
+}
+
+/* 主题选择器 */
+.theme-options {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: 24rpx 16rpx 28rpx;
+}
+
+.theme-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12rpx;
+  padding: 20rpx 28rpx;
+  border-radius: var(--radius-md, 24rpx);
+  border: 2rpx solid transparent;
+  transition: all 0.2s ease;
+  min-width: 140rpx;
+}
+
+.theme-option.active {
+  border-color: var(--primary-color, #D4B896);
+  background: linear-gradient(135deg, rgba(212, 184, 150, 0.1) 0%, rgba(232, 220, 200, 0.15) 100%);
+}
+
+.theme-icon-wrapper {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.theme-icon-light {
+  background: linear-gradient(135deg, #FFF5EB, #FFE8D0);
+}
+
+.theme-icon-dark {
+  background: linear-gradient(135deg, #2A2420, #1E1A16);
+}
+
+.theme-icon-system {
+  background: linear-gradient(135deg, #E8DCC8, #D4C8B8);
+}
+
+.theme-icon-text {
+  font-size: 36rpx;
+}
+
+.theme-option-label {
+  font-size: 24rpx;
+  color: var(--text-secondary, #666666);
+  font-weight: 500;
+}
+
+.theme-option.active .theme-option-label {
+  color: var(--primary-dark, #8B7B6B);
+  font-weight: 600;
+}

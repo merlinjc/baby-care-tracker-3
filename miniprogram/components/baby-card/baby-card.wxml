@@ -1,0 +1,24 @@
+<view class="baby-card" bindtap="onTap">
+  <view class="baby-info">
+    <image 
+      class="baby-avatar" 
+      src="{{baby.avatar || '/images/default-baby-avatar.svg'}}" 
+      mode="aspectFill"
+      lazy-load
+    />
+    
+    <view class="baby-details">
+      <view class="baby-name">{{baby.name}}</view>
+      <view class="baby-age">{{ageDisplay}}</view>
+    </view>
+  </view>
+  
+  <view class="baby-gender">
+    <image 
+      class="gender-icon" 
+      src="{{baby.gender === 'male' ? '/images/icons/boy.png' : '/images/icons/girl.png'}}" 
+      mode="aspectFit"
+      lazy-load
+    />
+  </view>
+</view>

@@ -1,0 +1,419 @@
+/* components/easter-egg-popup/easter-egg-popup.wxss */
+
+/* ============ 遮罩 ============ */
+.egg-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--mask-color, rgba(139, 123, 107, 0.4));
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.egg-mask.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* ============ 弹窗容器 ============ */
+.egg-popup {
+  width: 85%;
+  max-width: 640rpx;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg, 32rpx);
+  box-shadow: var(--shadow-popup);
+  padding: 48rpx 40rpx;
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+
+  /* 入场动画 */
+  transform: scale(0.85) translateY(40rpx);
+  opacity: 0;
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), 
+              opacity 0.3s ease;
+}
+
+.egg-popup.entering,
+.egg-popup.visible {
+  transform: scale(1) translateY(0);
+  opacity: 1;
+}
+
+.egg-popup.leaving {
+  transform: scale(0.9) translateY(20rpx);
+  opacity: 0;
+  transition: transform 0.3s ease-in, opacity 0.3s ease-in;
+}
+
+/* 365day 周岁 — 全屏级别 */
+.egg-popup.type-365day {
+  width: 90%;
+  max-width: 680rpx;
+  padding: 64rpx 40rpx;
+}
+
+/* 100day 百日 — 祥云纹理背景 */
+.egg-cloud-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.06;
+  background-image: 
+    radial-gradient(ellipse 80rpx 60rpx at 20% 30%, var(--primary-light, #E8DCC8) 50%, transparent 50%),
+    radial-gradient(ellipse 60rpx 40rpx at 70% 25%, var(--primary-light, #E8DCC8) 50%, transparent 50%),
+    radial-gradient(ellipse 100rpx 60rpx at 50% 70%, var(--primary-light, #E8DCC8) 50%, transparent 50%),
+    radial-gradient(ellipse 70rpx 50rpx at 80% 65%, var(--primary-light, #E8DCC8) 50%, transparent 50%);
+  background-repeat: no-repeat;
+}
+
+/* ============ 关闭按钮 ============ */
+.egg-close {
+  position: absolute;
+  top: 24rpx;
+  right: 24rpx;
+  width: 48rpx;
+  height: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(139, 123, 107, 0.08);
+  z-index: 10;
+}
+
+.egg-close text {
+  font-size: 36rpx;
+  color: var(--text-hint, #999999);
+  line-height: 1;
+}
+
+.egg-close:active {
+  background: rgba(139, 123, 107, 0.15);
+}
+
+/* ============ 图标区 ============ */
+.egg-icon-area {
+  margin-bottom: 32rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120rpx;
+}
+
+.egg-hero-icon {
+  width: 120rpx;
+  height: 120rpx;
+}
+
+/* ============ 图标动画 ============ */
+@keyframes eggScaleBounce {
+  0% { transform: scale(0); opacity: 0; }
+  50% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.scale-bounce {
+  animation: eggScaleBounce 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes eggBounceIn {
+  0% { transform: scale(0) rotate(-15deg); opacity: 0; }
+  60% { transform: scale(1.1) rotate(5deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+.bounce-in {
+  animation: eggBounceIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* 100day 数字翻转 */
+.egg-number-flip {
+  display: flex;
+  gap: 12rpx;
+}
+
+.flip-digit {
+  display: inline-block;
+  font-size: 80rpx;
+  font-weight: 700;
+  color: var(--primary-color, #D4B896);
+  animation: digitFlipIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  opacity: 0;
+  transform: rotateX(90deg);
+}
+
+@keyframes digitFlipIn {
+  0% { opacity: 0; transform: rotateX(90deg); }
+  100% { opacity: 1; transform: rotateX(0deg); }
+}
+
+/* 365day 周岁视觉 */
+.egg-birthday-visual {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.egg-age-number {
+  font-size: 80rpx;
+  font-weight: 700;
+  color: var(--primary-color, #D4B896);
+  animation: eggBounceIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s forwards;
+  opacity: 0;
+}
+
+/* ============ 粒子动画（365day） ============ */
+.egg-particles {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.particle {
+  position: absolute;
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background: var(--primary-color, #D4B896);
+  opacity: 0;
+  top: -20rpx;
+  left: var(--x, 50%);
+  animation: particleFall 3s ease-in var(--delay, 0s) infinite;
+}
+
+.particle:nth-child(even) {
+  background: var(--primary-light, #E8DCC8);
+  width: 8rpx;
+  height: 8rpx;
+}
+
+.particle:nth-child(3n) {
+  background: var(--accent-color, #B8D4B8);
+  border-radius: 2rpx;
+  width: 10rpx;
+  height: 16rpx;
+}
+
+@keyframes particleFall {
+  0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+  10% { opacity: 0.8; }
+  100% { transform: translateY(800rpx) rotate(720deg); opacity: 0; }
+}
+
+/* ============ 标题区 ============ */
+.egg-title-area {
+  margin-bottom: 32rpx;
+  position: relative;
+  z-index: 1;
+}
+
+.egg-title {
+  display: block;
+  font-size: 48rpx;
+  font-weight: 600;
+  color: var(--text-primary, #3D3D3D);
+  margin-bottom: 16rpx;
+  animation: eggFadeInUp 0.5s ease 0.3s forwards;
+  opacity: 0;
+}
+
+.egg-subtitle {
+  display: block;
+  font-size: 28rpx;
+  color: var(--text-secondary, #666666);
+  line-height: 1.6;
+  animation: eggFadeInUp 0.5s ease 0.5s forwards;
+  opacity: 0;
+}
+
+@keyframes eggFadeInUp {
+  0% { opacity: 0; transform: translateY(20rpx); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* ============ 数据回顾卡片 ============ */
+.egg-retrospect {
+  margin-bottom: 32rpx;
+  position: relative;
+  z-index: 1;
+  animation: eggFadeInUp 0.5s ease 0.7s forwards;
+  opacity: 0;
+}
+
+.retrospect-scroll {
+  width: 100%;
+  white-space: nowrap;
+}
+
+.retrospect-cards {
+  display: inline-flex;
+  gap: 16rpx;
+  padding: 0 8rpx;
+}
+
+.retrospect-card {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 180rpx;
+  padding: 24rpx 16rpx;
+  background: var(--bg-primary, #F5F1EB);
+  border-radius: var(--radius-md, 24rpx);
+  white-space: normal;
+}
+
+.retrospect-value {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: var(--primary-color, #D4B896);
+  margin-bottom: 8rpx;
+}
+
+.retrospect-label {
+  font-size: 22rpx;
+  color: var(--text-hint, #999999);
+  text-align: center;
+}
+
+/* 数据回顾加载中 */
+.egg-retrospect-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  padding: 32rpx 0;
+}
+
+.loading-dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background: var(--primary-color, #D4B896);
+  animation: eggDotPulse 1.2s ease-in-out infinite;
+}
+
+.loading-dot:nth-child(2) { animation-delay: 0.2s; }
+.loading-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes eggDotPulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+/* ============ EE-2 百日生长数据对比 ============ */
+.egg-growth-comparison {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  margin-bottom: 32rpx;
+  position: relative;
+  z-index: 1;
+  animation: eggFadeInUp 0.5s ease 0.7s forwards;
+  opacity: 0;
+}
+
+.growth-compare-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16rpx;
+  padding: 16rpx 24rpx;
+  background: var(--bg-primary, #F5F1EB);
+  border-radius: var(--radius-md, 24rpx);
+}
+
+.growth-label {
+  font-size: 24rpx;
+  color: var(--text-hint, #999999);
+  width: 60rpx;
+}
+
+.growth-from {
+  font-size: 32rpx;
+  font-weight: 500;
+  color: var(--text-secondary, #666666);
+}
+
+.growth-arrow {
+  font-size: 28rpx;
+  color: var(--primary-color, #D4B896);
+  margin: 0 8rpx;
+}
+
+.growth-to {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: var(--primary-color, #D4B896);
+}
+
+/* ============ 连续记录数据（streak_30） ============ */
+.egg-streak-data {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8rpx;
+  margin-bottom: 32rpx;
+  animation: eggFadeInUp 0.5s ease 0.7s forwards;
+  opacity: 0;
+}
+
+.streak-number {
+  font-size: 72rpx;
+  font-weight: 700;
+  color: var(--primary-color, #D4B896);
+}
+
+.streak-label {
+  font-size: 28rpx;
+  color: var(--text-secondary, #666666);
+}
+
+/* ============ 底部按钮 ============ */
+.egg-footer {
+  position: relative;
+  z-index: 1;
+  animation: eggFadeInUp 0.5s ease 0.9s forwards;
+  opacity: 0;
+}
+
+.egg-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 88rpx;
+  background: linear-gradient(135deg, var(--primary-color, #D4B896) 0%, var(--primary-dark, #8B7B6B) 100%);
+  color: var(--white, #FFFFFF);
+  font-size: 32rpx;
+  font-weight: 500;
+  border-radius: var(--radius-lg, 32rpx);
+  box-shadow: 0 4rpx 24rpx rgba(139, 123, 107, 0.2);
+  transition: all 0.2s ease;
+}
+
+.egg-btn text {
+  color: var(--white, #FFFFFF);
+}
+
+.egg-btn:active {
+  transform: scale(0.98);
+  opacity: 0.9;
+}

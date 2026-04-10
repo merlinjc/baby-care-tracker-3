@@ -1,0 +1,6 @@
+{
+  "usingComponents": {},
+  "navigationBarTitleText": "疫苗接种追踪",
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "light"
+}

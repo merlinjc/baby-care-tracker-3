@@ -1,0 +1,100 @@
+<!--AI育儿助手页-->
+<view class="page-container {{darkMode ? 'dark-mode' : ''}}">
+  <!-- 配额提示 -->
+  <view class="quota-banner">
+    <view class="quota-info">
+      <text class="quota-label">今日剩余次数</text>
+      <text class="quota-value">{{quotaInfo.remaining}}/100</text>
+    </view>
+    <view class="quota-bar">
+      <view class="quota-fill" style="width: {{quotaInfo.remaining}}%"></view>
+    </view>
+  </view>
+
+  <!-- 今日评估 -->
+  <view class="assessment-card">
+    <view class="assessment-header">
+      <text class="assessment-title">今日评估</text>
+      <text class="assessment-score">{{aiScore}}分</text>
+    </view>
+    <view class="score-bar">
+      <view class="score-fill" style="width: {{aiScore}}%"></view>
+    </view>
+    <view class="analysis-list">
+      <view class="analysis-item" wx:for="{{aiAnalysis}}" wx:key="index">
+        <text class="analysis-bullet">•</text>
+        <text class="analysis-text">{{item}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 快捷问题 -->
+  <view class="quick-questions">
+    <view class="quick-item" bindtap="onQuickQuestion" data-question="今天喂了几次？">
+      今天喂了几次？
+    </view>
+    <view class="quick-item" bindtap="onQuickQuestion" data-question="宝宝最近睡得怎么样？">
+      宝宝最近睡得怎么样？
+    </view>
+    <view class="quick-item" bindtap="onQuickQuestion" data-question="疫苗接种计划">
+      疫苗接种计划
+    </view>
+  </view>
+
+  <!-- 对话区域 -->
+  <scroll-view class="chat-container" scroll-y scroll-into-view="{{scrollToView}}" scroll-with-animation>
+    <view class="message-list">
+      <block wx:for="{{messages}}" wx:key="index">
+        <view class="message {{item.role}}" id="msg-{{index}}">
+          <view class="message-avatar">
+            <image wx:if="{{item.role === 'user'}}" class="avatar-icon" src="{{baby.avatar || '/images/default-baby-avatar.svg'}}" mode="aspectFit" lazy-load></image>
+            <image wx:else class="avatar-icon" src="/images/icons/robot.png" mode="aspectFit" lazy-load></image>
+          </view>
+          <view class="message-content">
+            <text class="message-text">{{item.content}}</text>
+          </view>
+        </view>
+      </block>
+      
+      <!-- AI思考中的加载状态 -->
+      <view wx:if="{{isThinking}}" class="message assistant" id="msg-{{messages.length}}">
+        <view class="message-avatar">
+          <image class="avatar-icon" src="/images/icons/robot.png" mode="aspectFit" lazy-load></image>
+        </view>
+        <view class="message-content thinking-content">
+          <view class="thinking-header">
+            <view class="thinking-spinner"></view>
+            <text class="thinking-text">正在思考中</text>
+          </view>
+          <view class="thinking-dots">
+            <text class="dot">.</text>
+            <text class="dot">.</text>
+            <text class="dot">.</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </scroll-view>
+
+  <!-- 相关性提示 -->
+  <view wx:if="{{showRelevanceTip}}" class="relevance-tip">
+    <icon type="status" name="info" size="small" class="tip-icon" />
+    <text class="tip-text">AI助手专注于育儿问题，包括喂养、睡眠、发育、健康等</text>
+  </view>
+
+  <!-- 输入区域 -->
+  <view class="input-area">
+    <input 
+      class="message-input" 
+      type="text" 
+      placeholder="请输入育儿相关问题..." 
+      value="{{inputText}}" 
+      bindinput="onInputChange" 
+      confirm-type="send" 
+      bindconfirm="onSend"
+    />
+    <view class="send-btn {{inputText ? 'active' : ''}}" bindtap="onSend">
+      <text>发送</text>
+    </view>
+  </view>
+</view>

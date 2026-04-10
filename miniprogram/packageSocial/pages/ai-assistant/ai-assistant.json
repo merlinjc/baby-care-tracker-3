@@ -1,0 +1,8 @@
+{
+  "usingComponents": {
+    "icon": "/components/icon/icon"
+  },
+  "navigationBarTitleText": "AI育儿助手",
+  "enablePullDownRefresh": true,
+  "backgroundTextStyle": "light"
+}

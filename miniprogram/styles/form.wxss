@@ -1,0 +1,175 @@
+/*
+ * 公共表单样式 - 美拉德色彩风格
+ * 从 baby-create/family-create/family-join 3个页面提取
+ * 使用方法：在页面 wxss 顶部添加 @import '/styles/form.wxss';
+ */
+
+/* 表单分组区域 */
+.form-section {
+  background: var(--bg-primary);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-soft);
+}
+
+/* 表单分组标题 */
+.form-section-title {
+  font-size: 26rpx;
+  color: var(--text-hint);
+  font-weight: 500;
+  margin-bottom: var(--spacing-md);
+  text-transform: uppercase;
+  letter-spacing: 1rpx;
+}
+
+/* 单个表单项 */
+.form-item {
+  margin-bottom: var(--spacing-lg);
+}
+
+.form-item:last-child {
+  margin-bottom: 0;
+}
+
+/* 表单标签 */
+.form-label {
+  display: flex;
+  align-items: center;
+  font-size: 28rpx;
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-md);
+  font-weight: 500;
+  padding-left: 4rpx;
+}
+
+.form-label image {
+  width: 32rpx;
+  height: 32rpx;
+  margin-right: 12rpx;
+  flex-shrink: 0;
+}
+
+/* 必填标识 */
+.form-label .required {
+  color: var(--danger-color);
+  margin-left: 4rpx;
+  font-size: 28rpx;
+}
+
+/* 文本输入框 */
+.form-input {
+  width: 100%;
+  height: 88rpx;
+  padding: 0 var(--spacing-md);
+  font-size: 32rpx;
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  border: 2rpx solid transparent;
+  box-sizing: border-box;
+  transition: all var(--transition-fast);
+}
+
+.form-input:focus {
+  border-color: var(--primary-color);
+  background: var(--bg-primary);
+}
+
+/* 输入框占位符 */
+.input-placeholder {
+  color: var(--text-hint);
+}
+
+/* 多行文本输入 */
+.form-textarea {
+  width: 100%;
+  min-height: 160rpx;
+  padding: var(--spacing-md);
+  font-size: 30rpx;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  border-radius: var(--radius-md);
+  border: 2rpx solid transparent;
+  box-sizing: border-box;
+  transition: all var(--transition-fast);
+  line-height: 1.6;
+}
+
+.form-textarea:focus {
+  border-color: var(--primary-color);
+  background: var(--bg-secondary);
+}
+
+/* 表单提示文字 */
+.form-tip {
+  font-size: 24rpx;
+  color: var(--text-hint);
+  margin-top: var(--spacing-xs);
+  line-height: 1.5;
+}
+
+/* 表单错误提示 */
+.form-error {
+  font-size: 24rpx;
+  color: var(--danger-color);
+  margin-top: var(--spacing-xs);
+}
+
+/* 提交按钮 */
+.submit-btn {
+  width: 100%;
+  height: 96rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32rpx;
+  font-weight: 500;
+  color: var(--white);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+  border-radius: var(--radius-lg);
+  border: none;
+  margin-top: var(--spacing-lg);
+  box-shadow: 0 8rpx 32rpx rgba(212, 165, 116, 0.35);
+  transition: all var(--transition-fast);
+}
+
+.submit-btn::after {
+  border: none;
+}
+
+.submit-btn:active {
+  transform: scale(0.98);
+  box-shadow: 0 4rpx 16rpx rgba(212, 165, 116, 0.25);
+}
+
+.submit-btn[disabled] {
+  opacity: 0.55;
+  box-shadow: none;
+}
+
+/* 提示信息区块 */
+.tip-section {
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+  padding: 20rpx 24rpx;
+  background: rgba(212, 165, 116, 0.08);
+  border-radius: var(--radius-md);
+  border-left: 4rpx solid var(--primary-color);
+  margin-top: var(--spacing-md);
+}
+
+.tip-icon {
+  width: 32rpx;
+  height: 32rpx;
+  flex-shrink: 0;
+  margin-top: 2rpx;
+  opacity: 0.7;
+}
+
+.tip-text {
+  flex: 1;
+  font-size: 26rpx;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}

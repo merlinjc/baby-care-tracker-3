@@ -1,0 +1,255 @@
+<view class="popup-mask {{darkMode ? 'dark-mode' : ''}}" hidden="{{!show}}" bindtap="onClose">
+  <view class="popup-container" catchtap>
+    <!-- 头部 -->
+    <view class="popup-header">
+      <text class="popup-title">成长报告</text>
+      <view class="close-btn" bindtap="onClose">
+        <text class="close-icon">×</text>
+      </view>
+    </view>
+
+    <!-- 时间范围选择：两级选择 -->
+    <view class="period-selector">
+      <!-- 第一级：周报/月报 -->
+      <view class="period-tabs">
+        <view 
+          class="period-tab {{periodType === 'week' ? 'active' : ''}}" 
+          data-type="week" 
+          bindtap="onPeriodTypeChange"
+        >周报</view>
+        <view 
+          class="period-tab {{periodType === 'month' ? 'active' : ''}}" 
+          data-type="month" 
+          bindtap="onPeriodTypeChange"
+        >月报</view>
+      </view>
+      <!-- 第二级：本周/上周 或 本月/上月 -->
+      <view class="sub-period-tabs">
+        <block wx:if="{{periodType === 'week'}}">
+          <view 
+            class="sub-period-tab {{currentPeriod === 'thisWeek' ? 'active' : ''}}" 
+            data-period="thisWeek" 
+            bindtap="onPeriodChange"
+          >本周</view>
+          <view 
+            class="sub-period-tab {{currentPeriod === 'lastWeek' ? 'active' : ''}}" 
+            data-period="lastWeek" 
+            bindtap="onPeriodChange"
+          >上周</view>
+        </block>
+        <block wx:else>
+          <view 
+            class="sub-period-tab {{currentPeriod === 'thisMonth' ? 'active' : ''}}" 
+            data-period="thisMonth" 
+            bindtap="onPeriodChange"
+          >本月</view>
+          <view 
+            class="sub-period-tab {{currentPeriod === 'lastMonth' ? 'active' : ''}}" 
+            data-period="lastMonth" 
+            bindtap="onPeriodChange"
+          >上月</view>
+        </block>
+      </view>
+    </view>
+
+    <!-- 报告内容 V2 -->
+    <scroll-view class="report-content" scroll-y>
+      
+      <!-- ① 标题区 -->
+      <view class="report-title-section">
+        <text class="report-main-title">{{babyInfo.name || '宝宝'}}的{{reportTitle}}成绩单</text>
+        <text class="report-sub-title">{{reportPeriod}}</text>
+        <text class="report-birth-days" wx:if="{{daysSinceBirth > 0}}">出生第 {{daysSinceBirth}} 天</text>
+      </view>
+
+      <!-- ② 宝宝信息卡 + 综合评分 -->
+      <view class="baby-score-card">
+        <view class="baby-score-left">
+          <image class="baby-avatar-v2" src="{{babyInfo.avatar || '/images/default-baby-avatar.svg'}}" mode="aspectFill" lazy-load></image>
+          <view class="baby-info-text">
+            <text class="baby-name-v2">{{babyInfo.name || '宝宝'}}</text>
+            <text class="baby-age-v2">{{babyInfo.ageText}}</text>
+          </view>
+        </view>
+        <view class="baby-score-right">
+          <text class="score-number {{scoreColorClass}}">{{overallScore}}</text>
+          <text class="score-label-v2 {{scoreColorClass}}">{{scoreLabel}}</text>
+          <view class="score-progress-bar">
+            <view class="score-progress-fill {{scoreColorClass}}" style="width: {{overallScore}}%"></view>
+          </view>
+        </view>
+      </view>
+
+      <!-- ③ 四维指标卡 -->
+      <view class="indicator-cards-section">
+        <view class="indicator-card" wx:for="{{indicatorCards}}" wx:key="key">
+          <!-- 左侧色条 -->
+          <view class="indicator-color-bar" style="background: {{item.color}}"></view>
+          
+          <!-- 卡片内容 -->
+          <view class="indicator-body">
+            <!-- 标题行 -->
+            <view class="indicator-title-row">
+              <view class="indicator-left">
+                <text class="indicator-title">{{item.title}}</text>
+                <view class="status-tag {{item.statusClass}}" wx:if="{{item.statusText}}">
+                  <text class="status-tag-text">{{item.statusText}}</text>
+                </view>
+              </view>
+              <view class="indicator-right">
+                <text class="indicator-change {{item.changeClass}}" wx:if="{{item.hasChange}}">{{item.changeText}}</text>
+                <text class="indicator-value">{{item.value}}</text>
+                <text class="indicator-unit">{{item.unit}}</text>
+              </view>
+            </view>
+            
+            <!-- 范围条行 -->
+            <view class="range-bar-row" wx:if="{{item.hasRange}}">
+              <view class="range-bar-container">
+                <view class="range-bar-bg">
+                  <view class="range-bar-normal"></view>
+                </view>
+                <view class="range-bar-dot {{item.rangeZone}}" style="left: {{item.rangePosition}}%"></view>
+              </view>
+              <text class="range-text">{{item.rangeText}}</text>
+            </view>
+            
+            <!-- 提示行 -->
+            <text class="indicator-tip" wx:if="{{item.tip}}">{{item.tip}}</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- ④ 记录密度条（仅周报） -->
+      <view class="density-card" wx:if="{{periodType === 'week' && dailyDensity.length > 0}}">
+        <text class="density-title">{{currentPeriod === 'thisWeek' ? '本周记录' : '上周记录'}}</text>
+        <view class="density-blocks">
+          <view class="density-day" wx:for="{{dailyDensity}}" wx:key="label">
+            <view class="density-block level-{{item.level}}"></view>
+            <text class="density-label">{{item.label}}</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- ⑤ 生长发育 -->
+      <view class="growth-card" wx:if="{{growthData && (growthData.weight || growthData.height)}}">
+        <view class="section-header-row">
+          <view class="section-title-v2"><image class="section-icon" src="/images/icons/height.png" mode="aspectFit" lazy-load></image> 生长发育</view>
+          <text class="growth-stale" wx:if="{{growthData.daysSinceRecord > 30}}">({{growthData.daysSinceRecord}}天前测量)</text>
+        </view>
+        <view class="growth-items">
+          <view class="growth-item" wx:if="{{growthData.weight}}">
+            <text class="growth-label">体重</text>
+            <text class="growth-value">{{growthData.weight}}kg</text>
+            <view class="percentile-tag {{growthData.weightPercentile === 'normal' ? 'tag-normal' : growthData.weightPercentile === 'low' || growthData.weightPercentile === 'high' ? 'tag-danger' : 'tag-warning'}}" wx:if="{{growthData.weightPercentile}}">
+              <text class="percentile-text">{{growthData.weightPercentile === 'low' ? '偏低' : growthData.weightPercentile === 'lowNormal' ? '偏低正常' : growthData.weightPercentile === 'normal' ? '达标' : growthData.weightPercentile === 'highNormal' ? '偏高正常' : '偏高'}}</text>
+            </view>
+          </view>
+          <view class="growth-item" wx:if="{{growthData.height}}">
+            <text class="growth-label">身高</text>
+            <text class="growth-value">{{growthData.height}}cm</text>
+            <view class="percentile-tag {{growthData.heightPercentile === 'normal' ? 'tag-normal' : growthData.heightPercentile === 'low' || growthData.heightPercentile === 'high' ? 'tag-danger' : 'tag-warning'}}" wx:if="{{growthData.heightPercentile}}">
+              <text class="percentile-text">{{growthData.heightPercentile === 'low' ? '偏低' : growthData.heightPercentile === 'lowNormal' ? '偏低正常' : growthData.heightPercentile === 'normal' ? '达标' : growthData.heightPercentile === 'highNormal' ? '偏高正常' : '偏高'}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- ⑥ 疫苗接种进度 -->
+      <view class="vaccine-card" wx:if="{{vaccineData}}">
+        <view class="section-header-row">
+          <view class="section-title-v2"><image class="section-icon" src="/images/icons/syringe.png" mode="aspectFit" lazy-load></image> 疫苗接种</view>
+          <text class="vaccine-count {{vaccineData.done === vaccineData.total && vaccineData.total > 0 ? 'complete' : ''}}">{{vaccineData.done}}/{{vaccineData.total}}</text>
+        </view>
+        <view class="vaccine-progress-bar">
+          <view class="vaccine-progress-fill {{vaccineData.done === vaccineData.total && vaccineData.total > 0 ? 'complete' : ''}}" style="width: {{vaccineData.total > 0 ? vaccineData.done / vaccineData.total * 100 : 0}}%"></view>
+        </view>
+        <text class="vaccine-overdue" wx:if="{{vaccineData.overdue > 0}}">{{vaccineData.overdue}}剂逾期</text>
+        <view class="vaccine-complete" wx:elif="{{vaccineData.done === vaccineData.total && vaccineData.total > 0}}"><text>全部完成</text> <image class="inline-check-icon" src="/images/icons/check.png" mode="aspectFit" lazy-load></image></view>
+      </view>
+
+      <!-- ⑦ 成长里程碑 -->
+      <view class="milestone-card" wx:if="{{milestoneData && milestoneData.achieved.length > 0}}">
+        <view class="section-title-v2"><image class="section-icon" src="/images/icons/milestone-color.png" mode="aspectFit" lazy-load></image> 成长里程碑</view>
+        <view class="milestone-achieved">
+          <block wx:for="{{milestoneData.achieved}}" wx:key="*this">
+            <view class="milestone-item" wx:if="{{index < 3}}">
+              <image class="milestone-check-icon" src="/images/icons/check.png" mode="aspectFit" lazy-load></image>
+              <text class="milestone-name">{{item}}</text>
+            </view>
+          </block>
+        </view>
+        <view class="milestone-next" wx:if="{{milestoneData.nextPending}}">
+          <text class="milestone-next-label">下一个：</text>
+          <view class="milestone-next-badge">
+            <text class="milestone-next-name">{{milestoneData.nextPending}}</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- ⑧ 亮点（周报：本周亮点，月报：本月亮点） -->
+      <view class="achievement-card" wx:if="{{achievements.length > 0}}">
+        <view class="section-title-v2"><image class="section-icon" src="/images/icons/rocket.png" mode="aspectFit" lazy-load></image> {{highlightTitle}}</view>
+        <view class="achievement-list">
+          <view class="achievement-item" wx:for="{{achievements}}" wx:key="text">
+            <image class="achievement-icon-img" src="{{item.iconPath}}" mode="aspectFit" lazy-load></image>
+            <text class="achievement-text">{{item.text}}</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- ⑨ AI 育儿建议 -->
+      <view class="ai-advice-card" wx:if="{{briefAIAdvice}}">
+        <view class="ai-advice-header">
+          <image class="ai-icon" src="/images/icons/ai-assistant.png" mode="aspectFit" lazy-load></image>
+          <text class="ai-advice-title">AI 育儿建议</text>
+        </view>
+        <text class="ai-advice-text">{{briefAIAdvice}}</text>
+      </view>
+
+      <!-- 分享图预览 -->
+      <view class="share-preview" wx:if="{{shareImagePath}}" id="sharePreview">
+        <text class="section-title-v2">分享预览</text>
+        <image class="share-image" src="{{shareImagePath}}" mode="widthFix" show-menu-by-longpress lazy-load></image>
+      </view>
+    </scroll-view>
+
+    <!-- 底部操作（任务 3.6: 状态切换） -->
+    <view class="popup-footer">
+      <!-- 未生成状态：只显示生成按钮 -->
+      <view wx:if="{{!shareImagePath}}" class="action-btn primary" bindtap="generateShareImage">
+        <image class="btn-icon" src="/images/icons/image.png" mode="aspectFit" lazy-load></image>
+        <text class="btn-text">生成分享图</text>
+      </view>
+
+      <!-- 已生成状态：显示三个操作按钮 -->
+      <block wx:else>
+        <!-- 任务 3.7: 保存到相册按钮 -->
+        <view class="action-btn secondary" bindtap="saveToAlbum">
+          <image class="btn-icon" src="/images/icons/arrow-down-tray.png" mode="aspectFit" lazy-load></image>
+          <text class="btn-text">保存</text>
+        </view>
+
+        <!-- 任务 3.8: 分享给好友按钮 -->
+        <button class="action-btn secondary share-button" open-type="share">
+          <image class="btn-icon" src="/images/icons/share.png" mode="aspectFit" lazy-load></image>
+          <text class="btn-text">分享</text>
+        </button>
+
+        <!-- 任务 3.9: 重新生成按钮 -->
+        <view class="action-btn secondary" bindtap="regenerateShareImage">
+          <image class="btn-icon" src="/images/icons/swap.png" mode="aspectFit" lazy-load></image>
+          <text class="btn-text">重新生成</text>
+        </view>
+      </block>
+    </view>
+
+    <!-- Canvas 绘制区域（任务 3.14: 动态高度 + 离屏方案） -->
+    <canvas 
+      type="2d" 
+      id="shareCanvas" 
+      class="share-canvas"
+      style="width: 750px; height: {{canvasHeight || 1340}}px;"
+    ></canvas>
+  </view>
+</view>

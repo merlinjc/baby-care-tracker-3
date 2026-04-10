@@ -1,0 +1,115 @@
+/*
+ * 公共加载/空/错误状态样式 - 美拉德色彩风格
+ * 从 home/record/growth/vaccine/milestone/auth 6个页面提取
+ * 使用方法：在页面 wxss 顶部添加 @import '/styles/loading.wxss';
+ */
+
+/* 加载状态容器 */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 40vh;
+  padding: 80rpx 32rpx;
+}
+
+/* 旋转加载图标 */
+.loading-spinner {
+  width: 56rpx;
+  height: 56rpx;
+  border: 4rpx solid var(--primary-light);
+  border-top-color: var(--primary-color);
+  border-radius: 50%;
+  animation: spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  margin-bottom: 24rpx;
+}
+
+/* 加载文字 */
+.loading-text {
+  font-size: 28rpx;
+  color: var(--text-hint);
+  font-weight: 400;
+}
+
+/* 空状态容器 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 100rpx 32rpx;
+}
+
+/* 空状态图标 */
+.empty-icon {
+  width: 140rpx;
+  height: 140rpx;
+  margin-bottom: 28rpx;
+  opacity: 0.45;
+}
+
+/* 空状态主文字 */
+.empty-text {
+  font-size: 30rpx;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 12rpx;
+  text-align: center;
+}
+
+/* 空状态提示文字 */
+.empty-hint {
+  font-size: 26rpx;
+  color: var(--text-hint);
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* 错误状态容器 */
+.error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 100rpx 32rpx;
+}
+
+/* 错误图标 */
+.error-icon {
+  width: 120rpx;
+  height: 120rpx;
+  margin-bottom: 24rpx;
+  opacity: 0.5;
+}
+
+/* 错误文字 */
+.error-text {
+  font-size: 30rpx;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 24rpx;
+  text-align: center;
+}
+
+/* 重试按钮 */
+.retry-btn {
+  padding: 18rpx 48rpx;
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+  color: var(--white);
+  font-size: 28rpx;
+  font-weight: 500;
+  border-radius: 48rpx;
+  border: none;
+  box-shadow: 0 4rpx 16rpx rgba(212, 165, 116, 0.3);
+}
+
+.retry-btn::after {
+  border: none;
+}
+
+/* 旋转动画 */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}

@@ -1,0 +1,195 @@
+<!--睡眠记录弹窗-->
+<view class="{{darkMode ? 'dark-mode' : ''}} popup-mask popup-mask-visible" 
+      hidden="{{!show}}"
+      bindtap="close"
+      catchtouchmove="preventMove">
+  <view class="popup-container popup-enter" 
+        style="transform: translateY({{popupTranslateY}}px)"
+        catchtap="stopPropagation"
+        bindtouchstart="onTouchStart"
+        bindtouchmove="onTouchMove"
+        bindtouchend="onTouchEnd">
+    <!-- 下滑指示条 -->
+    <view class="swipe-indicator"></view>
+    <!-- 标题栏 -->
+    <view class="popup-header">
+      <view class="popup-icon">
+        <image src="/images/icons/sleep-color.png" 
+               mode="aspectFit" lazy-load></image>
+      </view>
+      <text class="popup-title">睡眠记录</text>
+      <view class="popup-close" bindtap="close">
+        <text>×</text>
+      </view>
+    </view>
+
+    <!-- 可滚动内容区域 -->
+    <scroll-view class="popup-content" scroll-y enhanced show-scrollbar="{{false}}">
+      <view class="popup-inner">
+      <!-- 模式切换 -->
+      <view class="mode-tabs">
+        <view 
+          class="mode-tab {{sleepMode === 'record' ? 'active' : ''}}"
+          data-mode="record"
+          bindtap="switchMode"
+        >
+          <text>记录睡眠</text>
+        </view>
+        <view 
+          class="mode-tab {{sleepMode === 'tracking' ? 'active' : ''}}"
+          data-mode="tracking"
+          bindtap="switchMode"
+        >
+          <text>开始睡眠</text>
+        </view>
+      </view>
+
+      <!-- 记录模式 -->
+      <block wx:if="{{sleepMode === 'record'}}">
+        <!-- 睡眠类型选择 -->
+        <view class="section">
+          <text class="section-title">睡眠类型</text>
+          <view class="sleep-types">
+            <view 
+              wx:for="{{sleepTypes}}" 
+              wx:key="value"
+              class="sleep-type-item {{sleepType === item.value ? 'active' : ''}}"
+              data-type="{{item.value}}"
+              bindtap="selectSleepType"
+            >
+              <view class="sleep-type-icon">
+                <image src="{{item.iconUrl}}" mode="aspectFit" lazy-load></image>
+              </view>
+              <text class="sleep-type-label">{{item.label}}</text>
+            </view>
+          </view>
+        </view>
+
+        <!-- 快捷时长选择（点击累加） -->
+        <view class="section">
+          <text class="section-title">快捷选择（点击累加）</text>
+          <view class="quick-duration">
+            <view 
+              wx:for="{{quickDurations}}" 
+              wx:key="*this"
+              class="quick-duration-item"
+              data-minutes="{{item}}"
+              bindtap="selectQuickDuration"
+            >
+              <text>{{item < 60 ? item + '分钟' : (item / 60) + '小时'}}</text>
+            </view>
+          </view>
+        </view>
+
+        <!-- 时长显示 -->
+        <view class="duration-display">
+          <text class="duration-label">睡眠时长</text>
+          <text class="duration-value">{{durationDisplay}}</text>
+          <view class="duration-clear" bindtap="clearDuration" wx:if="{{duration > 0}}">
+            <text>清零</text>
+          </view>
+        </view>
+
+        <!-- 睡眠地点 -->
+        <view class="section">
+          <text class="section-title">睡眠地点</text>
+          <view class="location-list">
+            <view 
+              wx:for="{{locations}}" 
+              wx:key="index"
+              class="location-item {{location === item ? 'active' : ''}}"
+              data-location="{{item}}"
+              bindtap="selectLocation"
+            >
+              <text>{{item}}</text>
+            </view>
+          </view>
+        </view>
+
+        <!-- 提交按钮 -->
+        <button 
+          class="submit-btn {{loading ? 'loading disabled' : ''}}"
+          bindtap="submit"
+          disabled="{{loading}}"
+        >
+          <text wx:if="{{!loading}}">保存记录</text>
+          <text wx:else>保存中...</text>
+        </button>
+      </block>
+
+      <!-- 追踪模式 -->
+      <block wx:else>
+        <view class="tracking-container">
+          <view class="tracking-status">
+            <text class="tracking-label">{{trackingStartTime ? '正在睡眠中...' : '点击开始追踪睡眠'}}</text>
+          </view>
+          
+          <view class="tracking-time">
+            <text class="tracking-time-value">{{trackingDisplay}}</text>
+          </view>
+
+          <!-- 睡眠类型选择 -->
+          <view class="section">
+            <text class="section-title">睡眠类型</text>
+            <view class="sleep-types">
+              <view 
+                wx:for="{{sleepTypes}}" 
+                wx:key="value"
+                class="sleep-type-item {{sleepType === item.value ? 'active' : ''}}"
+                data-type="{{item.value}}"
+                bindtap="selectSleepType"
+              >
+                <view class="sleep-type-icon">
+                  <image src="{{item.iconUrl}}" mode="aspectFit" lazy-load></image>
+                </view>
+                <text class="sleep-type-label">{{item.label}}</text>
+              </view>
+            </view>
+          </view>
+
+          <!-- 睡眠地点 -->
+          <view class="section">
+            <text class="section-title">睡眠地点</text>
+            <view class="location-list">
+              <view 
+                wx:for="{{locations}}" 
+                wx:key="index"
+                class="location-item {{location === item ? 'active' : ''}}"
+                data-location="{{item}}"
+                bindtap="selectLocation"
+              >
+                <text>{{item}}</text>
+              </view>
+            </view>
+          </view>
+
+          <!-- 操作按钮 -->
+          <view class="tracking-actions">
+            <button 
+              wx:if="{{!trackingStartTime}}"
+              class="tracking-btn start"
+              bindtap="startTracking"
+            >
+              <text>开始睡眠</text>
+            </button>
+            <block wx:else>
+              <button 
+                class="tracking-btn finish"
+                bindtap="finishTracking"
+              >
+                <text>结束并保存</text>
+              </button>
+              <button 
+                class="tracking-btn cancel"
+                bindtap="stopTracking"
+              >
+                <text>取消</text>
+              </button>
+            </block>
+          </view>
+        </view>
+      </block>
+      </view>
+    </scroll-view>
+  </view>
+</view>

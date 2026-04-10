@@ -1,0 +1,630 @@
+/* 家庭管理页样式 */
+.page-container {
+  min-height: 100vh;
+  background: var(--bg-primary, #F5F1EB);
+  padding: 24rpx;
+  padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
+}
+
+/* 家庭信息卡片 */
+.family-card {
+  background: linear-gradient(135deg, var(--primary-color, #D4B896), var(--primary-dark, #8B7B6B));
+  border-radius: var(--radius-lg, 32rpx);
+  padding: 40rpx 32rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 8rpx 32rpx rgba(139, 123, 107, 0.2);
+}
+
+.family-header {
+  display: flex;
+  align-items: center;
+}
+
+.family-icon {
+  font-size: 56rpx;
+  margin-right: 24rpx;
+}
+
+.family-info {
+  flex: 1;
+}
+
+.family-name {
+  display: block;
+  font-size: 36rpx;
+  font-weight: 600;
+  color: var(--white, #FFFFFF);
+  margin-bottom: 8rpx;
+}
+
+.family-members {
+  font-size: 26rpx;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* 角色徽章（家庭卡片右上角） */
+.family-role-badge {
+  padding: 8rpx 20rpx;
+  border-radius: 20rpx;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.family-role-badge.role-admin {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.role-badge-text {
+  font-size: 22rpx;
+  color: var(--white, #FFFFFF);
+  font-weight: 500;
+}
+
+/* 区块标题 */
+.section-header {
+  margin-bottom: 20rpx;
+  padding: 0 8rpx;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.section-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--text-primary, #3D3D3D);
+}
+
+.section-hint {
+  font-size: 22rpx;
+  color: var(--text-hint, #999999);
+}
+
+/* 成员区域 */
+.members-section {
+  margin-bottom: 24rpx;
+}
+
+.members-list {
+  background: var(--bg-secondary, #FFFFFF);
+  border-radius: var(--radius-lg, 32rpx);
+  overflow: hidden;
+  box-shadow: var(--shadow-card, 0 4rpx 24rpx rgba(139, 123, 107, 0.08));
+}
+
+.member-card {
+  display: flex;
+  align-items: center;
+  padding: 24rpx 32rpx;
+  border-bottom: 1rpx solid rgba(139, 123, 107, 0.08);
+  position: relative;
+}
+
+.member-card:last-child {
+  border-bottom: none;
+}
+
+.member-card-me {
+  background: rgba(212, 184, 150, 0.06);
+}
+
+.member-avatar {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  margin-right: 20rpx;
+  flex-shrink: 0;
+}
+
+.member-info {
+  flex: 1;
+  overflow: hidden;
+}
+
+.member-name-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 6rpx;
+}
+
+.member-name {
+  font-size: 30rpx;
+  font-weight: 500;
+  color: var(--text-primary, #3D3D3D);
+  margin-right: 8rpx;
+}
+
+.me-badge {
+  display: inline-block;
+  font-size: 20rpx;
+  color: var(--primary-dark, #8B7B6B);
+  background: rgba(212, 184, 150, 0.2);
+  padding: 2rpx 12rpx;
+  border-radius: 12rpx;
+  font-weight: 500;
+}
+
+.member-meta {
+  display: flex;
+  align-items: center;
+}
+
+/* 角色标签 */
+.member-role-tag {
+  font-size: 22rpx;
+  padding: 2rpx 12rpx;
+  border-radius: 8rpx;
+  font-weight: 500;
+}
+
+.role-tag-admin {
+  color: var(--role-admin-color, #B8860B);
+  background: rgba(184, 134, 11, 0.1);
+}
+
+.role-tag-editor {
+  color: var(--text-hint, #999999);
+  background: rgba(153, 153, 153, 0.1);
+}
+
+.role-tag-viewer {
+  color: var(--text-hint);
+  background: rgba(139, 139, 139, 0.08);
+}
+
+.member-relation {
+  font-size: 22rpx;
+  color: var(--text-hint, #999999);
+  margin-left: 4rpx;
+}
+
+.member-time {
+  font-size: 22rpx;
+  color: var(--text-hint, #CCCCCC);
+  flex-shrink: 0;
+  margin-left: 12rpx;
+}
+
+/* 成员操作按钮（三个点） */
+.member-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16rpx;
+  margin-left: 8rpx;
+  flex-shrink: 0;
+}
+
+.action-dot {
+  width: 6rpx;
+  height: 6rpx;
+  border-radius: 50%;
+  background: var(--text-hint, #999999);
+  margin: 3rpx 0;
+}
+
+/* 邀请区域 */
+.invite-section {
+  margin-bottom: 24rpx;
+}
+
+.invite-card {
+  background: var(--bg-secondary, #FFFFFF);
+  border-radius: var(--radius-lg, 32rpx);
+  padding: 32rpx;
+  box-shadow: var(--shadow-card, 0 4rpx 24rpx rgba(139, 123, 107, 0.08));
+}
+
+.invite-code-area {
+  text-align: center;
+  margin-bottom: 24rpx;
+  padding: 24rpx;
+  background: var(--bg-primary, #F5F1EB);
+  border-radius: var(--radius-md, 24rpx);
+}
+
+.invite-label {
+  display: block;
+  font-size: 24rpx;
+  color: var(--text-hint, #999999);
+  margin-bottom: 12rpx;
+}
+
+.invite-code {
+  display: block;
+  font-size: 48rpx;
+  font-weight: 600;
+  color: var(--primary-dark, #8B7B6B);
+  letter-spacing: 8rpx;
+}
+
+/* 邀请码有效期 */
+.invite-expiry {
+  margin-top: 12rpx;
+}
+
+.expiry-text {
+  font-size: 22rpx;
+  color: var(--text-hint, #999999);
+}
+
+.expiry-warning .expiry-text {
+  color: var(--temperature-color, #D4A8A8);
+  font-weight: 500;
+}
+
+.invite-actions {
+  display: flex;
+  gap: 16rpx;
+}
+
+.invite-btn {
+  flex: 1;
+  text-align: center;
+  padding: 20rpx;
+  background: linear-gradient(135deg, var(--primary-color, #D4B896), var(--primary-dark, #8B7B6B));
+  color: var(--white, #FFFFFF);
+  font-size: 28rpx;
+  border-radius: var(--radius-md, 24rpx);
+  transition: all 0.2s ease;
+}
+
+.invite-btn:active {
+  transform: scale(0.95);
+  opacity: 0.9;
+}
+
+.invite-btn.secondary {
+  background: var(--bg-primary, #F5F1EB);
+  color: var(--text-secondary, #666666);
+}
+
+/* 退出区域 */
+.leave-section {
+  margin-top: 48rpx;
+}
+
+.leave-btn {
+  text-align: center;
+  padding: 24rpx;
+  background: var(--bg-secondary, #FFFFFF);
+  border-radius: var(--radius-lg, 32rpx);
+  box-shadow: var(--shadow-card, 0 4rpx 24rpx rgba(139, 123, 107, 0.08));
+}
+
+.leave-btn:active {
+  background: var(--bg-primary, #F5F1EB);
+}
+
+.leave-text {
+  font-size: 28rpx;
+  color: var(--temperature-color, #D4A8A8);
+}
+
+/* 空状态 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 100rpx 0;
+}
+
+.empty-text {
+  font-size: 28rpx;
+  color: var(--text-hint, #999999);
+  margin-bottom: 32rpx;
+}
+
+.empty-btn {
+  background: linear-gradient(135deg, var(--primary-color, #D4B896), var(--primary-dark, #8B7B6B));
+  color: var(--white, #FFFFFF);
+  font-size: 28rpx;
+  padding: 20rpx 48rpx;
+  border-radius: 32rpx;
+}
+
+/* 加载状态 */
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 100rpx 0;
+}
+
+.loading-text {
+  font-size: 28rpx;
+  color: var(--text-hint, #999999);
+}
+
+/* =================== 弹窗通用样式 =================== */
+.modal-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--mask-color-dark);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-content {
+  width: 85%;
+  max-width: 640rpx;
+  background: var(--bg-secondary, #FFFFFF);
+  border-radius: 32rpx;
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 32rpx 32rpx 20rpx;
+}
+
+.modal-title {
+  font-size: 34rpx;
+  font-weight: 600;
+  color: var(--text-primary, #3D3D3D);
+}
+
+.modal-close {
+  font-size: 32rpx;
+  color: var(--text-hint, #999999);
+  padding: 8rpx;
+}
+
+.modal-body {
+  padding: 16rpx 32rpx 32rpx;
+}
+
+.modal-footer {
+  display: flex;
+  border-top: 1rpx solid rgba(139, 123, 107, 0.1);
+}
+
+.modal-btn {
+  flex: 1;
+  text-align: center;
+  padding: 28rpx;
+  font-size: 30rpx;
+  font-weight: 500;
+}
+
+.modal-btn.cancel {
+  color: var(--text-secondary, #666666);
+}
+
+.modal-btn.confirm {
+  color: var(--primary-dark, #8B7B6B);
+  font-weight: 600;
+}
+
+.modal-btn.danger {
+  color: var(--temperature-color, #D4A8A8);
+}
+
+.modal-btn.btn-disabled {
+  opacity: 0.4;
+}
+
+/* 权限编辑弹窗 */
+.target-member-info {
+  display: flex;
+  align-items: center;
+  padding: 20rpx;
+  background: var(--bg-primary, #F5F1EB);
+  border-radius: 20rpx;
+  margin-bottom: 24rpx;
+}
+
+.target-avatar {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 50%;
+  margin-right: 16rpx;
+}
+
+.target-name {
+  flex: 1;
+  font-size: 30rpx;
+  font-weight: 500;
+  color: var(--text-primary, #3D3D3D);
+}
+
+.target-current-role {
+  font-size: 24rpx;
+  color: var(--text-hint, #999999);
+}
+
+.role-options {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.role-option {
+  display: flex;
+  align-items: center;
+  padding: 24rpx;
+  border-radius: 20rpx;
+  border: 2rpx solid rgba(139, 123, 107, 0.1);
+  transition: all 0.2s ease;
+}
+
+.role-option-selected {
+  border-color: var(--primary-dark, #8B7B6B);
+  background: rgba(212, 184, 150, 0.06);
+}
+
+.role-radio {
+  width: 36rpx;
+  height: 36rpx;
+  border-radius: 50%;
+  border: 3rpx solid rgba(139, 123, 107, 0.3);
+  margin-right: 20rpx;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.radio-selected {
+  border-color: var(--primary-dark, #8B7B6B);
+  background: var(--primary-dark, #8B7B6B);
+}
+
+.radio-selected::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 14rpx;
+  height: 14rpx;
+  border-radius: 50%;
+  background: var(--white, #FFFFFF);
+}
+
+.role-option-info {
+  flex: 1;
+}
+
+.role-option-name {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 500;
+  color: var(--text-primary, #3D3D3D);
+  margin-bottom: 4rpx;
+}
+
+.role-option-desc {
+  font-size: 24rpx;
+  color: var(--text-hint, #999999);
+}
+
+/* 管理员转让弹窗 */
+.transfer-hint {
+  display: block;
+  font-size: 26rpx;
+  color: var(--text-secondary, #666666);
+  margin-bottom: 24rpx;
+  line-height: 1.6;
+}
+
+.transfer-members {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.transfer-member {
+  display: flex;
+  align-items: center;
+  padding: 20rpx;
+  border-radius: 20rpx;
+  border: 2rpx solid rgba(139, 123, 107, 0.1);
+  transition: all 0.2s ease;
+}
+
+.transfer-selected {
+  border-color: var(--primary-dark, #8B7B6B);
+  background: rgba(212, 184, 150, 0.06);
+}
+
+.transfer-avatar {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+  margin-right: 16rpx;
+}
+
+.transfer-name {
+  flex: 1;
+  font-size: 28rpx;
+  color: var(--text-primary, #3D3D3D);
+}
+
+.transfer-check {
+  font-size: 32rpx;
+  color: var(--primary-dark, #8B7B6B);
+  font-weight: 600;
+}
+
+.transfer-footer {
+  gap: 0;
+}
+
+.transfer-footer .modal-btn {
+  flex: 1;
+  border-right: 1rpx solid rgba(139, 123, 107, 0.1);
+}
+
+.transfer-footer .modal-btn:last-child {
+  border-right: none;
+}
+
+/* 操作菜单 */
+.action-sheet {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--bg-secondary, #FFFFFF);
+  border-radius: 32rpx 32rpx 0 0;
+  padding-bottom: env(safe-area-inset-bottom);
+  z-index: 1001;
+}
+
+.action-sheet-header {
+  text-align: center;
+  padding: 28rpx;
+  border-bottom: 1rpx solid rgba(139, 123, 107, 0.1);
+}
+
+.action-sheet-title {
+  font-size: 30rpx;
+  font-weight: 500;
+  color: var(--text-primary, #3D3D3D);
+}
+
+.action-sheet-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28rpx 40rpx;
+  border-bottom: 1rpx solid rgba(139, 123, 107, 0.06);
+}
+
+.action-sheet-item:active {
+  background: var(--bg-primary, #F5F1EB);
+}
+
+.action-item-text {
+  font-size: 30rpx;
+  color: var(--text-primary, #3D3D3D);
+}
+
+.action-danger .action-item-text {
+  color: var(--temperature-color, #D4A8A8);
+}
+
+.action-item-hint {
+  font-size: 24rpx;
+  color: var(--text-hint, #999999);
+}
+
+.action-sheet-cancel {
+  text-align: center;
+  padding: 28rpx;
+  margin-top: 12rpx;
+  border-top: 12rpx solid var(--bg-primary, #F5F1EB);
+  color: var(--text-secondary, #666666);
+  font-size: 30rpx;
+}
+
+.action-sheet-cancel:active {
+  background: var(--bg-primary, #F5F1EB);
+}

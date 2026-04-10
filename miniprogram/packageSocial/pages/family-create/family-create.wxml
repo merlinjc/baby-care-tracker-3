@@ -1,0 +1,45 @@
+<view class="family-create-container {{darkMode ? 'dark-mode' : ''}}">
+  <!-- 页面标题 -->
+  <view class="page-header">
+    <view class="header-icon">
+      <image src="/images/icons/family-gray.png" mode="aspectFit"></image>
+    </view>
+    <view class="header-text">
+      <text class="header-title">创建家庭</text>
+      <text class="header-subtitle">邀请家人一起记录宝宝成长</text>
+    </view>
+  </view>
+
+  <view class="form-section">
+    <view class="form-item">
+      <view class="form-label">
+        <image src="/images/icons/family-gray.png" mode="aspectFit"></image>
+        <text>家庭名称</text>
+      </view>
+      <input 
+        class="form-input" 
+        placeholder="请输入家庭名称"
+        placeholder-class="input-placeholder"
+        value="{{familyName}}"
+        bindinput="onInputName"
+        maxlength="20"
+      />
+    </view>
+
+    <button 
+      class="create-btn" 
+      bindtap="onCreate"
+      loading="{{loading}}"
+      disabled="{{loading}}"
+    >
+      <text wx:if="{{!loading}}">创建家庭</text>
+    </button>
+  </view>
+
+  <view class="tip-section">
+    <view class="tip-icon">
+      <image src="/images/icons/info.png" mode="aspectFit"></image>
+    </view>
+    <view class="tip-text">创建家庭后，可以邀请家人一起记录宝宝的成长</view>
+  </view>
+</view>

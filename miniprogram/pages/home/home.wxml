@@ -1,0 +1,391 @@
+<view class="container {{darkMode ? 'dark-mode' : ''}}">
+  <!-- FR-15: 骨架屏加载态 -->
+  <view wx:if="{{loading}}" class="skeleton-container">
+    <view class="skeleton-block skeleton-greeting"></view>
+    <view class="skeleton-block skeleton-baby-card"></view>
+    <view class="skeleton-block skeleton-status-banner"></view>
+    <view class="skeleton-block skeleton-todo"></view>
+    <view class="skeleton-block skeleton-overview"></view>
+    <view class="skeleton-block skeleton-actions"></view>
+    <view class="skeleton-block skeleton-timeline"></view>
+  </view>
+
+  <!-- 错误状态 -->
+  <error-state 
+    wx:elif="{{error}}" 
+    message="{{errorMsg}}"
+    bind:retry="onRetry"
+  />
+
+  <!-- 正常内容 - 带渐显动画 -->
+  <block wx:elif="{{currentBaby}}">
+    <view class="content-container">
+      <!-- FR-13: 顶部问候语模块 -->
+      <view class="greeting-bar">
+        <view class="greeting-main">
+          <text class="greeting-text">{{greeting}}</text>
+          <text class="greeting-baby-name" wx:if="{{currentBaby.nickName}}">{{currentBaby.nickName}}</text>
+        </view>
+        <view class="greeting-sub">
+          <text class="greeting-date">{{todayDateText}}</text>
+          <view class="greeting-divider" wx:if="{{birthDayCount > 0}}"></view>
+          <text class="greeting-days" wx:if="{{birthDayCount > 0}}">出生第 {{birthDayCount}} 天</text>
+        </view>
+      </view>
+
+      <!-- EE-5/EE-7: 月龄/节日提示条 -->
+      <view class="egg-banner" wx:if="{{easterEggBanner.show}}" 
+            style="animation: eggSlideDown 0.3s ease forwards;">
+        <image class="egg-banner-icon" src="{{easterEggBanner.icon}}" mode="aspectFit" />
+        <text class="egg-banner-text">{{easterEggBanner.text}}</text>
+        <view class="egg-banner-close" bindtap="closeEasterEggBanner">
+          <text>×</text>
+        </view>
+      </view>
+
+      <!-- 宝宝卡片 -->
+      <baby-card 
+        baby="{{currentBaby}}"
+        bindtap="goToBabyDetail"
+      />
+
+      <!-- FR-1: 宝宝状态横幅 -->
+      <view class="status-banner {{activeStatus.type}}" wx:if="{{activeStatus.type !== 'none' || activeSleep}}">
+        <view class="status-content">
+          <view class="status-icon-wrapper">
+            <image wx:if="{{activeStatus.type === 'sleeping'}}" class="status-icon" src="/images/icons/sleep-color.png" mode="aspectFit"></image>
+            <image wx:elif="{{activeStatus.type === 'feeding_ago'}}" class="status-icon" src="/images/icons/feeding-color.png" mode="aspectFit"></image>
+            <image wx:else class="status-icon" src="/images/icons/record-color.png" mode="aspectFit"></image>
+          </view>
+          <view class="status-text-wrapper">
+            <text class="status-text">{{activeStatus.text}}</text>
+            <text class="status-abnormal-hint" wx:if="{{sleepAbnormal}}">睡眠时间异常，请检查</text>
+          </view>
+        </view>
+        <!-- FR-10: 睡眠中时显示结束按钮 -->
+        <view class="status-action" wx:if="{{activeSleep && !sleepAbnormal}}" bindtap="endSleepFromBanner">
+          <text>结束睡眠</text>
+        </view>
+        <view class="status-action abnormal" wx:if="{{sleepAbnormal}}" bindtap="cancelAbnormalSleep">
+          <text>取消计时</text>
+        </view>
+      </view>
+
+      <!-- FR-2: 多宝快速切换 -->
+      <view class="baby-switch" wx:if="{{familyBabies.length > 1}}">
+        <view class="baby-switch-label">切换宝宝</view>
+        <view class="baby-avatars">
+          <block wx:for="{{familyBabies}}" wx:key="_id">
+            <view 
+              wx:if="{{index < 3}}"
+              class="baby-avatar-item {{item._id === currentBaby._id ? 'active' : ''}}"
+              data-baby-id="{{item._id}}"
+              bindtap="switchBaby"
+            >
+              <image class="baby-avatar-img" src="{{item.avatarUrl || '/images/default-baby.png'}}" mode="aspectFill" lazy-load></image>
+            </view>
+          </block>
+          <view class="baby-more" wx:if="{{familyBabies.length > 3}}">
+            <text>+{{familyBabies.length - 3}}</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- FR-7: 今日待办卡片 -->
+      <view class="todo-section" wx:if="{{todoStats.total > 0}}">
+        <view class="todo-header">
+          <text class="todo-title">今日待办</text>
+          <text class="todo-count" wx:if="{{todoStats.overdue > 0}}">
+            <text class="overdue-badge">{{todoStats.overdue}}项逾期</text>
+          </text>
+        </view>
+      <scroll-view class="todo-scroll" scroll-x enhanced show-scrollbar="{{false}}">
+          <!-- 疫苗待办 -->
+          <view 
+            class="todo-card vaccine {{item.isOverdue ? 'overdue' : ''}} {{item.isUpcoming ? 'upcoming' : ''}}"
+            wx:for="{{todoStats.vaccineItems}}"
+            wx:key="name"
+            bindtap="goToVaccine"
+          >
+            <view class="todo-card-badge" wx:if="{{item.isOverdue}}">逾期</view>
+            <view class="todo-card-badge upcoming" wx:elif="{{item.isUpcoming}}">即将</view>
+            <image class="todo-card-icon" src="/images/icons/vaccine-color.png" mode="aspectFit" lazy-load></image>
+            <view class="todo-card-content">
+              <text class="todo-card-name">{{item.name}}</text>
+              <text class="todo-card-sub">{{item.dose}} · {{item.ageLabel}}</text>
+            </view>
+          </view>
+          
+          <!-- 里程碑待办 -->
+          <view 
+            class="todo-card milestone {{item.isOverdue ? 'overdue' : ''}}"
+            wx:for="{{todoStats.milestoneItems}}"
+            wx:key="name"
+            bindtap="goToMilestone"
+          >
+            <view class="todo-card-badge" wx:if="{{item.isOverdue}}">逾期</view>
+            <image class="todo-card-icon" src="/images/icons/milestone-color.png" mode="aspectFit" lazy-load></image>
+            <view class="todo-card-content">
+              <text class="todo-card-name">{{item.name}}</text>
+              <text class="todo-card-sub">{{item.category}}</text>
+            </view>
+          </view>
+        </scroll-view>
+      </view>
+
+      <!-- FR-3/4/5/6: 今日概览增强 -->
+      <view class="card overview-card">
+        <view class="title">今日概览</view>
+        
+        <!-- FR-6: 发烧警示横条 -->
+        <view class="fever-alert" wx:if="{{showFeverAlert}}">
+          <image class="fever-alert-icon" src="/images/icons/warning.png" mode="aspectFit" lazy-load></image>
+          <text class="fever-alert-text">宝宝{{tempStatusText}}，请注意观察</text>
+        </view>
+        
+        <view class="stats-grid">
+          <!-- FR-3: 喂养统计（可点击跳转） -->
+          <view class="stat-item" data-type="feeding" bindtap="onStatTap">
+            <view class="stat-icon-wrapper feeding">
+              <image class="stat-icon" src="/images/icons/feeding-color.png" mode="aspectFit"></image>
+            </view>
+            <view class="stat-value">{{todayStats.feeding.count}}</view>
+            <view class="stat-label">喂养次数</view>
+            <view class="stat-detail" wx:if="{{todayStats.feeding.totalAmount > 0}}">
+              {{todayStats.feeding.totalAmount}}ml
+            </view>
+            <!-- FR-4: 时间提示 -->
+            <view class="stat-time-hint" wx:if="{{feedingAgoText}}">{{feedingAgoText}}</view>
+          </view>
+
+          <!-- FR-3/5: 睡眠统计（时长优先 + 达标绿勾） -->
+          <view class="stat-item" data-type="sleep" bindtap="onStatTap">
+            <view class="stat-icon-wrapper sleep">
+              <image class="stat-icon" src="/images/icons/sleep-color.png" mode="aspectFit"></image>
+            </view>
+            <!-- FR-5: 主显时长，次显次数 -->
+            <view class="stat-value sleep-value">
+              {{sleepDisplay || '0m'}}
+              <image class="goal-check" wx:if="{{sleepGoalMet}}" src="/images/icons/check-circle.png" mode="aspectFit" lazy-load></image>
+            </view>
+            <view class="stat-label">睡眠时长</view>
+            <view class="stat-detail">{{todayStats.sleep.count}}次</view>
+            <!-- FR-4: 睡眠中显示"已睡 Xh Xm"，否则显示"上次 Xh Xm 前" -->
+            <view class="stat-time-hint" wx:if="{{activeSleep}}">
+              已睡 {{activeSleepDisplay}}
+            </view>
+            <view class="stat-time-hint" wx:elif="{{sleepAgoText}}">{{sleepAgoText}}</view>
+          </view>
+
+          <!-- FR-3: 排便统计 -->
+          <view class="stat-item" data-type="diaper" bindtap="onStatTap">
+            <view class="stat-icon-wrapper diaper">
+              <image class="stat-icon" src="/images/icons/diaper-color.png" mode="aspectFit"></image>
+            </view>
+            <view class="stat-value">{{todayStats.diaper.count}}</view>
+            <view class="stat-label">排便次数</view>
+            <view class="stat-detail">
+              湿{{todayStats.diaper.wet}} 脏{{todayStats.diaper.dirty}}
+            </view>
+          </view>
+
+          <!-- FR-3/6: 体温统计（状态色 + 最新值） -->
+          <view class="stat-item" data-type="temperature" bindtap="onStatTap">
+            <view class="stat-icon-wrapper temperature">
+              <image class="stat-icon" src="/images/icons/temperature.png" mode="aspectFit"></image>
+            </view>
+            <!-- FR-6: 主显最新值 + 状态色 -->
+            <view class="stat-value temp-value" style="color: {{tempColor}};">
+              {{tempDisplayText}}
+            </view>
+            <view class="stat-label">最新体温</view>
+            <!-- FR-6: 状态文字标签 -->
+            <view class="stat-detail temp-status {{tempStatus}}" wx:if="{{tempStatus !== 'none'}}">
+              {{tempStatusText}}
+            </view>
+            <view class="stat-detail" wx:else>{{todayStats.temperature.count}}次</view>
+          </view>
+        </view>
+      </view>
+
+  <!-- FR-8/9: 快捷入口（横向滚动 5 格，含喂养预测角标） - 仅 editor/admin 可见 -->
+  <view class="quick-section" wx:if="{{canEdit}}">
+    <view class="quick-section-title">快捷记录</view>
+  </view>
+  <scroll-view class="quick-scroll" scroll-x enhanced show-scrollbar="{{false}}" wx:if="{{canEdit}}">
+    <view class="quick-scroll-inner">
+      <!-- 喂养（含 FR-8 预测角标） -->
+      <view class="action-btn feeding" bindtap="openFeedingPopup">
+        <view class="action-badge prediction" wx:if="{{feedingPrediction.show && !feedingPrediction.urgent}}">
+          {{feedingPrediction.text}}
+        </view>
+        <view class="action-badge urgent" wx:if="{{feedingPrediction.show && feedingPrediction.urgent}}">
+          {{feedingPrediction.text}}
+        </view>
+        <view class="action-icon-wrapper">
+          <image class="action-icon" src="/images/icons/feeding-white.png" mode="aspectFit"></image>
+        </view>
+        <view class="action-text">喂养</view>
+      </view>
+
+      <!-- FR-10: 睡眠（三态：正常/计时中脉冲动画/异常>24h） -->
+      <view class="action-btn sleep {{activeSleep ? (sleepAbnormal ? 'abnormal' : 'timing') : ''}}" bindtap="{{activeSleep ? 'endSleepFromBanner' : 'openSleepPopup'}}">
+        <view class="timing-indicator" wx:if="{{activeSleep && !sleepAbnormal}}">
+          <view class="timing-dot"></view>
+        </view>
+        <view class="action-icon-wrapper">
+          <image class="action-icon" src="/images/icons/sleep-white.png" mode="aspectFit"></image>
+        </view>
+        <view class="action-text">{{activeSleep ? (sleepAbnormal ? '异常' : activeSleepDisplay) : '睡眠'}}</view>
+      </view>
+
+      <!-- 排便 -->
+      <view class="action-btn diaper" bindtap="openDiaperPopup">
+        <view class="action-icon-wrapper">
+          <image class="action-icon" src="/images/icons/diaper-white.png" mode="aspectFit"></image>
+        </view>
+        <view class="action-text">排便</view>
+      </view>
+
+      <!-- 体温 -->
+      <view class="action-btn temperature" bindtap="openTemperaturePopup">
+        <view class="action-icon-wrapper">
+          <image class="action-icon" src="/images/icons/temperature-white.png" mode="aspectFit"></image>
+        </view>
+        <view class="action-text">体温</view>
+      </view>
+
+      <!-- FR-9: 生长入口 -->
+      <view class="action-btn growth" bindtap="openGrowthPopup">
+        <view class="action-icon-wrapper">
+          <image class="action-icon" src="/images/icons/growth-white.png" mode="aspectFit"></image>
+        </view>
+        <view class="action-text">生长</view>
+      </view>
+    </view>
+  </scroll-view>
+
+  <!-- Viewer 角色提示条 -->
+  <view class="viewer-hint-bar" wx:if="{{!canEdit && userRole === 'viewer'}}">
+    <image class="viewer-hint-icon" src="/images/icons/visible.png" mode="aspectFit" lazy-load></image>
+    <text class="viewer-hint-text">当前为仅查看权限，如需添加记录请联系管理员</text>
+  </view>
+
+  <!-- FR-14: 宝宝洞察 AI 卡片 -->
+  <view class="insight-card" wx:if="{{aiInsight.show}}">
+    <view class="insight-header" bindtap="toggleAiInsight">
+      <view class="insight-title-wrapper">
+        <image class="insight-icon" src="/images/icons/ai-assistant.png" mode="aspectFit" lazy-load></image>
+        <text class="insight-title">宝宝洞察</text>
+        <text class="insight-badge" wx:if="{{aiInsight.fallback}}">本地</text>
+      </view>
+      <image class="insight-toggle {{aiInsight.collapsed ? 'collapsed' : ''}}" src="/images/icons/chevron-down.png" mode="aspectFit" lazy-load></image>
+    </view>
+    <view class="insight-content {{aiInsight.collapsed ? 'collapsed' : ''}}">
+      <view class="insight-loading" wx:if="{{aiInsight.loading}}">
+        <view class="insight-loading-dot"></view>
+        <view class="insight-loading-dot"></view>
+        <view class="insight-loading-dot"></view>
+      </view>
+      <text class="insight-text" wx:else>{{aiInsight.text}}</text>
+      <view class="insight-action" wx:if="{{!aiInsight.loading}}" bindtap="goToAiAssistant">
+        <text>更多建议</text>
+        <image class="insight-action-arrow" src="/images/icons/arrow-right.png" mode="aspectFit" lazy-load></image>
+      </view>
+    </view>
+  </view>
+
+  <!-- FR-11/12: 时间线（限 5 条 + 查看全部） -->
+  <view class="card timeline-card">
+    <view class="timeline-header">
+      <view class="title">今日记录</view>
+      <text class="timeline-count" wx:if="{{totalTodayCount > 0}}">{{totalTodayCount}}条</text>
+    </view>
+    <timeline 
+      records="{{recentRecords}}" 
+      swipe-enabled="{{canEdit}}"
+      bind:swipeEdit="onTimelineEdit"
+      bind:swipeDelete="onTimelineDelete"
+    />
+    <!-- FR-12: 查看全部按钮 -->
+    <view class="view-all-btn" wx:if="{{totalTodayCount > 5}}" bindtap="goToRecordList">
+      <text>查看全部 {{totalTodayCount}} 条今日记录</text>
+      <image class="view-all-arrow" src="/images/icons/arrow-right.png" mode="aspectFit" lazy-load></image>
+    </view>
+  </view>
+  </view>
+
+  <!-- 喂养弹窗 -->
+  <feeding-popup 
+    id="feedingPopup"
+    show="{{showFeedingPopup}}"
+    dark-mode="{{darkMode}}"
+    bind:close="closeFeedingPopup"
+    bind:created="onRecordCreated"
+  />
+
+  <!-- 睡眠弹窗 -->
+  <sleep-popup 
+    id="sleepPopup"
+    show="{{showSleepPopup}}"
+    dark-mode="{{darkMode}}"
+    bind:close="closeSleepPopup"
+    bind:created="onRecordCreated"
+  />
+
+  <!-- 排便弹窗 -->
+  <diaper-popup 
+    id="diaperPopup"
+    show="{{showDiaperPopup}}"
+    dark-mode="{{darkMode}}"
+    bind:close="closeDiaperPopup"
+    bind:created="onRecordCreated"
+  />
+
+  <!-- 体温弹窗 -->
+  <temperature-popup 
+    id="temperaturePopup"
+    show="{{showTemperaturePopup}}"
+    dark-mode="{{darkMode}}"
+    bind:close="closeTemperaturePopup"
+    bind:created="onRecordCreated"
+  />
+
+  <!-- FR-9: 生长弹窗 -->
+  <growth-popup 
+    show="{{showGrowthPopup}}"
+    baby-id="{{currentBaby._id}}"
+    dark-mode="{{darkMode}}"
+    bind:close="closeGrowthPopup"
+    bind:saved="onGrowthSaved"
+  />
+
+  <!-- 彩蛋弹窗 -->
+  <easter-egg-popup
+    show="{{easterEggPopup.show}}"
+    type="{{easterEggPopup.type}}"
+    egg-data="{{easterEggPopup.eggData}}"
+    dark-mode="{{darkMode}}"
+    storage-key="{{easterEggPopup.storageKey}}"
+    baby-id="{{currentBaby._id}}"
+    bind:close="onEasterEggPopupClose"
+  />
+
+  <!-- 彩蛋 Toast -->
+  <easter-egg-toast
+    show="{{easterEggToast.show}}"
+    text="{{easterEggToast.text}}"
+    icon="{{easterEggToast.icon}}"
+    dark-mode="{{darkMode}}"
+    storage-key="{{easterEggToast.storageKey}}"
+    bind:close="onEasterEggToastClose"
+  />
+
+  </block>
+
+  <!-- 无宝宝数据提示 -->
+  <view wx:if="{{!loading && !error && !currentBaby}}" class="empty-state">
+    <text class="empty-text">请先添加宝宝信息</text>
+    <button class="add-baby-btn" bindtap="goToBabyCreate">添加宝宝</button>
+  </view>
+</view>

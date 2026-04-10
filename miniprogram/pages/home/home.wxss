@@ -1,0 +1,1091 @@
+/* 首页样式 - 美拉德色彩风格 */
+
+/* ============ FR-15: 首页专属 CSS 变量扩展 ============ */
+page {
+  /* 状态横幅背景 (FR-1) */
+  --status-sleeping-bg: rgba(184, 168, 212, 0.12);   /* sleep-color 透明版 */
+  --status-feeding-bg:  rgba(168, 212, 168, 0.12);   /* feeding-color 透明版 */
+  --status-default-bg:  rgba(212, 184, 150, 0.08);   /* primary-color 透明版 */
+
+  /* AI 洞察卡片 (FR-14) */
+  --insight-bg: linear-gradient(135deg, rgba(212, 184, 150, 0.06) 0%, rgba(248, 244, 238, 1) 100%);
+  --insight-border: rgba(212, 184, 150, 0.2);
+
+  /* 今日待办卡片 (FR-7) */
+  --todo-vaccine-bg:    rgba(212, 136, 61, 0.1);
+  --todo-milestone-bg:  rgba(123, 169, 201, 0.1);
+  --todo-overdue-bg:    rgba(232, 84, 84, 0.1);
+
+  /* 喂养预测角标 (FR-8) */
+  --badge-prediction-bg:  rgba(168, 212, 168, 0.9);
+  --badge-urgent-bg:      var(--warning-color, #D4883D);
+
+  /* 体温警示横条 (FR-6) */
+  --fever-alert-bg:     rgba(232, 84, 84, 0.08);
+  --fever-alert-border: rgba(232, 84, 84, 0.3);
+  --fever-alert-text:   var(--danger-color, #E85454);
+
+  /* 骨架屏颜色 (FR-15) */
+  --skeleton-base: rgba(212, 184, 150, 0.15);
+  --skeleton-highlight: rgba(212, 184, 150, 0.25);
+}
+
+/* ============ FR-15: 骨架屏动画 ============ */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-block {
+  background: linear-gradient(
+    90deg,
+    var(--skeleton-base) 25%,
+    var(--skeleton-highlight) 50%,
+    var(--skeleton-base) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 12rpx;
+}
+
+/* 骨架屏容器 */
+.skeleton-container {
+  padding: 32rpx;
+  opacity: 1;
+  transition: opacity 0.3s ease-out;
+}
+
+/* 骨架屏 - 问候语区域 */
+.skeleton-greeting {
+  height: 96rpx;
+  margin-bottom: 24rpx;
+}
+
+/* 骨架屏 - 宝宝卡片区域 */
+.skeleton-baby-card {
+  height: 180rpx;
+  margin-bottom: 24rpx;
+}
+
+/* 骨架屏 - 状态横幅 */
+.skeleton-status-banner {
+  height: 80rpx;
+  margin-bottom: 24rpx;
+}
+
+/* 骨架屏 - 待办区域 */
+.skeleton-todo {
+  height: 120rpx;
+  margin-bottom: 24rpx;
+}
+
+/* 骨架屏 - 今日概览 */
+.skeleton-overview {
+  height: 240rpx;
+  margin-bottom: 24rpx;
+}
+
+/* 骨架屏 - 快捷操作 */
+.skeleton-actions {
+  height: 160rpx;
+  margin-bottom: 24rpx;
+}
+
+/* 骨架屏 - 时间线 */
+.skeleton-timeline {
+  height: 320rpx;
+}
+
+/* 内容区渐显动画 */
+.content-container {
+  opacity: 0;
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ============ FR-13: 顶部问候语模块 ============ */
+.greeting-bar {
+  margin-bottom: 24rpx;
+  padding: 0 8rpx;
+}
+
+.greeting-main {
+  display: flex;
+  align-items: baseline;
+  gap: 12rpx;
+}
+
+.greeting-text {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: var(--text-primary, #3D3D3D);
+}
+
+.greeting-baby-name {
+  font-size: 32rpx;
+  font-weight: 500;
+  color: var(--primary-color, #D4B896);
+}
+
+.greeting-sub {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-top: 8rpx;
+}
+
+.greeting-date {
+  font-size: 26rpx;
+  color: var(--text-secondary, #8B7B6B);
+}
+
+.greeting-divider {
+  width: 4rpx;
+  height: 4rpx;
+  border-radius: 50%;
+  background: var(--text-hint, #A09080);
+}
+
+.greeting-days {
+  font-size: 26rpx;
+  color: var(--text-hint, #A09080);
+}
+
+/* ============ FR-1: 宝宝状态横幅 ============ */
+.status-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 24rpx;
+  margin-bottom: 24rpx;
+  border-radius: 20rpx;
+  background: var(--status-default-bg);
+  transition: background-color 0.3s ease;
+}
+
+.status-banner.sleeping {
+  background: var(--status-sleeping-bg);
+}
+
+.status-banner.feeding_ago {
+  background: var(--status-feeding-bg);
+}
+
+.status-content {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  flex: 1;
+}
+
+.status-icon-wrapper {
+  width: 48rpx;
+  height: 48rpx;
+  flex-shrink: 0;
+}
+
+.status-icon {
+  width: 100%;
+  height: 100%;
+}
+
+.status-text-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.status-text {
+  font-size: 28rpx;
+  color: var(--text-primary, #3D3D3D);
+  font-weight: 500;
+}
+
+.status-abnormal-hint {
+  font-size: 22rpx;
+  color: var(--danger-color, #E85454);
+}
+
+.status-action {
+  padding: 12rpx 24rpx;
+  background: var(--primary-color, #D4B896);
+  color: var(--white, #FFFFFF);
+  font-size: 24rpx;
+  font-weight: 500;
+  border-radius: 24rpx;
+  flex-shrink: 0;
+}
+
+.status-action:active {
+  opacity: 0.85;
+}
+
+.status-action.abnormal {
+  background: var(--danger-color, #E85454);
+}
+
+/* ============ FR-2: 多宝快速切换 ============ */
+.baby-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16rpx 24rpx;
+  margin-bottom: 24rpx;
+  background: var(--bg-secondary, #FFFFFF);
+  border-radius: 16rpx;
+  box-shadow: 0 2rpx 12rpx rgba(139, 123, 107, 0.06);
+}
+
+.baby-switch-label {
+  font-size: 26rpx;
+  color: var(--text-secondary, #8B7B6B);
+}
+
+.baby-avatars {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.baby-avatar-item {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 3rpx solid transparent;
+  transition: border-color 0.2s ease;
+}
+
+.baby-avatar-item.active {
+  border-color: var(--primary-color, #D4B896);
+  box-shadow: 0 2rpx 8rpx rgba(212, 184, 150, 0.4);
+}
+
+.baby-avatar-item:active {
+  transform: scale(0.95);
+}
+
+.baby-avatar-img {
+  width: 100%;
+  height: 100%;
+}
+
+.baby-more {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+  background: var(--primary-light, #E8DCC8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22rpx;
+  color: var(--primary-color, #D4B896);
+  font-weight: 600;
+}
+
+.container {
+  padding: 32rpx;
+  background: var(--bg-primary);
+  min-height: 100vh;
+}
+
+/* 卡片通用样式 */
+.card {
+  background: var(--bg-secondary);
+  border-radius: 24rpx;
+  padding: 32rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 4rpx 20rpx rgba(139, 123, 107, 0.08);
+}
+
+.title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 24rpx;
+}
+
+/* ============ FR-3/4/5/6: 今日概览增强 ============ */
+.overview-card {
+  position: relative;
+}
+
+/* FR-6: 发烧警示横条 */
+.fever-alert {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  padding: 16rpx 20rpx;
+  margin-bottom: 20rpx;
+  background: var(--fever-alert-bg);
+  border: 1rpx solid var(--fever-alert-border);
+  border-radius: 12rpx;
+}
+
+.fever-alert-icon {
+  width: 32rpx;
+  height: 32rpx;
+  flex-shrink: 0;
+}
+
+.fever-alert-text {
+  font-size: 24rpx;
+  color: var(--fever-alert-text);
+  font-weight: 500;
+}
+
+/* 今日概览统计网格 */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20rpx;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24rpx 12rpx;
+  background: var(--bg-primary);
+  border-radius: 20rpx;
+  transition: transform 0.3s ease, background-color 0.3s ease;
+  position: relative;
+}
+
+.stat-item:active {
+  transform: scale(0.98);
+  background: rgba(212, 184, 150, 0.1);
+}
+
+.stat-icon-wrapper {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16rpx;
+  flex-shrink: 0;
+}
+
+.stat-icon-wrapper.feeding {
+  background: var(--feeding-bg);
+}
+
+.stat-icon-wrapper.sleep {
+  background: var(--sleep-bg);
+}
+
+.stat-icon-wrapper.diaper {
+  background: var(--diaper-bg);
+}
+
+.stat-icon-wrapper.temperature {
+  background: var(--temperature-bg);
+}
+
+.stat-icon {
+  width: 44rpx;
+  height: 44rpx;
+  display: block;
+}
+
+.stat-value {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8rpx;
+}
+
+/* FR-5: 睡眠时长值（带达标图标） */
+.stat-value.sleep-value {
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+}
+
+.goal-check {
+  width: 28rpx;
+  height: 28rpx;
+}
+
+/* FR-6: 体温值颜色动态设置 */
+.stat-value.temp-value {
+  transition: color 0.3s ease;
+}
+
+.stat-label {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  margin-bottom: 8rpx;
+}
+
+.stat-detail {
+  font-size: 22rpx;
+  color: var(--text-hint);
+  padding: 4rpx 12rpx;
+  background: rgba(212, 184, 150, 0.15);
+  border-radius: 12rpx;
+}
+
+/* FR-6: 体温状态标签 */
+.stat-detail.temp-status {
+  font-weight: 500;
+}
+
+.stat-detail.temp-status.normal {
+  background: rgba(123, 201, 80, 0.15);
+  color: var(--success-color, #7BC950);
+}
+
+.stat-detail.temp-status.low_fever {
+  background: rgba(212, 136, 61, 0.15);
+  color: var(--warning-color, #D4883D);
+}
+
+.stat-detail.temp-status.fever {
+  background: rgba(232, 84, 84, 0.15);
+  color: var(--danger-color, #E85454);
+}
+
+/* FR-4: 时间提示 */
+.stat-time-hint {
+  font-size: 20rpx;
+  color: var(--text-hint, #A09080);
+  margin-top: 8rpx;
+  text-align: center;
+  line-height: 1.2;
+}
+
+/* ============ FR-7: 今日待办卡片 ============ */
+.todo-section {
+  margin-bottom: 24rpx;
+}
+
+.todo-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16rpx;
+  padding: 0 8rpx;
+}
+
+.todo-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--text-primary, #3D3D3D);
+}
+
+.todo-count {
+  font-size: 22rpx;
+}
+
+.overdue-badge {
+  color: var(--danger-color, #E85454);
+  background: var(--todo-overdue-bg);
+  padding: 4rpx 12rpx;
+  border-radius: 12rpx;
+  font-weight: 500;
+}
+
+.todo-scroll {
+  display: block;
+  width: 100%;
+  white-space: nowrap;
+  padding: 8rpx 8rpx 16rpx;
+  box-sizing: border-box;
+}
+
+.todo-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 20rpx 24rpx;
+  margin-right: 16rpx;
+  background: var(--bg-secondary, #FFFFFF);
+  border-radius: 16rpx;
+  box-shadow: 0 2rpx 12rpx rgba(139, 123, 107, 0.08);
+  min-width: 200rpx;
+  position: relative;
+  vertical-align: top;
+}
+
+.todo-card:active {
+  transform: scale(0.98);
+}
+
+.todo-card.vaccine {
+  border-left: 6rpx solid var(--warning-color, #D4883D);
+}
+
+.todo-card.milestone {
+  border-left: 6rpx solid var(--info-color, #7BA9C9);
+}
+
+.todo-card.overdue {
+  background: var(--todo-overdue-bg);
+}
+
+.todo-card.upcoming {
+  background: rgba(212, 136, 61, 0.08);
+}
+
+.todo-card-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  font-size: 20rpx;
+  color: var(--white, #FFFFFF);
+  background: var(--danger-color, #E85454);
+  padding: 4rpx 10rpx;
+  border-radius: 0 12rpx 0 12rpx;
+  font-weight: 500;
+}
+
+.todo-card-badge.upcoming {
+  background: var(--warning-color, #D4883D);
+}
+
+.todo-card-icon {
+  width: 48rpx;
+  height: 48rpx;
+  flex-shrink: 0;
+}
+
+.todo-card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+  white-space: normal;
+}
+
+.todo-card-name {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--text-primary, #3D3D3D);
+  line-height: 1.3;
+}
+
+.todo-card-sub {
+  font-size: 22rpx;
+  color: var(--text-hint, #A09080);
+}
+
+/* ============ FR-8/9: 快捷入口（横向滚动） ============ */
+/* 标题区域 */
+.quick-section {
+  margin-bottom: 0;
+}
+
+.quick-section-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 16rpx;
+}
+
+/*
+ * 完全对齐记录页 .filters 的结构：
+ * scroll-view 作为 content-container 的直接子元素，
+ * 用负margin突破外层 .container 的 padding: 32rpx，
+ * 让 scroll-view 撑满整个屏幕宽度，确保横向滚动无冲突。
+ * 自身带背景色和圆角模拟卡片视觉。
+ */
+.quick-scroll {
+  display: block;
+  width: 100%;
+  margin-bottom: 24rpx;
+  padding: 24rpx 0;
+  white-space: nowrap;
+  background: var(--bg-secondary);
+  border-radius: 24rpx;
+  box-shadow: 0 4rpx 20rpx rgba(139, 123, 107, 0.08);
+  box-sizing: border-box;
+}
+
+.quick-scroll-inner {
+  display: inline-flex;
+  gap: 20rpx;
+  padding: 0 32rpx;
+}
+
+.action-btn {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 140rpx;
+  padding: 28rpx 16rpx;
+  border-radius: 20rpx;
+  box-shadow: 0 4rpx 16rpx rgba(139, 123, 107, 0.15);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* FR-8: 喂养预测角标 */
+.action-badge {
+  position: absolute;
+  top: -8rpx;
+  right: -8rpx;
+  font-size: 20rpx;
+  padding: 4rpx 10rpx;
+  border-radius: 12rpx;
+  white-space: nowrap;
+  font-weight: 500;
+  z-index: 1;
+}
+
+.action-badge.prediction {
+  background: var(--badge-prediction-bg);
+  color: var(--text-primary, #3D3D3D);
+}
+
+.action-badge.urgent {
+  background: var(--badge-urgent-bg);
+  color: var(--white, #FFFFFF);
+}
+
+/* 功能色按钮 - 美拉德色系 */
+.action-btn.feeding {
+  background: linear-gradient(135deg, var(--feeding-color) 0%, var(--feeding-btn-end) 100%);
+}
+
+.action-btn.sleep {
+  background: linear-gradient(135deg, var(--sleep-color) 0%, var(--sleep-btn-end) 100%);
+}
+
+/* FR-10: 睡眠计时中状态（脉冲动画） */
+.action-btn.sleep.timing {
+  background: linear-gradient(135deg, var(--sleep-timing-start) 0%, var(--sleep-timing-end) 100%);
+  animation: sleepPulse 2s ease-in-out infinite;
+}
+
+@keyframes sleepPulse {
+  0%, 100% {
+    box-shadow: 0 4rpx 16rpx rgba(139, 123, 107, 0.15);
+  }
+  50% {
+    box-shadow: 0 4rpx 24rpx rgba(184, 168, 212, 0.5);
+  }
+}
+
+/* FR-10: 睡眠异常状态（>24h） */
+.action-btn.sleep.abnormal {
+  background: linear-gradient(135deg, var(--sleep-abnormal-start) 0%, var(--sleep-abnormal-end) 100%);
+}
+
+/* FR-10: 计时指示器（呼吸灯效果） */
+.timing-indicator {
+  position: absolute;
+  top: 8rpx;
+  right: 8rpx;
+  width: 16rpx;
+  height: 16rpx;
+}
+
+.timing-dot {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: var(--white, #FFFFFF);
+  animation: timingBreathe 1.5s ease-in-out infinite;
+}
+
+@keyframes timingBreathe {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.action-btn.diaper {
+  background: linear-gradient(135deg, var(--diaper-color) 0%, var(--diaper-btn-end) 100%);
+}
+
+.action-btn.temperature {
+  background: linear-gradient(135deg, var(--temperature-color) 0%, var(--temperature-btn-end) 100%);
+}
+
+/* FR-9: 生长按钮 */
+.action-btn.growth {
+  background: linear-gradient(135deg, var(--growth-btn-start) 0%, var(--growth-btn-end) 100%);
+}
+
+.action-btn:active {
+  transform: scale(0.95);
+  box-shadow: 0 2rpx 8rpx rgba(139, 123, 107, 0.2);
+}
+
+.action-icon-wrapper {
+  width: 56rpx;
+  height: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12rpx;
+  flex-shrink: 0;
+}
+
+.action-icon {
+  width: 40rpx;
+  height: 40rpx;
+  display: block;
+}
+
+.action-text {
+  font-size: 26rpx;
+  color: var(--white);
+  font-weight: 600;
+  text-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.1);
+  line-height: 1;
+  display: block;
+}
+
+/* ============ FR-14: 宝宝洞察 AI 卡片 ============ */
+.insight-card {
+  background: var(--insight-bg);
+  border: 1rpx solid var(--insight-border);
+  border-radius: 20rpx;
+  margin-bottom: 24rpx;
+  overflow: hidden;
+}
+
+.insight-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 24rpx;
+}
+
+.insight-title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.insight-icon {
+  width: 36rpx;
+  height: 36rpx;
+}
+
+.insight-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text-primary, #3D3D3D);
+}
+
+.insight-badge {
+  font-size: 20rpx;
+  color: var(--text-hint, #A09080);
+  background: rgba(212, 184, 150, 0.2);
+  padding: 2rpx 10rpx;
+  border-radius: 8rpx;
+}
+
+.insight-toggle {
+  width: 28rpx;
+  height: 28rpx;
+  transition: transform 0.3s ease;
+}
+
+.insight-toggle.collapsed {
+  transform: rotate(-90deg);
+}
+
+.insight-content {
+  padding: 0 24rpx 24rpx;
+  max-height: 200rpx;
+  overflow: hidden;
+  transition: max-height 0.3s ease, padding 0.3s ease;
+}
+
+.insight-content.collapsed {
+  max-height: 0;
+  padding-bottom: 0;
+}
+
+.insight-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  padding: 20rpx 0;
+}
+
+.insight-loading-dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background: var(--primary-color, #D4B896);
+  animation: dotPulse 1.2s ease-in-out infinite;
+}
+
+.insight-loading-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.insight-loading-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes dotPulse {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.insight-text {
+  font-size: 26rpx;
+  color: var(--text-secondary, #8B7B6B);
+  line-height: 1.6;
+  display: block;
+}
+
+.insight-action {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6rpx;
+  margin-top: 16rpx;
+}
+
+.insight-action text {
+  font-size: 24rpx;
+  color: var(--primary-color, #D4B896);
+  font-weight: 500;
+}
+
+.insight-action:active {
+  opacity: 0.7;
+}
+
+.insight-action-arrow {
+  width: 20rpx;
+  height: 20rpx;
+  opacity: 0.6;
+}
+
+/* ============ 家庭协作：Viewer 权限提示条 ============ */
+.viewer-hint-bar {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  padding: 20rpx 24rpx;
+  margin-bottom: 24rpx;
+  background: rgba(212, 184, 150, 0.08);
+  border: 1rpx solid rgba(212, 184, 150, 0.2);
+  border-radius: 16rpx;
+}
+
+.viewer-hint-icon {
+  width: 32rpx;
+  height: 32rpx;
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+.viewer-hint-text {
+  font-size: 24rpx;
+  color: var(--text-hint, #A09080);
+  line-height: 1.4;
+}
+
+/* ============ FR-11/12: 时间线增强 ============ */
+.timeline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24rpx;
+}
+
+.timeline-header .title {
+  margin-bottom: 0;
+}
+
+.timeline-count {
+  font-size: 24rpx;
+  color: var(--text-hint, #A09080);
+}
+
+/* FR-12: 查看全部按钮 */
+.view-all-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  margin-top: 24rpx;
+  padding: 20rpx 0;
+  border-top: 1rpx solid rgba(212, 184, 150, 0.2);
+}
+
+.view-all-btn text {
+  font-size: 26rpx;
+  color: var(--primary-color, #D4B896);
+  font-weight: 500;
+}
+
+.view-all-btn:active {
+  opacity: 0.8;
+}
+
+.view-all-arrow {
+  width: 24rpx;
+  height: 24rpx;
+  opacity: 0.6;
+}
+
+/* 时间线卡片 */
+.timeline-card {
+  padding: 32rpx 24rpx;
+}
+
+/* 空状态 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 80rpx 32rpx;
+}
+
+.empty-icon {
+  width: 120rpx;
+  height: 120rpx;
+  margin-bottom: 24rpx;
+  opacity: 0.5;
+}
+
+.empty-text {
+  font-size: 28rpx;
+  color: var(--text-hint);
+  margin-bottom: 32rpx;
+}
+
+.add-baby-btn {
+  padding: 20rpx 48rpx;
+  background: linear-gradient(135deg, var(--primary-color, #D4B896) 0%, var(--primary-dark, #8B7B6B) 100%);
+  color: var(--white);
+  font-size: 28rpx;
+  border-radius: 48rpx;
+  border: none;
+}
+
+/* 加载状态 */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+}
+
+.loading-spinner {
+  width: 60rpx;
+  height: 60rpx;
+  border: 4rpx solid var(--primary-light, #E8DCC8);
+  border-top-color: var(--primary-color, #D4B896);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 24rpx;
+}
+
+.loading-text {
+  font-size: 28rpx;
+  color: var(--text-hint);
+}
+
+/* ============ 彩蛋提示条（EE-5/EE-7） ============ */
+.egg-banner {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  padding: 16rpx 20rpx;
+  margin-bottom: 24rpx;
+  background: rgba(212, 184, 150, 0.1);
+  border-radius: 16rpx;
+  border: 1rpx solid rgba(212, 184, 150, 0.15);
+}
+
+.egg-banner-icon {
+  width: 32rpx;
+  height: 32rpx;
+  flex-shrink: 0;
+}
+
+.egg-banner-text {
+  flex: 1;
+  font-size: 26rpx;
+  color: var(--text-primary, #3D3D3D);
+  font-weight: 500;
+}
+
+.egg-banner-close {
+  width: 36rpx;
+  height: 36rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.egg-banner-close text {
+  font-size: 32rpx;
+  color: var(--text-hint, #999999);
+  line-height: 1;
+}
+
+@keyframes eggSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-16rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============ 暖夜模式局部变量覆盖 ============ */
+.dark-mode {
+  --status-sleeping-bg: rgba(148, 136, 180, 0.15);
+  --status-feeding-bg:  rgba(124, 175, 124, 0.15);
+  --status-default-bg:  rgba(212, 184, 150, 0.10);
+
+  --insight-bg: linear-gradient(135deg, rgba(212, 184, 150, 0.08) 0%, rgba(30, 26, 22, 1) 100%);
+  --insight-border: rgba(212, 184, 150, 0.12);
+
+  --todo-vaccine-bg:    rgba(196, 120, 48, 0.12);
+  --todo-milestone-bg:  rgba(107, 147, 185, 0.12);
+  --todo-overdue-bg:    rgba(212, 72, 72, 0.12);
+
+  --badge-prediction-bg: rgba(124, 175, 124, 0.8);
+  --badge-urgent-bg:     var(--warning-color);
+
+  --fever-alert-bg:     rgba(212, 72, 72, 0.10);
+  --fever-alert-border: rgba(212, 72, 72, 0.25);
+  --fever-alert-text:   var(--danger-color);
+
+  --skeleton-base: rgba(212, 184, 150, 0.06);
+  --skeleton-highlight: rgba(212, 184, 150, 0.12);
+}

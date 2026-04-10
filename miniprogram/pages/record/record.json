@@ -1,0 +1,14 @@
+{
+  "navigationBarTitleText": "记录",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "timeline": "/components/timeline/timeline",
+    "insight-section": "/components/insight-section/insight-section",
+    "feeding-popup": "/components/feeding-popup/feeding-popup",
+    "sleep-popup": "/components/sleep-popup/sleep-popup",
+    "diaper-popup": "/components/diaper-popup/diaper-popup",
+    "temperature-popup": "/components/temperature-popup/temperature-popup",
+    "report-popup": "/components/report-popup/report-popup",
+    "growth-popup": "/components/growth-popup/growth-popup"
+  }
+}

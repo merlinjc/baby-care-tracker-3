@@ -1,0 +1,89 @@
+<view class="timeline-container">
+  <!-- 空状态 -->
+  <view class="empty-state" wx:if="{{!records || records.length === 0}}">
+    <image class="empty-icon" src="/images/icons/edit-gray.png" mode="aspectFit" lazy-load></image>
+    <text class="empty-text">暂无记录</text>
+    <text class="empty-hint">点击右下角按钮添加记录</text>
+  </view>
+
+  <!-- 记录列表 -->
+  <view class="timeline-list" wx:else>
+    <!-- 日期分组 -->
+    <view class="date-group" wx:for="{{groupedRecords}}" wx:key="date">
+      <view class="date-header">
+        <view class="date-line"></view>
+        <text class="date-text">{{item.dateDisplay}}</text>
+      </view>
+
+      <!-- 记录项（支持左滑编辑） -->
+      <view class="record-item-wrapper" wx:for="{{item.records}}" wx:for-item="record" wx:key="_id">
+        <view 
+          class="record-item {{manageMode && record.isSelected ? 'selected' : ''}} {{openedSwipeId === record._id ? 'swiped' : ''}}" 
+          bindtap="onRecordTap"
+          bindlongpress="onRecordLongPress"
+          bindtouchstart="onTouchStart"
+          bindtouchmove="onTouchMove"
+          bindtouchend="onTouchEnd"
+          data-record-id="{{record._id}}"
+        >
+          <!-- 批量选择复选框 -->
+          <view class="batch-checkbox" wx:if="{{manageMode}}">
+            <view class="checkbox {{record.isSelected ? 'checked' : ''}}">
+              <image 
+                wx:if="{{record.isSelected}}" 
+                class="check-icon" 
+                src="/images/icons/check.png" 
+                mode="aspectFit"
+                lazy-load
+              ></image>
+            </view>
+          </view>
+
+          <!-- 记录者头像 -->
+          <view class="creator-avatar" wx:if="{{!manageMode && (record.createdByAvatar || record.creatorId)}}">
+            <image class="avatar-img" src="{{record.createdByAvatar || '/images/icons/user.png'}}" mode="aspectFill" lazy-load></image>
+            <view class="history-badge" wx:if="{{!record.creatorId}}">
+              <image class="history-icon" src="/images/icons/clock.png" mode="aspectFit" lazy-load></image>
+            </view>
+          </view>
+
+          <view class="record-dot">
+            <image class="dot-icon" src="{{record.iconSrc}}" mode="aspectFit" lazy-load></image>
+          </view>
+          
+          <view class="record-content">
+            <view class="record-header">
+              <text class="record-type">{{record.typeDisplay}}</text>
+              <text class="record-time">{{record.timeDisplay}}</text>
+            </view>
+            
+            <view class="record-summary">{{record.summary}}</view>
+            
+            <!-- 记录者信息 -->
+            <view class="record-creator" wx:if="{{!manageMode && record.createdByName}}">
+              <image class="creator-icon" src="/images/icons/user.png" mode="aspectFit" lazy-load></image>
+              <text class="creator-text">{{record.createdByName}}</text>
+            </view>
+
+            <!-- 备注 -->
+            <view class="record-note" wx:if="{{record.note}}">
+              <text class="note-text">{{record.note}}</text>
+            </view>
+          </view>
+        </view>
+        
+        <!-- FR-11: 滑动操作按钮 -->
+        <view class="swipe-actions {{openedSwipeId === record._id ? 'visible' : ''}}" wx:if="{{swipeEnabled && !manageMode}}">
+          <view class="swipe-btn edit" bindtap="onSwipeEdit" data-record-id="{{record._id}}">
+            <image class="swipe-btn-icon" src="/images/icons/edit.png" mode="aspectFit" lazy-load></image>
+            <text>编辑</text>
+          </view>
+          <view class="swipe-btn delete" bindtap="onSwipeDelete" data-record-id="{{record._id}}">
+            <image class="swipe-btn-icon" src="/images/icons/trash-red.png" mode="aspectFit" lazy-load></image>
+            <text>删除</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

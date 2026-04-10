@@ -1,0 +1,99 @@
+<!--编辑宝宝信息弹窗-->
+<view class="{{darkMode ? 'dark-mode' : ''}} popup-mask popup-mask-visible" 
+      hidden="{{!show}}"
+      bindtap="close"
+      catchtouchmove="preventMove">
+  <view class="popup-container popup-enter" 
+        style="transform: translateY({{popupTranslateY}}px)"
+        catchtap="stopPropagation"
+        bindtouchstart="onTouchStart"
+        bindtouchmove="onTouchMove"
+        bindtouchend="onTouchEnd">
+    <!-- 下滑指示条 -->
+    <view class="swipe-indicator"></view>
+    
+    <!-- 标题栏 -->
+    <view class="popup-header">
+      <view class="popup-icon">
+        <image src="/images/icons/edit.png" mode="aspectFit" lazy-load></image>
+      </view>
+      <text class="popup-title">编辑宝宝信息</text>
+      <view class="popup-close" bindtap="close">
+        <text>×</text>
+      </view>
+    </view>
+
+    <!-- 可滚动内容区域 -->
+    <scroll-view class="popup-content" scroll-y enhanced show-scrollbar="{{false}}">
+      <!-- 头像上传 -->
+      <view class="avatar-section">
+        <view class="avatar-wrapper" bindtap="onChooseAvatar">
+          <image 
+            class="avatar-image" 
+            src="{{avatar || '/images/default-baby-avatar.svg'}}" 
+            mode="aspectFill"
+            lazy-load
+          />
+          <view class="avatar-edit-overlay" wx:if="{{!uploading}}">
+            <image class="camera-icon" src="/images/icons/camera-white.png" mode="aspectFit" lazy-load></image>
+            <text class="avatar-edit-text">更换头像</text>
+          </view>
+          <view class="avatar-uploading" wx:if="{{uploading}}">
+            <view class="upload-spinner"></view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 姓名输入 -->
+      <view class="form-section">
+        <view class="form-item">
+          <view class="form-label">
+            <image src="/images/icons/user.png" mode="aspectFit" lazy-load></image>
+            <text>宝宝姓名</text>
+          </view>
+          <input 
+            class="form-input" 
+            placeholder="请输入宝宝姓名"
+            placeholder-class="input-placeholder"
+            value="{{name}}"
+            bindinput="onInputName"
+            maxlength="20"
+          />
+        </view>
+
+        <!-- 出生日期 -->
+        <view class="form-item">
+          <view class="form-label">
+            <image src="/images/icons/calendar.png" mode="aspectFit" lazy-load></image>
+            <text>出生日期</text>
+          </view>
+          <picker 
+            mode="date" 
+            value="{{birthDate}}" 
+            start="2020-01-01" 
+            end="{{currentDate}}"
+            bindchange="onDateChange"
+            class="date-picker"
+          >
+            <view class="date-picker-content">
+              <text class="{{birthDate ? 'date-value' : 'date-placeholder'}}">
+                {{birthDate || '请选择出生日期'}}
+              </text>
+              <image src="/images/icons/arrow-right.png" mode="aspectFit" lazy-load></image>
+            </view>
+          </picker>
+        </view>
+      </view>
+
+      <!-- 提交按钮 -->
+      <button 
+        class="submit-btn {{loading ? 'loading' : ''}}"
+        bindtap="submit"
+        disabled="{{loading}}"
+      >
+        <text wx:if="{{!loading}}">保存修改</text>
+        <text wx:else>保存中...</text>
+      </button>
+    </scroll-view>
+  </view>
+</view>
