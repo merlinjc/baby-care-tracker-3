@@ -132,8 +132,10 @@
   background: linear-gradient(135deg, #E8DCC8, #D4C8B8);
 }
 
-.theme-icon-text {
-  font-size: 36rpx;
+/* v4.0: 主题图标 PNG */
+.theme-icon-img {
+  width: 36rpx;
+  height: 36rpx;
 }
 
 .theme-option-label {

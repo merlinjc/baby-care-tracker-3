@@ -575,13 +575,20 @@ page {
   100% { opacity: 1; transform: scale(1); }
 }
 
-/* 减少动画偏好 */
+/* 减少动画偏好 - 小程序不支持 * 通配符，使用 page/view 替代 */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  page, view, text, image, scroll-view {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* v4.0: 通用 picker 箭头 image */
+.picker-arrow-img {
+  width: 16rpx;
+  height: 16rpx;
+  opacity: 0.4;
 }
 
 /* ============================================================

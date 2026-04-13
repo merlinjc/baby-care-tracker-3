@@ -22,7 +22,7 @@
           <picker mode="date" value="{{formData.date}}" bindchange="onDateChange">
             <view class="form-picker">
               <text class="picker-value">{{formData.date || '请选择日期'}}</text>
-              <text class="picker-arrow">›</text>
+              <image class="picker-arrow-img" src="/images/icons/arrow-right.png" mode="aspectFit" />
             </view>
           </picker>
         </view>

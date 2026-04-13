@@ -84,7 +84,7 @@
   <view class="reference-tip" bindtap="showVaccineInfo">
     <image class="tip-icon" src="/images/icons/info.png" mode="aspectFit"></image>
     <text class="tip-text">数据来源：国家免疫规划疫苗儿童免疫程序（2025年版）</text>
-    <text class="tip-arrow">›</text>
+    <image class="picker-arrow-img" src="/images/icons/arrow-right.png" mode="aspectFit" />
   </view>
 
   <!-- 加载中 -->
@@ -136,7 +136,7 @@
               </view>
               
               <view class="vaccine-arrow">
-                <text>›</text>
+                <image class="picker-arrow-img" src="/images/icons/arrow-right.png" mode="aspectFit" />
               </view>
             </view>
           </block>
