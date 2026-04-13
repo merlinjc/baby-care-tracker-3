@@ -83,119 +83,102 @@
         </view>
       </view>
 
-      <!-- FR-7: 今日待办卡片 -->
-      <view class="todo-section" wx:if="{{todoStats.total > 0}}">
-        <view class="todo-header">
-          <text class="todo-title">今日待办</text>
-          <text class="todo-count" wx:if="{{todoStats.overdue > 0}}">
-            <text class="overdue-badge">{{todoStats.overdue}}项逾期</text>
-          </text>
+      <!-- v4.0 区域 E: 今日待办（竖向条） -->
+      <view class="todo-list-card" wx:if="{{todoStats.total > 0}}">
+        <!-- 待办条目（最多3条） -->
+        <view class="todo-row {{item.isOverdue ? 'overdue' : (item.isUpcoming ? 'upcoming' : '')}}"
+              wx:for="{{todoStats.vaccineItems}}" wx:key="name" wx:if="{{index < 3}}"
+              bindtap="goToVaccine">
+          <view class="todo-row-bar vaccine {{item.isOverdue ? 'overdue' : ''}}"></view>
+          <image class="todo-row-icon" src="/images/icons/vaccine-color.png" mode="aspectFit" lazy-load></image>
+          <view class="todo-row-text">
+            <text class="todo-row-title">{{item.name}}</text>
+            <text class="todo-row-sub">·</text>
+            <text class="todo-row-sub">{{item.dose}}</text>
+          </view>
+          <view class="todo-row-tag {{item.isOverdue ? 'tag-overdue' : 'tag-upcoming'}}" wx:if="{{item.isOverdue || item.isUpcoming}}">
+            {{item.isOverdue ? '已逾期' : '即将'}}
+          </view>
         </view>
-      <scroll-view class="todo-scroll" scroll-x enhanced show-scrollbar="{{false}}">
-          <!-- 疫苗待办 -->
-          <view 
-            class="todo-card vaccine {{item.isOverdue ? 'overdue' : ''}} {{item.isUpcoming ? 'upcoming' : ''}}"
-            wx:for="{{todoStats.vaccineItems}}"
-            wx:key="name"
-            bindtap="goToVaccine"
-          >
-            <view class="todo-card-badge" wx:if="{{item.isOverdue}}">逾期</view>
-            <view class="todo-card-badge upcoming" wx:elif="{{item.isUpcoming}}">即将</view>
-            <image class="todo-card-icon" src="/images/icons/vaccine-color.png" mode="aspectFit" lazy-load></image>
-            <view class="todo-card-content">
-              <text class="todo-card-name">{{item.name}}</text>
-              <text class="todo-card-sub">{{item.dose}} · {{item.ageLabel}}</text>
-            </view>
+        <view class="todo-row {{item.isOverdue ? 'overdue' : ''}}"
+              wx:for="{{todoStats.milestoneItems}}" wx:key="name" wx:if="{{index < 3 - todoStats.vaccineItems.length}}"
+              bindtap="goToMilestone">
+          <view class="todo-row-bar milestone {{item.isOverdue ? 'overdue' : ''}}"></view>
+          <image class="todo-row-icon" src="/images/icons/milestone-color.png" mode="aspectFit" lazy-load></image>
+          <view class="todo-row-text">
+            <text class="todo-row-title">{{item.name}}</text>
+            <text class="todo-row-sub">·</text>
+            <text class="todo-row-sub">{{item.category}}</text>
           </view>
-          
-          <!-- 里程碑待办 -->
-          <view 
-            class="todo-card milestone {{item.isOverdue ? 'overdue' : ''}}"
-            wx:for="{{todoStats.milestoneItems}}"
-            wx:key="name"
-            bindtap="goToMilestone"
-          >
-            <view class="todo-card-badge" wx:if="{{item.isOverdue}}">逾期</view>
-            <image class="todo-card-icon" src="/images/icons/milestone-color.png" mode="aspectFit" lazy-load></image>
-            <view class="todo-card-content">
-              <text class="todo-card-name">{{item.name}}</text>
-              <text class="todo-card-sub">{{item.category}}</text>
-            </view>
-          </view>
-        </scroll-view>
+          <view class="todo-row-tag tag-overdue" wx:if="{{item.isOverdue}}">已逾期</view>
+        </view>
+        <!-- 查看全部 -->
+        <view class="todo-view-all" wx:if="{{todoStats.total > 3}}" bindtap="goToDiscover">
+          <text>查看全部 {{todoStats.total}} 项</text>
+          <image src="/images/icons/arrow-right.png" mode="aspectFit" lazy-load style="width:20rpx;height:20rpx;opacity:0.6;"></image>
+        </view>
       </view>
 
-      <!-- FR-3/4/5/6: 今日概览增强 -->
+      <!-- v4.0 区域 C: 今日摘要（48rpx 大数字 + 进度条 + 点击弹窗） -->
       <view class="card overview-card">
         <view class="title">今日概览</view>
         
-        <!-- FR-6: 发烧警示横条 -->
+        <!-- 发烧警示横条 -->
         <view class="fever-alert" wx:if="{{showFeverAlert}}">
           <image class="fever-alert-icon" src="/images/icons/warning.png" mode="aspectFit" lazy-load></image>
           <text class="fever-alert-text">宝宝{{tempStatusText}}，请注意观察</text>
         </view>
         
         <view class="stats-grid">
-          <!-- FR-3: 喂养统计（可点击跳转） -->
+          <!-- 喂养 -->
           <view class="stat-item" data-type="feeding" bindtap="onStatTap">
             <view class="stat-icon-wrapper feeding">
               <image class="stat-icon" src="/images/icons/feeding-color.png" mode="aspectFit"></image>
             </view>
             <view class="stat-value">{{todayStats.feeding.count}}</view>
-            <view class="stat-label">喂养次数</view>
-            <view class="stat-detail" wx:if="{{todayStats.feeding.totalAmount > 0}}">
-              {{todayStats.feeding.totalAmount}}ml
+            <view class="stat-unit">次</view>
+            <view class="stat-detail" wx:if="{{todayStats.feeding.totalAmount > 0}}">{{todayStats.feeding.totalAmount}}ml</view>
+            <view class="stat-progress">
+              <view class="stat-progress-fill feeding" style="--progress-target: {{feedingProgress}}%;"></view>
             </view>
-            <!-- FR-4: 时间提示 -->
-            <view class="stat-time-hint" wx:if="{{feedingAgoText}}">{{feedingAgoText}}</view>
           </view>
 
-          <!-- FR-3/5: 睡眠统计（时长优先 + 达标绿勾） -->
+          <!-- 睡眠 -->
           <view class="stat-item" data-type="sleep" bindtap="onStatTap">
             <view class="stat-icon-wrapper sleep">
               <image class="stat-icon" src="/images/icons/sleep-color.png" mode="aspectFit"></image>
             </view>
-            <!-- FR-5: 主显时长，次显次数 -->
             <view class="stat-value sleep-value">
               {{sleepDisplay || '0m'}}
               <image class="goal-check" wx:if="{{sleepGoalMet}}" src="/images/icons/check-circle.png" mode="aspectFit" lazy-load></image>
             </view>
-            <view class="stat-label">睡眠时长</view>
-            <view class="stat-detail">{{todayStats.sleep.count}}次</view>
-            <!-- FR-4: 睡眠中显示"已睡 Xh Xm"，否则显示"上次 Xh Xm 前" -->
-            <view class="stat-time-hint" wx:if="{{activeSleep}}">
-              已睡 {{activeSleepDisplay}}
+            <view class="stat-unit">{{todayStats.sleep.count}}次</view>
+            <view class="stat-progress">
+              <view class="stat-progress-fill sleep" style="--progress-target: {{sleepProgress}}%;"></view>
             </view>
-            <view class="stat-time-hint" wx:elif="{{sleepAgoText}}">{{sleepAgoText}}</view>
           </view>
 
-          <!-- FR-3: 排便统计 -->
+          <!-- 排便 -->
           <view class="stat-item" data-type="diaper" bindtap="onStatTap">
             <view class="stat-icon-wrapper diaper">
               <image class="stat-icon" src="/images/icons/diaper-color.png" mode="aspectFit"></image>
             </view>
             <view class="stat-value">{{todayStats.diaper.count}}</view>
-            <view class="stat-label">排便次数</view>
-            <view class="stat-detail">
-              湿{{todayStats.diaper.wet}} 脏{{todayStats.diaper.dirty}}
+            <view class="stat-unit">次</view>
+            <view class="stat-detail">湿{{todayStats.diaper.wet}} 脏{{todayStats.diaper.dirty}}</view>
+            <view class="stat-progress">
+              <view class="stat-progress-fill diaper" style="--progress-target: {{diaperProgress}}%;"></view>
             </view>
           </view>
 
-          <!-- FR-3/6: 体温统计（状态色 + 最新值） -->
+          <!-- 体温 -->
           <view class="stat-item" data-type="temperature" bindtap="onStatTap">
             <view class="stat-icon-wrapper temperature">
               <image class="stat-icon" src="/images/icons/temperature.png" mode="aspectFit"></image>
             </view>
-            <!-- FR-6: 主显最新值 + 状态色 -->
-            <view class="stat-value temp-value" style="color: {{tempColor}};">
-              {{tempDisplayText}}
-            </view>
-            <view class="stat-label">最新体温</view>
-            <!-- FR-6: 状态文字标签 -->
-            <view class="stat-detail temp-status {{tempStatus}}" wx:if="{{tempStatus !== 'none'}}">
-              {{tempStatusText}}
-            </view>
-            <view class="stat-detail" wx:else>{{todayStats.temperature.count}}次</view>
+            <view class="stat-value temp-value" style="color: {{tempColor}};">{{tempDisplayText}}</view>
+            <view class="stat-unit">{{tempStatus !== 'none' ? tempStatusText : (todayStats.temperature.count + '次')}}</view>
+            <view class="stat-progress-placeholder"></view>
           </view>
         </view>
       </view>
@@ -263,26 +246,34 @@
     <text class="viewer-hint-text">当前为仅查看权限，如需添加记录请联系管理员</text>
   </view>
 
-  <!-- FR-14: 宝宝洞察 AI 卡片 -->
-  <view class="insight-card" wx:if="{{aiInsight.show}}">
-    <view class="insight-header" bindtap="toggleAiInsight">
-      <view class="insight-title-wrapper">
-        <image class="insight-icon" src="/images/icons/ai-assistant.png" mode="aspectFit" lazy-load></image>
-        <text class="insight-title">宝宝洞察</text>
-        <text class="insight-badge" wx:if="{{aiInsight.fallback}}">本地</text>
-      </view>
-      <image class="insight-toggle {{aiInsight.collapsed ? 'collapsed' : ''}}" src="/images/icons/chevron-down.png" mode="aspectFit" lazy-load></image>
+  <!-- v4.0 区域 F: AI 洞察（一行式摘要） -->
+  <view class="insight-v4 {{aiInsight.collapsed ? 'insight-collapsed' : 'insight-expanded'}}" wx:if="{{aiInsight.show}}" bindtap="toggleAiInsight">
+    <!-- 收起态：一行 -->
+    <view class="insight-v4-compact" wx:if="{{aiInsight.collapsed}}">
+      <image class="insight-v4-icon" src="/images/icons/ai-assistant.png" mode="aspectFit" lazy-load></image>
+      <text class="insight-v4-summary">{{aiInsight.text || '正在分析...'}}</text>
+      <image class="insight-v4-arrow" src="/images/icons/chevron-down.png" mode="aspectFit" lazy-load></image>
     </view>
-    <view class="insight-content {{aiInsight.collapsed ? 'collapsed' : ''}}">
-      <view class="insight-loading" wx:if="{{aiInsight.loading}}">
-        <view class="insight-loading-dot"></view>
-        <view class="insight-loading-dot"></view>
-        <view class="insight-loading-dot"></view>
+    <!-- 展开态 -->
+    <view class="insight-v4-full" wx:else>
+      <view class="insight-v4-header">
+        <image class="insight-v4-icon" src="/images/icons/ai-assistant.png" mode="aspectFit" lazy-load></image>
+        <text class="insight-v4-title">宝宝洞察</text>
+        <text class="insight-v4-badge" wx:if="{{aiInsight.fallback}}">本地</text>
+        <view style="flex:1"></view>
+        <image class="insight-v4-arrow insight-v4-arrow-up" src="/images/icons/chevron-down.png" mode="aspectFit" lazy-load></image>
       </view>
-      <text class="insight-text" wx:else>{{aiInsight.text}}</text>
-      <view class="insight-action" wx:if="{{!aiInsight.loading}}" bindtap="goToAiAssistant">
-        <text>更多建议</text>
-        <image class="insight-action-arrow" src="/images/icons/arrow-right.png" mode="aspectFit" lazy-load></image>
+      <view class="insight-v4-body">
+        <view class="insight-loading" wx:if="{{aiInsight.loading}}">
+          <view class="insight-loading-dot"></view>
+          <view class="insight-loading-dot"></view>
+          <view class="insight-loading-dot"></view>
+        </view>
+        <text class="insight-v4-text" wx:else>{{aiInsight.text}}</text>
+        <view class="insight-v4-action" wx:if="{{!aiInsight.loading}}" catchtap="goToAiAssistant">
+          <text>更多建议</text>
+          <image src="/images/icons/arrow-right.png" mode="aspectFit" lazy-load style="width:16rpx;height:16rpx;"></image>
+        </view>
       </view>
     </view>
   </view>

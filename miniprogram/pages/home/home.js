@@ -480,6 +480,11 @@ Page({
       const totalTodayCount = todayStats.feeding.count + todayStats.sleep.count + 
                               todayStats.diaper.count + todayStats.temperature.count;
 
+      // v4.0: 进度条百分比计算
+      const feedingProgress = Math.min(100, Math.round((todayStats.feeding.count / 8) * 100));
+      const sleepProgress = sleepGoal > 0 ? Math.min(100, Math.round((todayStats.sleep.totalDuration / sleepGoal) * 100)) : 0;
+      const diaperProgress = Math.min(100, Math.round((todayStats.diaper.count / 6) * 100));
+
       // 家庭协作：归一化 createdBy 字段
       const normalizedRecords = recentRecords.map(r => {
         const createdBy = RecordService.normalizeCreatedBy(r);
@@ -514,6 +519,9 @@ Page({
         feedingAgoText,
         sleepAgoText,
         totalTodayCount,
+        feedingProgress,
+        sleepProgress,
+        diaperProgress,
         sleepDurationText,
         tempDisplayText
       });
@@ -598,16 +606,18 @@ Page({
   },
 
   /**
-   * FR-3: 统计数字点击跳转
+   * v4.0: 统计数字点击直接打开弹窗
    */
   onStatTap(e) {
     const { type } = e.currentTarget.dataset;
-    if (type) {
-      // record 是 tabBar 页面，navigateTo 无法跳转 tabBar 页
-      // 使用 reLaunch 以支持携带 type 参数进行筛选
-      wx.reLaunch({
-        url: `/pages/record/record?type=${type}`
-      });
+    const popupMap = {
+      feeding: 'showFeedingPopup',
+      sleep: 'showSleepPopup',
+      diaper: 'showDiaperPopup',
+      temperature: 'showTemperaturePopup'
+    };
+    if (popupMap[type]) {
+      this.setData({ [popupMap[type]]: true });
     }
   },
 
