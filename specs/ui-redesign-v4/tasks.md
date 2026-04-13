@@ -231,20 +231,18 @@
 
 ### 阶段六：暗色 QA + 文档同步（M6）
 
-- [ ] **T-6.1** 全局暗色模式 QA
+- [x] **T-6.1** 全局暗色模式 QA ✅
   - 逐页检查 detailed-spec §7 暗色模式矩阵 28 项
-  - 重点：胶囊三态 / 进度条底色 / 聚焦卡片 / 时间轴线 / 弹窗背景 / 性别卡片选中态 / 头像边框
+  - 全部通过 CSS 变量自适应，无额外暗色覆盖需要
   - 验收：所有页面暗色模式对比度达标
   - _依赖：T-1.x ~ T-5.x 全部 | 涉及：全部 FR_
 
-- [ ] **T-6.2** 文档同步更新
-  - `architecture.md`：新增 focus-card 组件、组件数 15→16
-  - `ui-design-system.md`：+6 变量、+3 动画、`--radius-pill`/`--radius-xl`
-  - `component-library.md`：focus-card 文档 + timeline/insight-section 变更
-  - `service-api.md`：无变更
-  - `coding-conventions.md`：无变更
-  - `README.md`：版本历史追加 v4.0
-  - `profile.wxml`：版本号 v3.2.0 → v4.0.0
+- [x] **T-6.2** 文档同步更新 ✅
+  - `architecture.md`：版本 v4.0 / 组件数 15→16 / 新增 focus-card
+  - `ui-design-system.md`：版本 v4.0 / +6 变量 / +3 动画 / +2 圆角
+  - `component-library.md`：版本 v4.0 / 新增 focus-card 完整文档
+  - `README.md`：产品版本 v4.0
+  - `profile.wxml`：版本号 v4.0.0（Day 5 已完成）
   - 验收：文档与代码一致
   - _依赖：T-6.1 | 涉及：文档同步_
 

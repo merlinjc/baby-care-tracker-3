@@ -1,6 +1,6 @@
 # Baby Care Tracker 组件库文档
 
-> **版本**: v3.1 | **更新日期**: 2026-04-08
+> **版本**: v4.0 | **更新日期**: 2026-04-13
 
 ---
 
@@ -23,6 +23,7 @@
 | icon | `/components/icon/` | 基础组件 | 否 |
 | easter-egg-popup | `/components/easter-egg-popup/` | 彩蛋弹窗 | 否 |
 | easter-egg-toast | `/components/easter-egg-toast/` | 彩蛋提示 | 否 |
+| focus-card | `/components/focus-card/` | 展示组件 | 否 |
 
 ---
 
@@ -126,6 +127,33 @@
 - 最大滑动 `maxSlide=300`
 - 滑动阈值 100px 触发关闭
 - 16ms 节流 setData（约 60fps）
+
+---
+
+### focus-card 聚焦卡片（v4.0 新增）
+
+**路径**: `/components/focus-card/`
+**类型**: 展示组件
+**用途**: 发现页顶部展示最紧急的待办事项
+
+**Properties**:
+
+| 属性 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| type | String | 'vaccine' | 'vaccine' / 'milestone' / 'encouragement' |
+| title | String | '' | 卡片标题 |
+| description | String | '' | 描述文字 |
+| icon | String | '' | 图标路径 |
+| urgency | String | 'normal' | 'overdue'(红) / 'upcoming'(橙) / 'normal'(绿) |
+| targetUrl | String | '' | 点击跳转 URL |
+| darkMode | Boolean | false | 暗色模式 |
+
+**Events**: `tap`
+
+**样式特性**:
+- 左侧 6rpx 色条（按 urgency 着色）
+- urgency 标签 pill 化
+- 使用 CSS 变量自动适配暗色模式
 
 ---
 
