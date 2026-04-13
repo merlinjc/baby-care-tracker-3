@@ -115,184 +115,204 @@ page {
   }
 }
 
-/* ============ FR-13: 顶部问候语模块 ============ */
+/* ============ v4.0 区域 A: 问候区（合并多宝切换） ============ */
 .greeting-bar {
-  margin-bottom: 24rpx;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 20rpx;
   padding: 0 8rpx;
+}
+
+.greeting-left {
+  flex: 1;
+  min-width: 0;
 }
 
 .greeting-main {
   display: flex;
   align-items: baseline;
-  gap: 12rpx;
+  flex-wrap: wrap;
+  gap: 4rpx;
 }
 
 .greeting-text {
   font-size: 40rpx;
   font-weight: 700;
-  color: var(--text-primary, #3D3D3D);
+  color: var(--text-primary);
 }
 
 .greeting-baby-name {
-  font-size: 32rpx;
-  font-weight: 500;
-  color: var(--primary-color, #D4B896);
+  font-size: 40rpx;
+  font-weight: 700;
+  color: var(--primary-color);
 }
 
 .greeting-sub {
-  display: flex;
-  align-items: center;
-  gap: 16rpx;
-  margin-top: 8rpx;
-}
-
-.greeting-date {
-  font-size: 26rpx;
-  color: var(--text-secondary, #8B7B6B);
-}
-
-.greeting-divider {
-  width: 4rpx;
-  height: 4rpx;
-  border-radius: 50%;
-  background: var(--text-hint, #A09080);
+  margin-top: 6rpx;
 }
 
 .greeting-days {
   font-size: 26rpx;
-  color: var(--text-hint, #A09080);
+  color: var(--text-secondary);
 }
 
-/* ============ FR-1: 宝宝状态横幅 ============ */
-.status-banner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20rpx 24rpx;
-  margin-bottom: 24rpx;
-  border-radius: 20rpx;
-  background: var(--status-default-bg);
-  transition: background-color 0.3s ease;
-}
-
-.status-banner.sleeping {
-  background: var(--status-sleeping-bg);
-}
-
-.status-banner.feeding_ago {
-  background: var(--status-feeding-bg);
-}
-
-.status-content {
-  display: flex;
-  align-items: center;
-  gap: 16rpx;
-  flex: 1;
-}
-
-.status-icon-wrapper {
-  width: 48rpx;
-  height: 48rpx;
-  flex-shrink: 0;
-}
-
-.status-icon {
-  width: 100%;
-  height: 100%;
-}
-
-.status-text-wrapper {
+.greeting-right {
   display: flex;
   flex-direction: column;
-  gap: 4rpx;
-}
-
-.status-text {
-  font-size: 28rpx;
-  color: var(--text-primary, #3D3D3D);
-  font-weight: 500;
-}
-
-.status-abnormal-hint {
-  font-size: 22rpx;
-  color: var(--danger-color, #E85454);
-}
-
-.status-action {
-  padding: 12rpx 24rpx;
-  background: var(--primary-color, #D4B896);
-  color: var(--white, #FFFFFF);
-  font-size: 24rpx;
-  font-weight: 500;
-  border-radius: 24rpx;
-  flex-shrink: 0;
-}
-
-.status-action:active {
-  opacity: 0.85;
-}
-
-.status-action.abnormal {
-  background: var(--danger-color, #E85454);
-}
-
-/* ============ FR-2: 多宝快速切换 ============ */
-.baby-switch {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16rpx 24rpx;
-  margin-bottom: 24rpx;
-  background: var(--bg-secondary, #FFFFFF);
-  border-radius: 16rpx;
-  box-shadow: 0 2rpx 12rpx rgba(139, 123, 107, 0.06);
-}
-
-.baby-switch-label {
-  font-size: 26rpx;
-  color: var(--text-secondary, #8B7B6B);
-}
-
-.baby-avatars {
-  display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 12rpx;
+  flex-shrink: 0;
+  padding-top: 8rpx;
 }
 
-.baby-avatar-item {
-  width: 56rpx;
-  height: 56rpx;
+.greeting-date {
+  font-size: 26rpx;
+  color: var(--text-hint);
+}
+
+/* 多宝头像组 — 重叠排列 */
+.greeting-avatars {
+  display: flex;
+  align-items: center;
+}
+
+.greeting-avatar {
+  width: 48rpx;
+  height: 48rpx;
   border-radius: 50%;
   overflow: hidden;
-  border: 3rpx solid transparent;
+  border: 2rpx solid var(--bg-secondary);
+  margin-left: -10rpx;
   transition: border-color 0.2s ease;
 }
 
-.baby-avatar-item.active {
-  border-color: var(--primary-color, #D4B896);
+.greeting-avatar:first-child {
+  margin-left: 0;
+}
+
+.greeting-avatar.active {
+  border-color: var(--primary-color);
   box-shadow: 0 2rpx 8rpx rgba(212, 184, 150, 0.4);
 }
 
-.baby-avatar-item:active {
-  transform: scale(0.95);
-}
-
-.baby-avatar-img {
+.greeting-avatar image {
   width: 100%;
   height: 100%;
 }
 
-.baby-more {
-  width: 56rpx;
-  height: 56rpx;
+.greeting-avatar-more {
+  width: 48rpx;
+  height: 48rpx;
   border-radius: 50%;
-  background: var(--primary-light, #E8DCC8);
+  background: var(--primary-light);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22rpx;
-  color: var(--primary-color, #D4B896);
+  margin-left: -10rpx;
+  border: 2rpx solid var(--bg-secondary);
+}
+
+.greeting-avatar-more text {
+  font-size: 20rpx;
+  color: var(--primary-color);
   font-weight: 600;
+}
+
+/* ============ v4.0 区域 B: 状态胶囊 ============ */
+.status-capsule {
+  display: flex;
+  align-items: center;
+  height: 72rpx;
+  padding: 0 24rpx;
+  margin-bottom: 20rpx;
+  border-radius: var(--radius-md);
+  transition: background-color 0.3s ease;
+  animation: capsuleTransition 0.3s ease;
+  position: relative;
+}
+
+.status-capsule.capsule-default {
+  background: rgba(212, 184, 150, 0.08);
+}
+
+.status-capsule.capsule-sleeping {
+  background: rgba(184, 168, 212, 0.12);
+}
+
+.status-capsule.capsule-abnormal {
+  background: rgba(232, 84, 84, 0.10);
+}
+
+.capsule-icon {
+  width: 36rpx;
+  height: 36rpx;
+  flex-shrink: 0;
+  margin-right: 12rpx;
+}
+
+.capsule-text {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+/* 录制指示灯 */
+.rec-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+  margin-right: 16rpx;
+}
+
+.rec-dot {
+  width: 12rpx;
+  height: 12rpx;
+  animation: recPulse 1.5s ease-in-out infinite;
+}
+
+.rec-label {
+  font-size: 18rpx;
+  font-weight: 600;
+  color: var(--danger-color);
+  letter-spacing: 1rpx;
+}
+
+/* 胶囊操作按钮 */
+.capsule-action {
+  height: 52rpx;
+  padding: 0 24rpx;
+  border-radius: var(--radius-pill);
+  background: var(--primary-color);
+  color: var(--white);
+  font-size: 24rpx;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.capsule-action:active {
+  opacity: 0.85;
+}
+
+.capsule-action-danger {
+  background: var(--danger-color);
+}
+
+/* 暗色模式胶囊覆盖 */
+.dark-mode .status-capsule.capsule-default {
+  background: rgba(212, 184, 150, 0.10);
+}
+
+.dark-mode .status-capsule.capsule-sleeping {
+  background: rgba(148, 136, 180, 0.15);
+}
+
+.dark-mode .status-capsule.capsule-abnormal {
+  background: rgba(212, 72, 72, 0.12);
 }
 
 .container {

@@ -20,20 +20,39 @@
   <!-- 正常内容 - 带渐显动画 -->
   <block wx:elif="{{currentBaby}}">
     <view class="content-container">
-      <!-- FR-13: 顶部问候语模块 -->
+      <!-- v4.0 区域 A: 问候区（合并多宝切换） -->
       <view class="greeting-bar">
-        <view class="greeting-main">
-          <text class="greeting-text">{{greeting}}</text>
-          <text class="greeting-baby-name" wx:if="{{currentBaby.nickName}}">{{currentBaby.nickName}}</text>
+        <view class="greeting-left">
+          <view class="greeting-main">
+            <text class="greeting-text">{{greeting}}，</text>
+            <text class="greeting-baby-name" wx:if="{{currentBaby.nickName}}">{{currentBaby.nickName}}</text>
+          </view>
+          <view class="greeting-sub">
+            <text class="greeting-days" wx:if="{{birthDayCount > 0}}">出生第 {{birthDayCount}} 天</text>
+          </view>
         </view>
-        <view class="greeting-sub">
+        <view class="greeting-right">
           <text class="greeting-date">{{todayDateText}}</text>
-          <view class="greeting-divider" wx:if="{{birthDayCount > 0}}"></view>
-          <text class="greeting-days" wx:if="{{birthDayCount > 0}}">出生第 {{birthDayCount}} 天</text>
+          <!-- 多宝头像组（仅多宝时显示） -->
+          <view class="greeting-avatars" wx:if="{{familyBabies.length > 1}}">
+            <block wx:for="{{familyBabies}}" wx:key="_id">
+              <view 
+                wx:if="{{index < 3}}"
+                class="greeting-avatar {{item._id === currentBaby._id ? 'active' : ''}}"
+                data-baby-id="{{item._id}}"
+                bindtap="switchBaby"
+              >
+                <image src="{{item.avatarUrl || '/images/default-baby.png'}}" mode="aspectFill" lazy-load></image>
+              </view>
+            </block>
+            <view class="greeting-avatar-more" wx:if="{{familyBabies.length > 3}}">
+              <text>+{{familyBabies.length - 3}}</text>
+            </view>
+          </view>
         </view>
       </view>
 
-      <!-- EE-5/EE-7: 月龄/节日提示条 -->
+      <!-- EE-5/EE-7: 月龄/节日提示条（保留不变） -->
       <view class="egg-banner" wx:if="{{easterEggBanner.show}}" 
             style="animation: eggSlideDown 0.3s ease forwards;">
         <image class="egg-banner-icon" src="{{easterEggBanner.icon}}" mode="aspectFit" />
@@ -43,51 +62,24 @@
         </view>
       </view>
 
-      <!-- 宝宝卡片 -->
-      <baby-card 
-        baby="{{currentBaby}}"
-        bindtap="goToBabyDetail"
-      />
-
-      <!-- FR-1: 宝宝状态横幅 -->
-      <view class="status-banner {{activeStatus.type}}" wx:if="{{activeStatus.type !== 'none' || activeSleep}}">
-        <view class="status-content">
-          <view class="status-icon-wrapper">
-            <image wx:if="{{activeStatus.type === 'sleeping'}}" class="status-icon" src="/images/icons/sleep-color.png" mode="aspectFit"></image>
-            <image wx:elif="{{activeStatus.type === 'feeding_ago'}}" class="status-icon" src="/images/icons/feeding-color.png" mode="aspectFit"></image>
-            <image wx:else class="status-icon" src="/images/icons/record-color.png" mode="aspectFit"></image>
-          </view>
-          <view class="status-text-wrapper">
-            <text class="status-text">{{activeStatus.text}}</text>
-            <text class="status-abnormal-hint" wx:if="{{sleepAbnormal}}">睡眠时间异常，请检查</text>
-          </view>
+      <!-- v4.0 区域 B: 状态胶囊（核心交互升级） -->
+      <view class="status-capsule {{activeSleep ? (sleepAbnormal ? 'capsule-abnormal' : 'capsule-sleeping') : 'capsule-default'}}" 
+            wx:if="{{activeStatus.type !== 'none' || activeSleep}}">
+        <image class="capsule-icon" 
+               src="{{sleepAbnormal ? '/images/icons/warning.png' : (activeStatus.type === 'sleeping' ? '/images/icons/sleep-color.png' : (activeStatus.type === 'feeding_ago' ? '/images/icons/feeding-color.png' : '/images/icons/record-color.png'))}}" 
+               mode="aspectFit"></image>
+        <text class="capsule-text">{{activeStatus.text}}</text>
+        <!-- 录制指示灯 -->
+        <view class="rec-indicator" wx:if="{{activeSleep && !sleepAbnormal}}">
+          <image class="rec-dot" src="/images/icons/rec-dot.png" mode="aspectFit"></image>
+          <text class="rec-label">REC</text>
         </view>
-        <!-- FR-10: 睡眠中时显示结束按钮 -->
-        <view class="status-action" wx:if="{{activeSleep && !sleepAbnormal}}" bindtap="endSleepFromBanner">
-          <text>结束睡眠</text>
+        <!-- 操作按钮 -->
+        <view class="capsule-action" wx:if="{{activeSleep && !sleepAbnormal}}" catchtap="endSleepFromBanner">
+          <text>结束</text>
         </view>
-        <view class="status-action abnormal" wx:if="{{sleepAbnormal}}" bindtap="cancelAbnormalSleep">
+        <view class="capsule-action capsule-action-danger" wx:if="{{sleepAbnormal}}" catchtap="cancelAbnormalSleep">
           <text>取消计时</text>
-        </view>
-      </view>
-
-      <!-- FR-2: 多宝快速切换 -->
-      <view class="baby-switch" wx:if="{{familyBabies.length > 1}}">
-        <view class="baby-switch-label">切换宝宝</view>
-        <view class="baby-avatars">
-          <block wx:for="{{familyBabies}}" wx:key="_id">
-            <view 
-              wx:if="{{index < 3}}"
-              class="baby-avatar-item {{item._id === currentBaby._id ? 'active' : ''}}"
-              data-baby-id="{{item._id}}"
-              bindtap="switchBaby"
-            >
-              <image class="baby-avatar-img" src="{{item.avatarUrl || '/images/default-baby.png'}}" mode="aspectFill" lazy-load></image>
-            </view>
-          </block>
-          <view class="baby-more" wx:if="{{familyBabies.length > 3}}">
-            <text>+{{familyBabies.length - 3}}</text>
-          </view>
         </view>
       </view>
 
