@@ -1,9 +1,6 @@
 <view class="baby-create-container {{darkMode ? 'dark-mode' : ''}}">
-  <!-- 页面标题 -->
+  <!-- v4.0: 页头精简 — 去装饰图标 -->
   <view class="page-header">
-    <view class="header-icon">
-      <image src="/images/default-avatar.svg" mode="aspectFit"></image>
-    </view>
     <view class="header-text">
       <text class="header-title">创建宝宝档案</text>
       <text class="header-subtitle">记录宝贝成长的每一步</text>
