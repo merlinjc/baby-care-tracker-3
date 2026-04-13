@@ -19,7 +19,7 @@
       </view>
       <text class="popup-title">编辑宝宝信息</text>
       <view class="popup-close" bindtap="close">
-        <text>×</text>
+        <image src="/images/icons/x-mark.png" mode="aspectFit" />
       </view>
     </view>
 

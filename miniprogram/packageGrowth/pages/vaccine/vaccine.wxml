@@ -230,7 +230,7 @@
       <view class="popup-header">
         <text class="popup-title">选择接种日期</text>
         <view class="popup-close" bindtap="hideDatePopup">
-          <text>×</text>
+          <image src="/images/icons/x-mark.png" mode="aspectFit" />
         </view>
       </view>
       
