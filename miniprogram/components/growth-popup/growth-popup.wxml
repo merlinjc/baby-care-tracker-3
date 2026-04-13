@@ -39,6 +39,9 @@
             value="{{formData.weight}}"
             bindinput="onWeightInput"
           />
+          <view class="last-compare" wx:if="{{lastGrowth.weight}}">
+            <text class="last-value">上次: {{lastGrowth.weight}}kg</text>
+          </view>
           <text class="form-hint">{{weightRange}}</text>
         </view>
         
@@ -54,6 +57,9 @@
             value="{{formData.height}}"
             bindinput="onHeightInput"
           />
+          <view class="last-compare" wx:if="{{lastGrowth.height}}">
+            <text class="last-value">上次: {{lastGrowth.height}}cm</text>
+          </view>
           <text class="form-hint">{{heightRange}}</text>
         </view>
         

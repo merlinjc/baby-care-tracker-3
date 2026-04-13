@@ -52,6 +52,7 @@ Component({
     weightRange: '',
     heightRange: '',
     headRange: '',
+    lastGrowth: null, // v4.0: 上次生长数据
     saving: false
   },
 
@@ -62,6 +63,7 @@ Component({
     'show': function(show) {
       if (show) {
         this.initPopup();
+        this._loadLastGrowthData();
       }
     }
   },
@@ -78,6 +80,25 @@ Component({
    */
   methods: {
     stopPropagation() {},
+
+    // v4.0: 加载上次生长数据
+    async _loadLastGrowthData() {
+      try {
+        const babyId = this.data.babyId || StorageUtil.getCurrentBaby()?._id;
+        if (!babyId) return;
+        const records = await RecordService.getRecords(babyId, {
+          recordType: 'growth', limit: 1, orderBy: 'startTimeTs', order: 'desc'
+        });
+        if (records && records.length > 0) {
+          this.setData({ lastGrowth: records[0].data || null });
+        } else {
+          this.setData({ lastGrowth: null });
+        }
+      } catch (e) {
+        console.error('加载上次生长数据失败:', e);
+      }
+    },
+
     /**
      * 初始化弹窗
      */

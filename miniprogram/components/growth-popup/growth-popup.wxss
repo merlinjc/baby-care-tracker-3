@@ -147,6 +147,16 @@
   display: block;
 }
 
+/* v4.0: 上次对比 */
+.last-compare {
+  margin-top: 8rpx;
+}
+
+.last-value {
+  font-size: 22rpx;
+  color: var(--text-hint, #A09080);
+}
+
 .form-textarea {
   width: 100%;
   min-height: 120rpx;
