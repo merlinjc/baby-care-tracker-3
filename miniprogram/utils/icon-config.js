@@ -55,7 +55,12 @@ const ICONS = {
     growth: `${BASE}/growth-color.png`,
     milestone: `${BASE}/milestone-color.png`,
     ai: `${BASE}/robot.png`
-  }
+  },
+
+  // v4.0 新增图标
+  sun: `${BASE}/sun.png`,           // 亮色主题
+  moon: `${BASE}/moon.png`,         // 暗夜主题
+  recDot: `${BASE}/rec-dot.png`     // 录制指示灯
 };
 
 // ============================================
