@@ -18,12 +18,12 @@
   height: calc(85vh - 180rpx);
 }
 
-/* 模式切换 */
+/* v4.0: 模式切换 pill */
 .mode-tabs {
   display: flex;
   background: var(--bg-primary);
-  border-radius: var(--radius-md);
-  padding: 8rpx;
+  border-radius: var(--radius-pill);
+  padding: 6rpx;
   margin-bottom: var(--spacing-lg);
 }
 
@@ -33,7 +33,7 @@
   text-align: center;
   font-size: 28rpx;
   color: var(--text-secondary);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-pill);
   transition: all var(--transition-fast);
 }
 
@@ -229,10 +229,11 @@
   gap: var(--spacing-sm);
 }
 
+/* v4.0: 地点选择 pill */
 .location-item {
   padding: 16rpx 32rpx;
   background: var(--bg-primary);
-  border-radius: 32rpx;
+  border-radius: var(--radius-pill);
   font-size: 26rpx;
   color: var(--text-secondary);
   transition: all var(--transition-fast);
@@ -277,8 +278,8 @@
 }
 
 .tracking-time-value {
-  font-size: 72rpx;
-  font-weight: 600;
+  font-size: 56rpx;
+  font-weight: 700;
   color: var(--sleep-color);
   font-variant-numeric: tabular-nums;
 }
@@ -311,13 +312,13 @@
 }
 
 .tracking-btn.finish {
-  background: linear-gradient(135deg, var(--success-color) 0%, #8CB88C 100%);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
   color: var(--white);
-  box-shadow: 0 4rpx 24rpx rgba(168, 184, 168, 0.3);
+  box-shadow: 0 4rpx 24rpx rgba(212, 184, 150, 0.3);
 }
 
 .tracking-btn.cancel {
-  background: var(--bg-primary);
+  background: transparent;
   color: var(--text-secondary);
 }
 
