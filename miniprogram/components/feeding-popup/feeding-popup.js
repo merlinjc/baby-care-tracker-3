@@ -26,7 +26,7 @@ Component({
   observers: {
     'show': function(show) {
       if (show) {
-        // 弹窗打开时的初始化
+        this._loadRecentAmounts();
       }
     }
   },
@@ -34,6 +34,7 @@ Component({
   data: {
     popupTranslateY: 0, // 弹窗滑动偏移量
     touchStartY: 0, // 触摸起始Y坐标
+    recentAmounts: [], // v4.0: 常用量
     feedingType: 'breast', // breast | formula | solid
     feedingTypes: [
       { 
@@ -144,6 +145,32 @@ Component({
     /**
      * 选择快捷用量（累加模式）- 配方奶
      */
+  // v4.0: 常用量快捷填入（直接设置而非累加）
+  selectRecentAmount(e) {
+    const amount = Number(e.currentTarget.dataset.amount) || 0;
+    this.setData({
+      amount,
+      amountDisplay: `${amount}ml`
+    });
+  },
+
+  // v4.0: 加载常用量
+  _loadRecentAmounts() {
+    if (!this.data.babyId) return;
+    const key = `recent_formula_amounts_${this.data.babyId}`;
+    const amounts = StorageUtil.get(key) || [];
+    this.setData({ recentAmounts: [...new Set(amounts)].slice(0, 3) });
+  },
+
+  // v4.0: 保存常用量
+  _saveRecentAmount(amount) {
+    if (!amount || !this.data.babyId) return;
+    const key = `recent_formula_amounts_${this.data.babyId}`;
+    let amounts = StorageUtil.get(key) || [];
+    amounts.unshift(amount);
+    StorageUtil.set(key, [...new Set(amounts)].slice(0, 10));
+  },
+
   selectQuickAmount(e) {
     const amount = Number(e.currentTarget.dataset.amount) || 0;
     const newAmount = this.data.amount + amount;
@@ -309,6 +336,11 @@ Component({
 
         // 通知父组件
         this.triggerEvent('created');
+
+        // v4.0: 保存常用量
+        if (this.data.feedingType === 'formula' && this.data.amount > 0) {
+          this._saveRecentAmount(this.data.amount);
+        }
 
         // 重置 loading 并关闭弹窗
         this.setData({ loading: false });
