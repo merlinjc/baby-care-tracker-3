@@ -1,9 +1,6 @@
 <view class="container {{darkMode ? 'dark-mode' : ''}}">
-  <!-- 顶部导航栏（page-header 统一风格，对齐发现页） -->
+  <!-- v4.0: 页头精简 — 去掉装饰图标 -->
   <view class="page-header">
-    <view class="header-icon">
-      <image src="/images/icons/edit-gray.png" mode="aspectFit"></image>
-    </view>
     <view class="header-text">
       <text class="header-title">记录</text>
       <view wx:if="{{todaySummaryText}}">
