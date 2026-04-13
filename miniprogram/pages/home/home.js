@@ -606,18 +606,12 @@ Page({
   },
 
   /**
-   * v4.0: 统计数字点击直接打开弹窗
+   * 统计数字点击 → 跳转记录页（带类型筛选）
    */
   onStatTap(e) {
     const { type } = e.currentTarget.dataset;
-    const popupMap = {
-      feeding: 'showFeedingPopup',
-      sleep: 'showSleepPopup',
-      diaper: 'showDiaperPopup',
-      temperature: 'showTemperaturePopup'
-    };
-    if (popupMap[type]) {
-      this.setData({ [popupMap[type]]: true });
+    if (type) {
+      wx.reLaunch({ url: `/pages/record/record?type=${type}` });
     }
   },
 
