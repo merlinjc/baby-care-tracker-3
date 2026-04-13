@@ -8,9 +8,14 @@
   padding-bottom: calc(160rpx + env(safe-area-inset-bottom));
 }
 
-/* 类型选择器 */
+/* v4.0: 类型选择器吸顶 */
 .type-selector {
   margin-bottom: var(--spacing-md);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg-primary);
+  padding-bottom: var(--spacing-xs);
 }
 
 .type-tabs {
@@ -30,11 +35,25 @@
   padding: 20rpx 12rpx;
   border-radius: 20rpx;
   transition: all var(--transition-normal);
+  position: relative;
 }
 
 .type-tab.active {
   background: linear-gradient(135deg, var(--primary-color) 0%, var(--gradient-end) 100%);
   box-shadow: 0 4rpx 16rpx rgba(196, 165, 123, 0.3);
+}
+
+/* v4.0: 选中指示条 */
+.type-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 4rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 24rpx;
+  height: 4rpx;
+  background: var(--white);
+  border-radius: var(--radius-pill);
 }
 
 .tab-icon {
