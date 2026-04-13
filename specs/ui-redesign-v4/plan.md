@@ -1,3 +1,10 @@
+specs/ui-redesign-v4/
+├── design-spec.md      # 设计总纲（原始设计规格）
+├── detailed-spec.md    # 逐页细化规格（原始设计规格）
+├── requirements.md     # 需求文档（spec 三件套）
+├── design.md           # 实施设计（spec 三件套）v2.0
+├── tasks.md            # 任务拆解（spec 三件套）v2.0
+└── plan.md             # 执行计划 ⭐ 新增
 # 执行计划 - UI 重设计 v4.0（UI Redesign v4）
 
 > **版本**: v1.0 | **日期**: 2026-04-13 | **状态**: 待执行
