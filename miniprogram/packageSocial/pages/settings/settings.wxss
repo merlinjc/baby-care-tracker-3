@@ -73,6 +73,13 @@
   color: var(--text-hint, #CCCCCC);
 }
 
+.menu-arrow-img {
+  width: 32rpx;
+  height: 32rpx;
+  flex-shrink: 0;
+  opacity: 0.4;
+}
+
 /* 危险操作项 */
 .danger-item {
   background: rgba(232, 84, 84, 0.05);

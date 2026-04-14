@@ -66,6 +66,11 @@
   color: var(--text-secondary, #8B7B6B);
 }
 
+.popup-close image {
+  width: 32rpx;
+  height: 32rpx;
+}
+
 .popup-content {
   flex: 1;
   overflow-y: auto;
@@ -121,6 +126,14 @@
 .picker-arrow {
   font-size: 32rpx;
   color: var(--text-hint, #A09080);
+}
+
+/* 组件样式隔离，需本地定义（app.wxss 不继承） */
+.picker-arrow-img {
+  width: 16rpx;
+  height: 16rpx;
+  opacity: 0.4;
+  flex-shrink: 0;
 }
 
 .form-input {

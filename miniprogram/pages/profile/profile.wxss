@@ -2,6 +2,14 @@
 @import '../../styles/popup.wxss';
 @import '../../styles/form.wxss';
 
+/* 页面容器 */
+.container {
+  min-height: 100vh;
+  background: var(--bg-primary);
+  padding: 0 32rpx;
+  padding-bottom: calc(32rpx + env(safe-area-inset-bottom));
+}
+
 /* ========== v4.0 用户信息区 — 居中 ========== */
 .user-section {
   display: flex;

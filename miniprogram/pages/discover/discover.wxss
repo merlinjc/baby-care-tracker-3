@@ -1,6 +1,13 @@
 /* 发现页样式 - v4.0 重构 */
 @import '../../styles/popup.wxss';
 
+/* 页面容器 */
+.container {
+  min-height: 100vh;
+  background: var(--bg-primary);
+  padding: 0 0 env(safe-area-inset-bottom);
+}
+
 /* 页面标题（保留 header-icon — 发现页品牌辨识度） */
 .page-header {
   display: flex;
