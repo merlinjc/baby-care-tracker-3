@@ -112,6 +112,6 @@
 
   <!-- 版本信息 -->
   <view class="version-info">
-    <text>Baby Care Tracker v4.0.0</text>
+    <text>Baby Care Tracker {{appVersion}}</text>
   </view>
 </view>
