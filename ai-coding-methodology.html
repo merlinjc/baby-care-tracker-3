@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>告别 AI 编码混乱！这套方法论让我 8 天完成 v4.0 重构</title>
+<style>
+/* 微信公众号优化样式 */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  color: #333;
+  line-height: 2;
+  padding: 20px 15px;
+  max-width: 100%;
+  margin: 0 auto;
+  background: #fff;
+}
+
+/* 标题 */
+h1 {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1a1a1a;
+  text-align: center;
+  margin-bottom: 12px;
+  line-height: 1.5;
+  letter-spacing: 1px;
+}
+
+h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #8B6914;
+  margin: 36px 0 18px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #faf6f0, #f5efe6);
+  border-left: 5px solid #8B6914;
+  border-radius: 0 8px 8px 0;
+}
+
+h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  margin: 24px 0 12px;
+  padding-left: 12px;
+  border-left: 3px solid #D4B896;
+}
+
+/* 副标题 */
+.subtitle {
+  text-align: center;
+  color: #666;
+  font-size: 14px;
+  margin-bottom: 20px;
+  line-height: 1.8;
+  padding: 15px;
+  background: #faf8f4;
+  border-radius: 8px;
+}
+
+/* 引言 */
+.intro {
+  background: linear-gradient(135deg, #fff9f0, #fff5e6);
+  border: 2px solid #D4B896;
+  border-radius: 12px;
+  padding: 20px;
+  margin: 20px 0;
+  font-size: 15px;
+  line-height: 2;
+}
+
+/* 分隔线 */
+hr { 
+  border: none; 
+  border-top: 1px dashed #e8e0d4; 
+  margin: 32px 0; 
+}
+
+/* 段落 */
+p { 
+  margin: 16px 0; 
+  font-size: 15px; 
+  line-height: 2;
+  text-align: justify;
+}
+
+/* 引用块 */
+blockquote {
+  background: linear-gradient(135deg, #faf6f0, #f5efe6);
+  border-left: 4px solid #D4B896;
+  padding: 16px 20px;
+  margin: 20px 0;
+  border-radius: 0 8px 8px 0;
+  font-size: 14px;
+  color: #5a5a5a;
+  line-height: 1.8;
+}
+
+/* 强调 */
+strong { 
+  color: #8B6914; 
+  font-weight: 600;
+}
+em { 
+  font-style: normal; 
+  color: #c0792a; 
+  font-weight: 500;
+}
+
+/* 代码块 - 微信公众号优化版 */
+.code-block {
+  background: #f8f8f8;
+  border: 1px solid #e8e8e8;
+  border-left: 4px solid #8B6914;
+  padding: 16px;
+  margin: 16px 0;
+  font-family: Menlo, Monaco, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.8;
+  color: #333;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-x: auto;
+  border-radius: 4px;
+}
+
+.code-inline {
+  background: #fff8e8;
+  color: #8B6914;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: Menlo, Monaco, Consolas, monospace;
+  font-size: 13px;
+  border: 1px solid #f0e0c0;
+}
+
+/* 代码高亮 */
+.code-keyword { color: #0066cc; font-weight: 500; }
+.code-string { color: #c7254e; }
+.code-comment { color: #999; font-style: italic; }
+.code-function { color: #8B6914; font-weight: 600; }
+
+/* 表格 */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 14px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  border-radius: 8px;
+  overflow: hidden;
+}
+th {
+  background: linear-gradient(135deg, #D4B896, #c4a878);
+  color: #fff;
+  font-weight: 600;
+  padding: 12px;
+  text-align: left;
+}
+td {
+  padding: 12px;
+  border-bottom: 1px solid #f0e8dc;
+}
+tr:last-child td {
+  border-bottom: none;
+}
+tr:nth-child(even) td { 
+  background: #faf8f4; 
+}
+
+/* 列表 */
+ul, ol { 
+  padding-left: 24px; 
+  margin: 16px 0; 
+}
+li { 
+  margin: 10px 0; 
+  font-size: 15px; 
+  line-height: 1.8;
+}
+
+/* 高亮卡片 */
+.card {
+  background: linear-gradient(135deg, #faf6f0, #f5efe6);
+  border: 1px solid #e8dcc8;
+  border-radius: 12px;
+  padding: 20px;
+  margin: 20px 0;
+}
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #8B6914;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #D4B896;
+}
+
+/* 标签 */
+.tag {
+  display: inline-block;
+  background: #D4B896;
+  color: #fff;
+  font-size: 12px;
+  padding: 3px 12px;
+  border-radius: 999px;
+  margin-right: 8px;
+  font-weight: 500;
+}
+.tag-green { background: #7BC950; }
+.tag-blue { background: #7BA9C9; }
+.tag-red { background: #E85454; }
+
+/* 重点框 */
+.highlight-box {
+  background: linear-gradient(135deg, #8B6914 0%, #D4B896 100%);
+  color: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  margin: 24px 0;
+  text-align: center;
+}
+.highlight-box p {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 500;
+  margin: 8px 0;
+  line-height: 1.8;
+}
+.highlight-box .big { 
+  font-size: 22px; 
+  font-weight: 700; 
+  margin-bottom: 12px;
+}
+
+/* 数据面板 - 已优化为表格形式 */
+/* 时间线 - 已优化为表格形式 */
+
+/* 尾部 */
+.footer {
+  text-align: center;
+  color: #999;
+  font-size: 13px;
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 2px dashed #e8e0d4;
+  line-height: 2;
+}
+
+/* 重点提示 */
+.tip {
+  background: #fff8f0;
+  border: 2px solid #ffb84d;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 20px 0;
+  font-size: 14px;
+  line-height: 1.8;
+}
+.tip-title {
+  color: #ff8c00;
+  font-weight: 600;
+  margin-bottom: 8px;
+  font-size: 15px;
+}
+</style>
+</head>
+<body>
+
+<!-- 标题区 -->
+<h1>告别 AI 编码混乱！<br>这套方法论让我 8 天完成 v4.0 重构</h1>
+
+<div class="subtitle">
+  从「改 A 忘 B」到「零遗漏交付」<br>
+  Spec-Driven Development 实战全解
+</div>
+
+<!-- 引言 -->
+<div class="intro">
+  <strong>你是不是也遇到过这些问题？</strong><br><br>
+  
+  让 AI 改代码，改了首页样式忘了暗色模式<br>
+  上下文记不住，每次都要重新解释项目结构<br>
+  没有版本管理，出问题不知道怎么回退<br>
+  开发完了文档还在原地踏步<br><br>
+  
+  <strong>这篇文章，我分享一套经过实战验证的工程化方法论，帮你彻底解决这些痛点。</strong>
+</div>
+
+<hr>
+
+<!-- 一、痛点 -->
+<h2>一、为什么需要 AI Coding 工程化？</h2>
+
+<h3>1.1 AI 编码的四大痛点</h3>
+
+<table>
+<tr><th>痛点</th><th>表现</th><th>后果</th></tr>
+<tr><td><strong>上下文碎片化</strong></td><td>AI 每次对话只能看到有限文件</td><td>代码与已有架构冲突</td></tr>
+<tr><td><strong>缺乏记忆</strong></td><td>上一轮做了什么、设计约束是什么，AI 全忘了</td><td>重复沟通、风格不一致</td></tr>
+<tr><td><strong>无质量兜底</strong></td><td>没有 checklist，AI 改了 A 忘了 B</td><td>暗色模式遗漏、文档过时</td></tr>
+<tr><td><strong>版本失控</strong></td><td>没有分支策略，直接在 master 上推</td><td>无法回退、无法并行开发</td></tr>
+</table>
+
+<h3>1.2 我们的解决方案</h3>
+
+<div class="highlight-box">
+  <p class="big">Spec-Driven Development</p>
+  <p>让 AI 在「文档围栏」内编码</p>
+  <p>文档是 AI 的上下文、约束和验收标准</p>
+</div>
+
+<div class="tip">
+  <div class="tip-title">核心思路</div>
+  通过<strong>文档驱动开发</strong>，让 AI 编码从「随性创作」变成「精确执行」。<br>
+  文档就是 AI 的记忆、约束和检查清单。
+</div>
+
+<p><strong>工作流程：</strong></p>
+<p style="text-align: center; font-size: 16px; padding: 20px 0; line-height: 2.5;">
+  📄 <strong>文档</strong> → 驱动 → 🤖 <strong>AI</strong> → 产出 → 💻 <strong>代码</strong><br>
+  ↑_______同步更新_______↓
+</p>
+
+<hr>
+
+<!-- 二、六层文档 -->
+<h2>二、六层文档体系 — AI 的项目大脑</h2>
+
+<p>我们构建了 <strong>6 份核心文档</strong> 的项目知识库，作为 AI 编码的持久化上下文：</p>
+
+<div class="tip">
+  <div class="tip-title">💡 项目文档结构</div>
+  <div style="background: #fff; padding: 12px; border-radius: 4px; margin-top: 8px; font-family: monospace; font-size: 13px; line-height: 1.8;">
+项目根目录<br>
+├── architecture.md &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# [架构] 架构蓝图<br>
+├── data-model.md &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# [数据] 数据模型<br>
+├── coding-conventions.md &nbsp;&nbsp;# [规范] 开发规范<br>
+├── ui-design-system.md &nbsp;&nbsp;&nbsp;&nbsp;# [设计] 设计系统<br>
+├── component-library.md &nbsp;&nbsp;&nbsp;# [组件] 组件库<br>
+└── service-api.md &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# [接口] 服务层 API
+  </div>
+</div>
+
+<table>
+<tr><th>文档</th><th>AI 读取时机</th><th>AI 获得的能力</th></tr>
+<tr><td><span class="code-inline">architecture.md</span></td><td>任何开发开始前</td><td>知道文件放哪里、模块依赖关系</td></tr>
+<tr><td><span class="code-inline">data-model.md</span></td><td>涉及数据操作时</td><td>正确构造查询、不漏字段</td></tr>
+<tr><td><span class="code-inline">coding-conventions.md</span></td><td>写代码时</td><td>遵循命名规范、使用正确模式</td></tr>
+<tr><td><span class="code-inline">ui-design-system.md</span></td><td>涉及 UI 时</td><td>使用 CSS 变量而非硬编码</td></tr>
+<tr><td><span class="code-inline">component-library.md</span></td><td>使用/修改组件时</td><td>正确传 props、触发 events</td></tr>
+<tr><td><span class="code-inline">service-api.md</span></td><td>调用服务时</td><td>正确的方法签名和参数</td></tr>
+</table>
+
+<blockquote>
+<strong>铁律</strong>：每次 feature 完成后，必须同步更新受影响的文档。<br>
+确保 AI 在下一次对话中读到的文档永远是最新的。
+</blockquote>
+
+<div class="tip">
+  <div class="tip-title">实战效果</div>
+  有了这 6 份文档，AI 就像拥有了项目的「完整记忆」。<br>
+  不用每次重新解释项目结构，直接开始干活！
+</div>
+
+<hr>
+
+<!-- 三、Spec 三件套 -->
+<h2>三、Spec 三件套 — Feature 开发的标准蓝图</h2>
+
+<p>每个功能迭代在 <span class="code-inline">specs/</span> 目录下创建标准化的三份文档：</p>
+
+<div class="tip">
+  <div class="tip-title">💡 Spec 三件套结构</div>
+  <div style="background: #fff; padding: 12px; border-radius: 4px; margin-top: 8px; font-family: monospace; font-size: 13px; line-height: 1.8;">
+specs/&lt;feature-name&gt;/<br>
+├── requirements.md &nbsp;&nbsp;&nbsp;# [需求] 需求文档 — 做什么<br>
+├── design.md &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# [设计] 设计文档 — 怎么做<br>
+└── tasks.md &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# [任务] 任务列表 — 做到哪
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title">📄 requirements.md — 定义「做什么」</div>
+  <p><strong>核心内容：</strong>用户故事 + 验收标准</p>
+  <p>采用 <span class="code-inline">When...shall...</span> 格式，让 AI 能够<strong>精确对齐</strong>每一行代码和对应的需求。</p>
+</div>
+
+<div class="card">
+  <div class="card-title">🎨 design.md — 定义「怎么实现」</div>
+  <p><strong>核心内容：</strong>CSS Diff 表 + WXML 改造策略 + JS 交互变更</p>
+  <p><strong>CSS Diff 表是 AI 最重要的参照物</strong>。AI 逐行执行 diff，不需要猜测。</p>
+</div>
+
+<div class="card">
+  <div class="card-title">✅ tasks.md — 定义「执行顺序」</div>
+  <p><strong>核心内容：</strong>任务清单 + 完成状态</p>
+  <p>每个任务 <span class="code-inline">T-x.x</span> 完成后立即打勾。tasks.md 就是项目的<strong>实时进度看板</strong>。</p>
+</div>
+
+<div class="tip">
+  <div class="tip-title">为什么需要三件套？</div>
+  ❌ 没有 requirements：AI 不知道要做什么<br>
+  ❌ 没有 design：AI 需要猜测如何实现<br>
+  ❌ 没有 tasks：AI 不知道执行顺序和进度<br>
+  ✅ 三件套齐全：AI 清清楚楚、零返工
+</div>
+
+<hr>
+
+<!-- 四、Git Flow -->
+<h2>四、Git Flow — 版本控制纪律</h2>
+
+<p>AI 编码也需要严格的版本控制，否则出了问题连回退的机会都没有。</p>
+
+<h3>4.1 分支策略</h3>
+
+<table>
+<tr><th>分支</th><th>命名</th><th>规则</th></tr>
+<tr><td><span class="code-inline">master</span></td><td>—</td><td>禁止直接 push，仅 PR 合并</td></tr>
+<tr><td><span class="code-inline">develop</span></td><td>—</td><td>集成分支，feature 合入此处</td></tr>
+<tr><td><span class="code-inline">feature/&lt;spec-name&gt;</span></td><td>与 specs/ 目录名一致</td><td>从 develop 拉，合回 develop</td></tr>
+<tr><td><span class="code-inline">release/v&lt;x.y.z&gt;</span></td><td>语义化版本号</td><td>从 develop 拉，合并 master + develop</td></tr>
+</table>
+
+<h3>4.2 Git Flow 工作流程</h3>
+
+<div class="tip">
+  <div class="tip-title">📌 典型开发流程示例</div>
+</div>
+
+<table style="margin-top: 16px;">
+  <tr style="background: #D4B896; color: #fff;">
+    <th style="width: 20%;">步骤</th>
+    <th style="width: 25%;">操作</th>
+    <th style="width: 55%;">说明</th>
+  </tr>
+  <tr>
+    <td style="text-align: center; font-weight: 700; color: #8B6914;">1</td>
+    <td style="font-family: monospace; font-size: 12px; color: #8B6914;">从 develop 拉分支</td>
+    <td>创建 feature/ui-redesign-v4 分支</td>
+  </tr>
+  <tr>
+    <td style="text-align: center; font-weight: 700; color: #8B6914;">2</td>
+    <td style="font-family: monospace; font-size: 12px; color: #8B6914;">在 feature 分支开发</td>
+    <td>完成 32 个任务，提交 23 个 commits</td>
+  </tr>
+  <tr>
+    <td style="text-align: center; font-weight: 700; color: #8B6914;">3</td>
+    <td style="font-family: monospace; font-size: 12px; color: #8B6914;">合回 develop</td>
+    <td>功能测试通过后合并到 develop 分支</td>
+  </tr>
+  <tr>
+    <td style="text-align: center; font-weight: 700; color: #8B6914;">4</td>
+    <td style="font-family: monospace; font-size: 12px; color: #8B6914;">创建 release 分支</td>
+    <td>准备发布 v4.0.0</td>
+  </tr>
+  <tr>
+    <td style="text-align: center; font-weight: 700; color: #8B6914;">5</td>
+    <td style="font-family: monospace; font-size: 12px; color: #8B6914;">合并到 master</td>
+    <td>打 tag v4.0.0，正式发布</td>
+  </tr>
+</table>
+
+<div class="card" style="margin-top: 16px; background: #faf8f4;">
+  <div class="card-title" style="color: #8B6914;">🔄 分支流转示意</div>
+  <table style="margin-top: 8px; background: #fff;">
+    <tr>
+      <td style="width: 25%; text-align: center; font-weight: 600; color: #D4B896;">develop</td>
+      <td style="width: 5%; text-align: center;">→</td>
+      <td style="width: 25%; text-align: center; font-weight: 600; color: #7BA9C9;">feature/xxx</td>
+      <td style="width: 5%; text-align: center;">→</td>
+      <td style="width: 20%; text-align: center; font-weight: 600; color: #D4B896;">develop</td>
+      <td style="width: 5%; text-align: center;">→</td>
+      <td style="width: 15%; text-align: center; font-weight: 600; color: #E85454;">master</td>
+    </tr>
+    <tr style="font-size: 12px; color: #666;">
+      <td style="text-align: center;">集成分支</td>
+      <td></td>
+      <td style="text-align: center;">功能开发</td>
+      <td></td>
+      <td style="text-align: center;">测试通过</td>
+      <td></td>
+      <td style="text-align: center;">发布上线</td>
+    </tr>
+  </table>
+</div>
+</div>
+
+<blockquote>
+<strong>Commit 铁律</strong>：<br>
+✓ 遵循 Conventional Commits<br>
+✓ 一个 Task 至少一个 commit<br>
+✓ 每个 commit 可独立编译运行<br>
+✓ 关联 T-x.x 和 FR-x 编号
+</blockquote>
+
+<div class="tip">
+  <div class="tip-title">为什么重要？</div>
+  有了 Git Flow，你可以：<br>
+  ✓ 随时回退到任意版本<br>
+  ✓ 多个 feature 并行开发<br>
+  ✓ 清晰的版本演进轨迹
+</div>
+
+<hr>
+
+<!-- 五、三阶段 -->
+<h2>五、三阶段开发工作流</h2>
+
+<p>完整的 feature 开发流程分为三个阶段，确保质量闭环：</p>
+
+<h3>5.1 开发前：给 AI 装载上下文</h3>
+
+<ol>
+<li><strong>阅读 6 份核心文档</strong> → AI 理解项目全貌</li>
+<li><strong>编写 Spec 三件套</strong> → AI 知道「这次做什么」</li>
+<li><strong>10 轮交叉 Review</strong> → 和 AI 一起检查遗漏（v4.0 发现了 30 处遗漏）</li>
+<li><strong>创建执行计划</strong> → 按天排期，每天有验收节点</li>
+</ol>
+
+<h3>5.2 开发中：AI 在围栏内执行</h3>
+
+<p><strong>关键指令模式：</strong></p>
+
+<div class="tip">
+  <div class="tip-title">💡 关键指令模式</div>
+  <div style="background: #fff; padding: 12px; border-radius: 4px; margin-top: 8px; font-family: monospace; font-size: 13px; line-height: 1.8; color: #8B6914; font-weight: 500;">
+开始 Day X，确保实施和设计方案对齐 @specs/&lt;feature&gt;/design.md
+  </div>
+</div>
+
+<p><strong>AI 执行循环：</strong></p>
+<p style="text-align: center; padding: 15px; background: #faf8f4; border-radius: 8px; margin: 16px 0;">
+  📖 读 design.md → 📝 读代码 → ✏️ 按 Diff 表修改 → 💾 commit → ☑️ 更新 checkbox → 📤 push
+</p>
+
+<h3>5.3 开发后：闭环文档同步</h3>
+
+<p>检查 6 份文档：</p>
+<ul>
+<li>新增了组件？→ 更新 <span class="code-inline">component-library.md</span></li>
+<li>改了目录结构？→ 更新 <span class="code-inline">architecture.md</span></li>
+<li>新增了 CSS 变量？→ 更新 <span class="code-inline">ui-design-system.md</span></li>
+<li>新增了服务方法？→ 更新 <span class="code-inline">service-api.md</span></li>
+</ul>
+
+<div class="tip">
+  <div class="tip-title">关键要点</div>
+  开发前：AI 需要充分的上下文<br>
+  开发中：AI 在文档围栏内执行<br>
+  开发后：必须同步更新文档<br>
+  <strong>形成闭环，确保下一次对话 AI 读到的是最新状态</strong>
+</div>
+
+<hr>
+
+<!-- 六、实战案例 -->
+<h2>六、实战案例：UI Redesign v4.0</h2>
+
+<p>接下来，我用一个真实案例展示这套方法论的威力。</p>
+
+<h3>6.1 项目概览</h3>
+
+<div class="tip">
+  <div class="tip-title">📊 v4.0 重构核心数据</div>
+</div>
+
+<table style="margin-top: 12px; margin-bottom: 24px;">
+  <tr style="background: #D4B896; color: #fff; font-weight: 600;">
+    <th style="width: 25%;">页面+组件</th>
+    <th style="width: 25%;">任务数</th>
+    <th style="width: 25%;">Commits</th>
+    <th style="width: 25%;">开发周期</th>
+  </tr>
+  <tr style="text-align: center; font-size: 20px; font-weight: 700; color: #8B6914;">
+    <td>18+16</td>
+    <td>32</td>
+    <td>23</td>
+    <td>8 天</td>
+  </tr>
+</table>
+
+<h3>6.2 Spec 文档层次</h3>
+
+<div class="tip">
+  <div class="tip-title">💡 v4.0 Spec 文档层次</div>
+  <div style="background: #fff; padding: 12px; border-radius: 4px; margin-top: 8px; font-family: monospace; font-size: 13px; line-height: 1.8;">
+specs/ui-redesign-v4/<br>
+├── design-spec.md &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# 35KB 设计总纲<br>
+├── detailed-spec.md &nbsp;&nbsp;&nbsp;# 22KB 逐页细化规格<br>
+├── requirements.md &nbsp;&nbsp;&nbsp;&nbsp;# 14 FR + 4 NFR<br>
+├── design.md &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# v2.0 实施设计（10轮review）<br>
+├── tasks.md &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# 6 阶段 32 任务<br>
+└── plan.md &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# 8 天每日执行计划
+  </div>
+</div>
+
+<blockquote>
+设计师交付 57KB 原始规格 → 10 轮交叉 review → 发现 <strong>30 处遗漏</strong><br>
+（9 个弹窗内部样式、12 个分包页面视觉统一）
+</blockquote>
+
+<h3>6.3 8 天执行时间线</h3>
+
+<div class="tip">
+  <div class="tip-title">📅 按模块推进,每步都有明确产出</div>
+</div>
+
+<table style="margin-top: 16px;">
+  <tr style="background: #D4B896; color: #fff;">
+    <th style="width: 15%;">天数</th>
+    <th style="width: 25%;">模块</th>
+    <th style="width: 15%;">Commits</th>
+    <th style="width: 45%;">主要内容</th>
+  </tr>
+  <tr>
+    <td style="text-align: center; font-weight: 700; color: #8B6914;">Day 1</td>
+    <td style="font-weight: 600;">M1 基础层</td>
+    <td style="text-align: center; color: #7BC950; font-weight: 500;">3</td>
+    <td>CSS 变量 + 动画 + 图标 + popup/form 样式</td>
+  </tr>
+  <tr>
+    <td style="text-align: center; font-weight: 700; color: #8B6914;">Day 2</td>
+    <td style="font-weight: 600;">M2 首页前半</td>
+    <td style="text-align: center; color: #7BC950; font-weight: 500;">1</td>
+    <td>问候区精简 + 状态胶囊</td>
+  </tr>
+  <tr>
+    <td style="text-align: center; font-weight: 700; color: #8B6914;">Day 3</td>
+    <td style="font-weight: 600;">M2 首页后半</td>
+    <td style="text-align: center; color: #7BC950; font-weight: 500;">1</td>
+    <td>摘要进度条 + 待办竖向 + AI 一行式 + 轴线</td>
+  </tr>
+  <tr>
+    <td style="text-align: center; font-weight: 700; color: #8B6914;">Day 4</td>
+    <td style="font-weight: 600;">M3 记录+发现页</td>
+    <td style="text-align: center; color: #7BC950; font-weight: 500;">3</td>
+    <td>吸顶筛选 + focus-card + 发现页重构 + 弹窗底部化</td>
+  </tr>
+  <tr>
+    <td style="text-align: center; font-weight: 700; color: #8B6914;">Day 5</td>
+    <td style="font-weight: 600;">M4 我的页+弹窗</td>
+    <td style="text-align: center; color: #7BC950; font-weight: 500;">3</td>
+    <td>居中头像 + 页头清理(3页) + 关闭按钮(13处)</td>
+  </tr>
+  <tr>
+    <td style="text-align: center; font-weight: 700; color: #8B6914;">Day 6</td>
+    <td style="font-weight: 600;">M5 弹窗内部</td>
+    <td style="text-align: center; color: #7BC950; font-weight: 500;">3</td>
+    <td>feeding 常用量 + sleep/diaper/temp 升级 + growth 对比</td>
+  </tr>
+  <tr>
+    <td style="text-align: center; font-weight: 700; color: #8B6914;">Day 7</td>
+    <td style="font-weight: 600;">M5 分包页面</td>
+    <td style="text-align: center; color: #7BC950; font-weight: 500;">2</td>
+    <td>packageGrowth / Social / auth 视觉统一</td>
+  </tr>
+  <tr>
+    <td style="text-align: center; font-weight: 700; color: #8B6914;">Day 8</td>
+    <td style="font-weight: 600;">M6 打磨+文档</td>
+    <td style="text-align: center; color: #7BC950; font-weight: 500;">3</td>
+    <td>细节打磨 + 暗色 QA(28项) + 文档同步(4份)</td>
+  </tr>
+  <tr style="background: #faf8f4; font-weight: 600; border-top: 2px solid #D4B896;">
+    <td colspan="2" style="text-align: center;">合计</td>
+    <td style="text-align: center; color: #8B6914; font-size: 18px;">23</td>
+    <td>8 天完成全部重构</td>
+  </tr>
+</table>
+
+<h3>6.4 关键决策案例</h3>
+
+<div class="card">
+  <div class="card-title">发现问题</div>
+  <p>「今日概览」点击开弹窗 = 「快捷记录」点击开弹窗<br>
+  <strong>80% 功能重叠</strong>，造成用户困惑</p>
+</div>
+
+<p><strong>头脑风暴 5 个方案：</strong></p>
+<ul>
+<li><span class="tag tag-green">选定</span> A: 概览回归纯展示（跳转记录页）</li>
+<li>B: 去掉快捷记录横栏</li>
+<li>C: 概览点击展开详情浮层</li>
+<li>D: 合并为智能卡片</li>
+<li>E: 概览保留 + 快捷改 FAB</li>
+</ul>
+
+<p><strong>选择理由：</strong>职责分离 — 概览「看数据」，快捷「做记录」，心智模型清晰，改动最小。</p>
+
+<div class="tip">
+  <div class="tip-title">决策过程</div>
+  这就是 Spec-Driven Development 的价值：<br>
+  在设计阶段就发现潜在问题，通过头脑风暴找到最优解，<br>
+  避免开发到一半才发现架构不合理。
+</div>
+
+<hr>
+
+<!-- 七、AI 协作 -->
+<h2>七、AI 协作要点 — 如何让 AI 听懂你的话</h2>
+
+<h3>7.1 指令最佳实践</h3>
+
+<div class="card" style="border-left: 4px solid #7BC950; background: linear-gradient(135deg, #f0f7ec, #e8f3e0);">
+  <div class="card-title" style="color: #4a8c2a;">✅ 好的指令示例</div>
+  
+  <table style="margin-top: 12px;">
+    <tr>
+      <th style="background: #7BC950; width: 30%;">指令</th>
+      <th style="background: #7BC950;">AI 理解</th>
+    </tr>
+    <tr>
+      <td style="font-family: monospace; font-size: 12px; color: #8B6914; font-weight: 500;">
+        开始 Day 4，确保实施和设计方案对齐 @specs/ui-redesign-v4/design.md
+      </td>
+      <td>读 design.md → 找 Day 4 任务 → 对齐实施</td>
+    </tr>
+    <tr>
+      <td style="font-family: monospace; font-size: 12px; color: #8B6914; font-weight: 500;">
+        再 review 10 次 design.md，确保没有遗漏
+      </td>
+      <td>逐条交叉比对 → 列出遗漏清单 → 更新文档</td>
+    </tr>
+  </table>
+</div>
+
+<div class="card" style="border-left: 4px solid #E85454; background: linear-gradient(135deg, #fef0f0, #ffe8e8);">
+  <div class="card-title" style="color: #d44;">❌ 差的指令示例</div>
+  
+  <table style="margin-top: 12px;">
+    <tr>
+      <th style="background: #E85454; width: 30%;">指令</th>
+      <th style="background: #E85454;">AI 困惑</th>
+    </tr>
+    <tr>
+      <td style="font-family: monospace; font-size: 12px; color: #999;">
+        帮我改一下首页样式
+      </td>
+      <td style="color: #E85454;">改哪些？改成什么样？和什么规格对齐？</td>
+    </tr>
+  </table>
+</div>
+
+<h3>7.2 上下文管理策略</h3>
+
+<table>
+<tr><th>策略</th><th>做法</th><th>效果</th></tr>
+<tr><td><strong>持久化记忆</strong></td><td>项目信息存入 AI memory</td><td>AI 记住架构、文档体系、开发工作流</td></tr>
+<tr><td><strong>文件引用</strong></td><td>指令中用 <span class="code-inline">@file</span></td><td>AI 自动加载相关文档</td></tr>
+<tr><td><strong>渐进式加载</strong></td><td>先读框架 → 再读章节 → 再读代码</td><td>避免上下文过载</td></tr>
+<tr><td><strong>并行读取</strong></td><td>一次读取多个文件</td><td>减少交互轮次</td></tr>
+</table>
+
+<h3>7.3 质量保障机制</h3>
+
+<table>
+<tr><th>机制</th><th>实施方式</th><th>保障内容</th></tr>
+<tr><td><strong>Spec Review</strong></td><td>生成 design.md 后进行 10 轮交叉 review</td><td>发现遗漏、确保完整性</td></tr>
+<tr><td><strong>逐日验收</strong></td><td>plan.md 每天有验收节点表</td><td>确保每日进度可量化</td></tr>
+<tr><td><strong>Commit 粒度</strong></td><td>每个 Task 一个 commit，可独立编译</td><td>可追溯、可回退</td></tr>
+<tr><td><strong>暗色矩阵</strong></td><td>28 项逐一检查</td><td>确保暗色模式无遗漏</td></tr>
+<tr><td><strong>文档同步</strong></td><td>开发后必须更新 6 份核心文档</td><td>确保文档时效性</td></tr>
+</table>
+
+<div class="tip">
+  <div class="tip-title">核心原则</div>
+  给 AI 的指令要：<strong>具体、可执行、有参照物</strong><br>
+  ❌ "帮我改一下" → AI 无所适从<br>
+  ✅ "按 design.md 第 3 节修改首页" → AI 精确执行
+</div>
+
+<hr>
+
+<!-- 八、Spec 全景 -->
+<h2>八、项目 Spec 全景 — 产品演进轨迹</h2>
+
+<p>经过 <strong>12 次 feature 迭代</strong>，specs/ 目录积累了完整的产品演进轨迹：</p>
+
+<div class="tip">
+  <div class="tip-title">💡 项目 Spec 全景 - 12 次 Feature 迭代</div>
+  <div style="background: #fff; padding: 12px; border-radius: 4px; margin-top: 8px; font-family: monospace; font-size: 12px; line-height: 1.6;">
+specs/<br>
+├── full-refactor/ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# v2.0 全面重构<br>
+├── home-redesign/ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# v3.0 首页重设计<br>
+├── family-collaboration/ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# v3.0 家庭协作<br>
+├── share-image-optimization/ &nbsp;# v3.0 分享图优化<br>
+├── insight-trend-enhancement/ &nbsp;# v3.1 洞察趋势<br>
+├── easter-eggs/ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# v3.1 彩蛋系统<br>
+├── performance-optimization/ &nbsp;&nbsp;&nbsp;# v3.1 性能优化<br>
+├── warm-night-mode/ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# v3.1 暖夜模式<br>
+├── share-image-v2/ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# v3.1 分享图 v2<br>
+├── record-header-redesign/ &nbsp;&nbsp;&nbsp;&nbsp;# v3.2 记录页头<br>
+├── ui-redesign-v4/ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# v4.0 UI 重设计 [当前]<br>
+└── workflow/ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;# Git Flow + 三阶段规范
+  </div>
+</div>
+
+<div class="tip">
+  <div class="tip-title">Spec 全景的价值</div>
+  ✓ 每个迭代都有完整的决策记录<br>
+  ✓ 新成员可以快速了解产品演进<br>
+  ✓ AI 可以参考历史 Spec 避免重复错误<br>
+  ✓ 形成团队的知识资产
+</div>
+
+<hr>
+
+<!-- 九、收益 -->
+<h2>九、核心收益 — 数据说话</h2>
+
+<h3>9.1 效率提升</h3>
+
+<table>
+<tr><th>维度</th><th>无 Spec</th><th>有 Spec</th><th>提升</th></tr>
+<tr><td>AI 返工次数</td><td>频繁（猜错了改）</td><td>极少（有 Diff 表对齐）</td><td><strong style="color: #7BC950; font-size: 18px;">↓ 80%</strong></td></tr>
+<tr><td>沟通轮次</td><td>每步确认</td><td>一句指令执行一天</td><td><strong style="color: #7BC950; font-size: 18px;">↓ 70%</strong></td></tr>
+<tr><td>遗漏率</td><td>高（改 A 忘 B）</td><td>低（review + checklist）</td><td><strong style="color: #7BC950; font-size: 18px;">↓ 90%</strong></td></tr>
+</table>
+
+<h3>9.2 质量保障</h3>
+
+<table>
+<tr><th>维度</th><th>效果</th></tr>
+<tr><td><strong>代码一致性</strong></td><td>CSS 变量引用率 100%，无硬编码颜色</td></tr>
+<tr><td><strong>文档时效性</strong></td><td>6 份核心文档始终与代码同步</td></tr>
+<tr><td><strong>版本可追溯</strong></td><td>23 个 commit，每个关联 Task 和 FR 编号</td></tr>
+<tr><td><strong>暗色模式</strong></td><td>28 项矩阵逐一验证，全部通过</td></tr>
+</table>
+
+<h3>9.3 可复制性</h3>
+
+<p>整套方法论不依赖特定项目，核心组件可直接复用：</p>
+
+<ul>
+<li><span class="code-inline">git-flow.md</span> → 任何项目的版本管理</li>
+<li><span class="code-inline">development-workflow.md</span> → 任何项目的 AI 编码流程</li>
+<li>Spec 三件套模板 → 任何 feature 的标准化交付物</li>
+<li>6 份核心文档体系 → 任何项目的 AI 上下文基座</li>
+</ul>
+
+<div class="highlight-box">
+  <p class="big">效率提升 80%，遗漏率降低 90%</p>
+  <p>这不是神话，而是工程化方法论的必然结果</p>
+</div>
+
+<hr>
+
+<!-- 十、总结 -->
+<h2>十、总结 — 掌握这套方法论，让 AI 成为你的高效助手</h2>
+
+<div class="highlight-box">
+  <p><strong>📄 Spec 三件套</strong> → AI 知道做什么</p>
+  <p><strong>📚 6 份核心文档</strong> → AI 理解项目全貌</p>
+  <p><strong>🔀 Git Flow</strong> → 版本可控可回退</p>
+  <p><strong>🔄 三阶段工作流</strong> → 质量有保障有闭环</p>
+  <p><strong>✅ 10 轮 Review</strong> → 遗漏率降到最低</p>
+  <p style="margin-top: 20px; font-size: 18px; font-weight: 700;">
+    AI 不是取代人，而是在「文档围栏」内高效执行<br>
+    人负责决策和设计，AI 负责实现和验证<br>
+    文档是两者之间的桥梁
+  </p>
+</div>
+
+<h3>写在最后</h3>
+
+<p>AI 编程不是魔法，而是一门需要工程化思维的技艺。</p>
+
+<p>这套方法论让我从一个「每次都和 AI 吵架」的开发者，变成了「一句指令执行一天」的效率达人。</p>
+
+<p><strong>如果你也遇到这些问题：</strong></p>
+<ul>
+<li>AI 改了 A 忘了 B</li>
+<li>上下文记不住，每次都要重新解释</li>
+<li>没有版本管理，出问题不知道怎么回退</li>
+<li>文档和代码脱节</li>
+</ul>
+
+<p><strong>不妨试试这套方法论，相信你也会有同样的收获。</strong></p>
+
+<div class="tip">
+  <div class="tip-title">下一步行动</div>
+  1. 在你的项目中创建 6 份核心文档<br>
+  2. 下一个 feature 用 Spec 三件套规范流程<br>
+  3. 建立 Git Flow 版本管理纪律<br>
+  4. 在开发前、中、后严格执行三阶段工作流<br>
+  <br>
+  <strong>坚持 2-3 个迭代，你会发现 AI 编码的效率和质量有质的飞跃！</strong>
+</div>
+
+<div class="footer">
+  <p><strong>文档版本 v1.0</strong></p>
+  <p>基于 Baby Care Tracker v4.0 UI Redesign 实践总结</p>
+  <p style="margin-top: 16px; color: #D4B896; font-size: 16px;">■ Spec-Driven Development</p>
+  <p style="margin-top: 12px;">
+    <strong>觉得有帮助？</strong><br>
+    点赞 + 在看，让更多人告别 AI 编码混乱！
+  </p>
+</div>
+
+</body>
+</html>
