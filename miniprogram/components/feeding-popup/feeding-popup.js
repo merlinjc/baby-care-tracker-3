@@ -63,7 +63,7 @@ Component({
     ],
     
     // 配方奶相关
-    quickAmounts: [30, 60, 90, 120, 150, 180, 210, 240], // 快捷用量选项（ml）
+    quickAmounts: [10, 30, 60, 90, 120, 150, 180, 210], // 快捷用量选项（ml）
     amount: 0, // 累计喂养量 (ml)
     amountDisplay: '0ml', // 喂养量显示
 
