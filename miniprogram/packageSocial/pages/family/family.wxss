@@ -43,9 +43,10 @@
 }
 
 /* 角色徽章（家庭卡片右上角） */
+/* v4.0: 角色徽章 pill */
 .family-role-badge {
   padding: 8rpx 20rpx;
-  border-radius: 20rpx;
+  border-radius: var(--radius-pill);
   background: rgba(255, 255, 255, 0.25);
 }
 

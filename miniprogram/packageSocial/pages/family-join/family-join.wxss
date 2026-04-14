@@ -8,11 +8,13 @@
   min-height: 100vh;
 }
 
+/* v4.0: 邀请码居中大字 */
 .code-input {
   text-transform: uppercase;
   text-align: center;
-  letter-spacing: 8rpx;
+  letter-spacing: 12rpx;
   font-weight: 600;
+  font-size: 40rpx;
 }
 
 /* 覆盖公共样式的 letter-spacing */
@@ -20,16 +22,16 @@
   letter-spacing: 0;
 }
 
-/* 加入按钮 */
+/* v4.0: 加入按钮 pill */
 .join-btn {
   width: 100%;
-  height: 96rpx;
-  line-height: 96rpx;
+  height: 92rpx;
+  line-height: 92rpx;
   font-size: 32rpx;
   font-weight: 500;
   color: var(--white);
   background: linear-gradient(135deg, var(--primary-color) 0%, var(--gradient-end) 100%);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   border: none;
   margin-top: var(--spacing-lg);
   box-shadow: 0 8rpx 32rpx rgba(212, 184, 150, 0.4);

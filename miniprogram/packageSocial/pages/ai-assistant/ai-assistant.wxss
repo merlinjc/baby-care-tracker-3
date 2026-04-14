@@ -34,17 +34,18 @@
   color: var(--primary-dark, #8B7B6B);
 }
 
+/* v4.0: 配额进度条 pill 圆角 */
 .quota-bar {
   height: 8rpx;
   background: rgba(139, 123, 107, 0.1);
-  border-radius: 4rpx;
+  border-radius: var(--radius-pill);
   overflow: hidden;
 }
 
 .quota-fill {
   height: 100%;
   background: linear-gradient(90deg, var(--primary-color, #D4B896), var(--accent-color, #B8D4B8));
-  border-radius: 4rpx;
+  border-radius: var(--radius-pill);
   transition: width 0.3s ease;
 }
 

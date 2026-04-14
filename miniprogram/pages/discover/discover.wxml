@@ -1,129 +1,66 @@
 <view class="container {{darkMode ? 'dark-mode' : ''}}">
-  <!-- 页面标题 -->
+  <!-- v4.0: 页头（保留图标 — 发现页品牌辨识度） -->
   <view class="page-header">
     <view class="header-icon">
       <image src="/images/icons/compass.png" mode="aspectFit"></image>
     </view>
     <view class="header-text">
       <text class="header-title">发现更多</text>
-      <text class="header-subtitle">专业育儿工具，助您科学育儿</text>
+      <text class="header-subtitle">科学育儿，温暖陪伴</text>
     </view>
   </view>
 
-  <!-- 待办概览 -->
-  <view class="todo-section" wx:if="{{todoStats.total > 0}}">
-    <view class="section-header">
-      <text class="section-title">待办事项</text>
-      <text class="section-badge">{{todoStats.total}}</text>
-    </view>
-    
-    <scroll-view class="todo-cards" scroll-x>
-      <!-- 疫苗待接种 -->
-      <view class="todo-card vaccine" bindtap="goToVaccine" wx:if="{{todoStats.vaccine > 0}}">
-        <view class="todo-icon">
-          <image src="/images/icons/vaccine-color.png" mode="aspectFit" lazy-load></image>
-        </view>
-        <view class="todo-content">
-          <text class="todo-title">疫苗待接种</text>
-          <text class="todo-count">{{todoStats.vaccine}} 剂</text>
-        </view>
-        <view class="todo-arrow">
-          <text>›</text>
-        </view>
-      </view>
-      
-      <!-- 里程碑待达成 -->
-      <view class="todo-card milestone" bindtap="goToMilestone" wx:if="{{todoStats.milestone > 0}}">
-        <view class="todo-icon">
-          <image src="/images/icons/milestone-color.png" mode="aspectFit" lazy-load></image>
-        </view>
-        <view class="todo-content">
-          <text class="todo-title">里程碑待达成</text>
-          <text class="todo-count">{{todoStats.milestone}} 项</text>
-        </view>
-        <view class="todo-arrow">
-          <text>›</text>
-        </view>
-      </view>
-      
-      <!-- 逾期提醒 -->
-      <view class="todo-card overdue" bindtap="goToVaccine" wx:if="{{todoStats.overdue > 0}}">
-        <view class="todo-icon">
-          <image src="/images/icons/warning-color.png" mode="aspectFit" lazy-load></image>
-        </view>
-        <view class="todo-content">
-          <text class="todo-title">逾期提醒</text>
-          <text class="todo-count">{{todoStats.overdue}} 项</text>
-        </view>
-        <view class="todo-arrow">
-          <text>›</text>
-        </view>
-      </view>
-    </scroll-view>
+  <!-- v4.0: 聚焦卡片（最紧急的一项待办） -->
+  <view class="focus-section" wx:if="{{focusItem}}">
+    <focus-card
+      type="{{focusItem.type}}"
+      title="{{focusItem.title}}"
+      description="{{focusItem.description}}"
+      icon="{{focusItem.icon}}"
+      urgency="{{focusItem.urgency}}"
+      target-url="{{focusItem.targetUrl}}"
+      dark-mode="{{darkMode}}"
+    />
   </view>
 
-  <!-- 功能入口 -->
-  <view class="card feature-card">
-    <view class="menu-list">
-      <view 
-        class="menu-item"
-        wx:for="{{menuItems}}"
-        wx:key="title"
-        data-url="{{item.url}}"
-        bindtap="goToPage"
-      >
-        <view class="menu-icon" style="background: {{item.iconBg}};">
-          <image class="menu-icon-img" src="{{item.icon}}" mode="aspectFit" lazy-load></image>
-        </view>
-        <view class="menu-content">
-          <view class="menu-title">{{item.title}}</view>
-          <view class="menu-subtitle">{{item.subtitle}}</view>
-        </view>
-        <view class="menu-badge" wx:if="{{item.badge > 0}}">
-          <text>{{item.badge}}</text>
-        </view>
-        <view class="menu-arrow">
-          <image src="/images/icons/arrow-right.png" mode="aspectFit" lazy-load></image>
-        </view>
+  <!-- v4.0: 功能入口 2x2 网格 -->
+  <view class="tool-grid">
+    <view 
+      class="tool-item"
+      wx:for="{{toolItems}}"
+      wx:key="title"
+      data-url="{{item.url}}"
+      bindtap="goToPage"
+    >
+      <view class="tool-icon-wrapper" style="background: {{item.bgColor}};">
+        <image class="tool-icon" src="{{item.icon}}" mode="aspectFit" lazy-load></image>
       </view>
+      <text class="tool-title">{{item.title}}</text>
+      <view class="tool-badge" wx:if="{{item.badge > 0}}">{{item.badge}}</view>
     </view>
   </view>
 
-  <!-- 专业参考标准 -->
+  <!-- v4.0: 专业参考标准（精简列表行） -->
   <view class="reference-section">
     <view class="section-header">
       <text class="section-title">专业参考标准</text>
     </view>
     
-    <view class="reference-cards">
-      <view class="reference-card who" bindtap="showWhoInfo">
-        <view class="ref-icon">
-          <text class="ref-icon-text">WHO</text>
-        </view>
-        <view class="ref-content">
-          <text class="ref-title">WHO 儿童生长标准</text>
-          <text class="ref-desc">世界卫生组织2006年儿童生长标准</text>
-        </view>
+    <view class="reference-list">
+      <view class="reference-row" bindtap="showWhoInfo">
+        <view class="ref-badge who">WHO</view>
+        <text class="ref-name">WHO 儿童生长标准</text>
+        <image class="ref-arrow" src="/images/icons/arrow-right.png" mode="aspectFit" lazy-load></image>
       </view>
-      
-      <view class="reference-card cdc" bindtap="showCdcInfo">
-        <view class="ref-icon cdc-icon">
-          <text class="ref-icon-text">CDC</text>
-        </view>
-        <view class="ref-content">
-          <text class="ref-title">CDC 发育里程碑</text>
-          <text class="ref-desc">美国疾控中心儿童发育指南</text>
-        </view>
+      <view class="reference-row" bindtap="showCdcInfo">
+        <view class="ref-badge cdc">CDC</view>
+        <text class="ref-name">CDC 发育里程碑</text>
+        <image class="ref-arrow" src="/images/icons/arrow-right.png" mode="aspectFit" lazy-load></image>
       </view>
-      
-      <view class="reference-card china" bindtap="showChinaInfo">
-        <view class="ref-icon china-icon">
-          <text class="ref-icon-text">CN</text>
-        </view>
-        <view class="ref-content">
-          <text class="ref-title">国家免疫规划</text>
-          <text class="ref-desc">中国疾控中心疫苗接种程序</text>
-        </view>
+      <view class="reference-row" bindtap="showChinaInfo">
+        <view class="ref-badge cn">CN</view>
+        <text class="ref-name">国家免疫规划</text>
+        <image class="ref-arrow" src="/images/icons/arrow-right.png" mode="aspectFit" lazy-load></image>
       </view>
     </view>
   </view>
@@ -133,31 +70,37 @@
     <text class="tip-text">数据来源：WHO、CDC、中国疾控中心</text>
   </view>
   
-  <!-- 专业参考弹窗 -->
-  <view class="info-popup-mask" wx:if="{{showInfoPopup}}" bindtap="hideInfoPopup">
-    <view class="info-popup" catchtap>
+  <!-- v4.0: 专业参考弹窗（底部弹出） -->
+  <view class="popup-mask {{showInfoPopup ? 'popup-mask-visible' : ''}}" wx:if="{{showInfoPopup}}" bindtap="hideInfoPopup">
+    <view class="popup-container {{showInfoPopup ? 'popup-enter' : ''}}" catchtap>
+      <view class="swipe-indicator"></view>
       <view class="popup-header">
+        <view class="popup-icon">
+          <image src="/images/icons/compass.png" mode="aspectFit" />
+        </view>
         <text class="popup-title">{{infoPopupData.title}}</text>
         <view class="popup-close" bindtap="hideInfoPopup">
-          <text>×</text>
+          <image src="/images/icons/x-mark.png" mode="aspectFit" />
         </view>
       </view>
       <scroll-view class="popup-content" scroll-y>
-        <view class="info-section">
-          <text class="info-label">数据来源</text>
-          <text class="info-text">{{infoPopupData.source}}</text>
-        </view>
-        <view class="info-section">
-          <text class="info-label">适用范围</text>
-          <text class="info-text">{{infoPopupData.scope}}</text>
-        </view>
-        <view class="info-section">
-          <text class="info-label">主要用途</text>
-          <text class="info-text">{{infoPopupData.usage}}</text>
-        </view>
-        <view class="info-section">
-          <text class="info-label">注意事项</text>
-          <text class="info-text">{{infoPopupData.note}}</text>
+        <view class="popup-inner">
+          <view class="info-section">
+            <text class="info-label">数据来源</text>
+            <text class="info-text">{{infoPopupData.source}}</text>
+          </view>
+          <view class="info-section">
+            <text class="info-label">适用范围</text>
+            <text class="info-text">{{infoPopupData.scope}}</text>
+          </view>
+          <view class="info-section">
+            <text class="info-label">主要用途</text>
+            <text class="info-text">{{infoPopupData.usage}}</text>
+          </view>
+          <view class="info-section">
+            <text class="info-label">注意事项</text>
+            <text class="info-text">{{infoPopupData.note}}</text>
+          </view>
         </view>
       </scroll-view>
     </view>

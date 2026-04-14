@@ -26,11 +26,9 @@
   transition: all var(--transition-fast);
 }
 
+/* v4.0: 性别选择 — 等宽卡片按钮 + surface-elevated */
 .gender-option.active {
-  background: linear-gradient(135deg, 
-    rgba(212, 184, 150, 0.15) 0%, 
-    rgba(196, 168, 134, 0.2) 100%
-  );
+  background: var(--surface-elevated);
   border-color: var(--primary-color);
 }
 

@@ -14,40 +14,39 @@ Page({
   data: {
     darkMode: false,
     currentBaby: null,
-    menuItems: [
+    // v4.0: 2x2 网格工具入口
+    toolItems: [
       {
         icon: ICONS.discover.vaccine,
-        iconBg: ThemeManager.getColor('iconBgFeeding'),
+        bgColor: 'linear-gradient(135deg, rgba(212, 136, 61, 0.15), rgba(196, 120, 45, 0.2))',
         title: '疫苗追踪',
-        subtitle: '接种记录、逾期提醒',
         url: '/packageGrowth/pages/vaccine/vaccine',
         badge: 0
       },
       {
         icon: ICONS.discover.growth,
-        iconBg: ThemeManager.getColor('iconBgSleep'),
+        bgColor: 'linear-gradient(135deg, rgba(123, 169, 201, 0.15), rgba(92, 140, 168, 0.2))',
         title: '生长曲线',
-        subtitle: 'WHO标准、百分位评估',
         url: '/packageGrowth/pages/growth/growth',
         badge: 0
       },
       {
         icon: ICONS.discover.milestone,
-        iconBg: ThemeManager.getColor('iconBgDiaper'),
+        bgColor: 'linear-gradient(135deg, rgba(184, 168, 212, 0.15), rgba(168, 152, 196, 0.2))',
         title: '发育里程碑',
-        subtitle: 'WHO/CDC标准对照',
         url: '/packageGrowth/pages/milestone/milestone',
         badge: 0
       },
       {
         icon: ICONS.discover.ai,
-        iconBg: ThemeManager.getColor('iconBgAi'),
-        title: 'AI育儿助手',
-        subtitle: '智能问答、专业建议',
+        bgColor: 'linear-gradient(135deg, rgba(168, 212, 168, 0.15), rgba(152, 196, 152, 0.2))',
+        title: 'AI助手',
         url: '/packageSocial/pages/ai-assistant/ai-assistant',
         badge: 0
       }
     ],
+    // v4.0: 聚焦卡片（最紧急待办）
+    focusItem: null,
     todoStats: {
       total: 0,
       vaccine: 0,
@@ -102,11 +101,10 @@ Page({
       const baby = this.data.currentBaby;
       if (!baby) return;
       
-      // 使用 TodoService 获取待办统计（内置 30s 缓存）
       const todoStats = await todoService.getTodoStats(baby);
       
-      // 更新菜单徽章
-      const menuItems = this.data.menuItems.map(item => {
+      // v4.0: 更新 toolItems 徽章
+      const toolItems = this.data.toolItems.map(item => {
         if (item.url === '/packageGrowth/pages/vaccine/vaccine') {
           return { ...item, badge: todoStats.vaccine };
         }
@@ -115,8 +113,39 @@ Page({
         }
         return item;
       });
+
+      // v4.0: 计算聚焦卡片（优先级：逾期疫苗 > 逾期里程碑 > 即将到期疫苗 > 即将到期里程碑）
+      let focusItem = null;
+      if (todoStats.overdue > 0) {
+        focusItem = {
+          type: 'vaccine',
+          title: '有疫苗已逾期',
+          description: `${todoStats.overdue} 项逾期，请尽快安排接种`,
+          icon: '/images/icons/vaccine-color.png',
+          urgency: 'overdue',
+          targetUrl: '/packageGrowth/pages/vaccine/vaccine'
+        };
+      } else if (todoStats.vaccine > 0) {
+        focusItem = {
+          type: 'vaccine',
+          title: '疫苗待接种',
+          description: `${todoStats.vaccine} 剂疫苗即将到期`,
+          icon: '/images/icons/vaccine-color.png',
+          urgency: 'upcoming',
+          targetUrl: '/packageGrowth/pages/vaccine/vaccine'
+        };
+      } else if (todoStats.milestone > 0) {
+        focusItem = {
+          type: 'milestone',
+          title: '里程碑待达成',
+          description: `${todoStats.milestone} 项发育里程碑`,
+          icon: '/images/icons/milestone-color.png',
+          urgency: 'normal',
+          targetUrl: '/packageGrowth/pages/milestone/milestone'
+        };
+      }
       
-      this.setData({ todoStats, menuItems });
+      this.setData({ todoStats, toolItems, focusItem });
     } catch (error) {
       console.error('加载待办统计失败:', error);
     }

@@ -6,7 +6,6 @@
     "sleep-popup": "/components/sleep-popup/sleep-popup",
     "diaper-popup": "/components/diaper-popup/diaper-popup",
     "temperature-popup": "/components/temperature-popup/temperature-popup",
-    "baby-card": "/components/baby-card/baby-card",
     "timeline": "/components/timeline/timeline",
     "growth-popup": "/components/growth-popup/growth-popup",
     "error-state": "/components/error-state/error-state",

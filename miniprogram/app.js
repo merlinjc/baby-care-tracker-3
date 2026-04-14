@@ -119,6 +119,8 @@ App({
   },
   
   globalData: {
+    version: 'v4.0.1',       // 当前版本号（Release 时同步更新）
+    versionCodename: 'Milo',  // 当前版本代号
     userInfo: null,
     currentBaby: null,
     familyInfo: null,

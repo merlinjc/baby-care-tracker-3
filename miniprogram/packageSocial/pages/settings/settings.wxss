@@ -73,6 +73,13 @@
   color: var(--text-hint, #CCCCCC);
 }
 
+.menu-arrow-img {
+  width: 32rpx;
+  height: 32rpx;
+  flex-shrink: 0;
+  opacity: 0.4;
+}
+
 /* 危险操作项 */
 .danger-item {
   background: rgba(232, 84, 84, 0.05);
@@ -132,8 +139,10 @@
   background: linear-gradient(135deg, #E8DCC8, #D4C8B8);
 }
 
-.theme-icon-text {
-  font-size: 36rpx;
+/* v4.0: 主题图标 PNG */
+.theme-icon-img {
+  width: 36rpx;
+  height: 36rpx;
 }
 
 .theme-option-label {

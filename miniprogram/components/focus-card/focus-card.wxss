@@ -1,0 +1,99 @@
+/* focus-card 聚焦卡片 */
+.focus-card {
+  display: flex;
+  align-items: center;
+  padding: 24rpx;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s ease;
+}
+
+.focus-card:active {
+  transform: scale(0.98);
+}
+
+/* 左侧色条 */
+.focus-left-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6rpx;
+  background: var(--primary-color);
+}
+
+.focus-overdue .focus-left-bar {
+  background: var(--danger-color);
+}
+
+.focus-upcoming .focus-left-bar {
+  background: var(--warning-color);
+}
+
+.focus-normal .focus-left-bar {
+  background: var(--success-color);
+}
+
+/* 图标 */
+.focus-icon {
+  width: 48rpx;
+  height: 48rpx;
+  flex-shrink: 0;
+  margin-left: 8rpx;
+  margin-right: 16rpx;
+}
+
+/* 文字内容 */
+.focus-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.focus-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: block;
+  margin-bottom: 4rpx;
+}
+
+.focus-desc {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 紧急标签 */
+.focus-urgency-tag {
+  font-size: 22rpx;
+  font-weight: 500;
+  padding: 4rpx 14rpx;
+  border-radius: var(--radius-pill, 999rpx);
+  flex-shrink: 0;
+  margin-left: 12rpx;
+}
+
+.focus-overdue .focus-urgency-tag {
+  color: var(--danger-color);
+  background: rgba(232, 84, 84, 0.10);
+}
+
+.focus-upcoming .focus-urgency-tag {
+  color: var(--warning-color);
+  background: rgba(212, 136, 61, 0.10);
+}
+
+/* 右箭头 */
+.focus-arrow {
+  width: 24rpx;
+  height: 24rpx;
+  flex-shrink: 0;
+  margin-left: 8rpx;
+  opacity: 0.4;
+}

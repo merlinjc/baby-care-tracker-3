@@ -82,6 +82,9 @@ Page({
     todaySummaryText: ''
   },
 
+  // 空方法：用于 catchtap 阻止事件冒泡
+  noop() {},
+
   onLoad(options) {
     this._lastLoadTime = 0;
     this._recordService = RecordService.getInstance();
@@ -709,22 +712,18 @@ Page({
     
     // BUG-4: 兼容 recordType（新）和 type（旧）字段名
     const type = selectedRecord.recordType || selectedRecord.type;
-    const pages = getCurrentPages();
-    const currentPage = pages[pages.length - 1];
     
-    if (currentPage.selectComponent) {
-      const popupId = type === 'feeding' ? '#feedingPopup' :
-                      type === 'sleep' ? '#sleepPopup' :
-                      type === 'diaper' ? '#diaperPopup' :
-                      type === 'temperature' ? '#temperaturePopup' :
-                      type === 'growth' ? '#growthPopup' : null;
-      
-      if (popupId) {
-        const popup = currentPage.selectComponent(popupId);
-        if (popup) {
-          popup.open(selectedRecord);
-        }
-      }
+    const showMap = {
+      feeding: 'showFeedingPopup',
+      sleep: 'showSleepPopup',
+      diaper: 'showDiaperPopup',
+      temperature: 'showTemperaturePopup',
+      growth: 'showGrowthPopup'
+    };
+    
+    const showKey = showMap[type];
+    if (showKey) {
+      this.setData({ [showKey]: true });
     }
   },
 

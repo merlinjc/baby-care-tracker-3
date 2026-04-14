@@ -67,7 +67,7 @@
   color: var(--text-primary);
 }
 
-/* 大便质地 */
+/* v4.0: 大便质地 — 描述卡片式 + --diaper-color 边框 */
 .consistencies {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -75,15 +75,16 @@
 }
 
 .consistency-item {
-  padding: 24rpx;
+  padding: 20rpx 24rpx;
   background: var(--bg-primary);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   transition: all 0.3s;
+  border: 2rpx solid transparent;
 }
 
 .consistency-item.active {
-  background: rgba(212, 184, 150, 0.15);
-  border: 2rpx solid var(--warning-color);
+  background: rgba(212, 200, 168, 0.10);
+  border-color: var(--diaper-color);
 }
 
 .consistency-label {

@@ -1,55 +1,57 @@
 <view class="container page-enter {{darkMode ? 'dark-mode' : ''}}">
-  <!-- 用户信息卡片 - 强化个人形象 -->
-  <view class="card user-card card-stagger" bindtap="editProfile">
-    <view class="user-header">
-      <image 
-        class="user-avatar"
-        src="{{userInfo.avatar || '/images/default-avatar.svg'}}"
-        mode="aspectFill"
-      />
-      <view class="user-detail">
-        <view class="user-name">{{userInfo.nickname || '未设置昵称'}}</view>
-        <view class="user-role">
-          <view class="role-badge">{{userInfo.role === 'parent' ? '家长' : '家庭成员'}}</view>
-        </view>
-      </view>
-      <view class="user-actions">
-        <image class="action-icon" src="/images/icons/edit-gray.png" mode="aspectFit"></image>
-      </view>
-    </view>
+  <!-- v4.0: 用户信息 — 居中头像 + 角色 pill -->
+  <view class="user-section" bindtap="editProfile">
+    <image 
+      class="user-avatar"
+      src="{{userInfo.avatar || '/images/default-avatar.svg'}}"
+      mode="aspectFill"
+    />
+    <view class="user-name">{{userInfo.nickname || '未设置昵称'}}</view>
+    <view class="user-role-pill">{{userInfo.role === 'parent' ? '家长' : '家庭成员'}}</view>
   </view>
 
-  <!-- 编辑个人资料弹窗 -->
-  <view class="edit-mask" wx:if="{{showEditPopup}}" bindtap="closeEditPopup" catchtouchmove="preventTouchMove">
-    <view class="edit-popup" catchtap="">
-      <view class="edit-popup-title">编辑个人资料</view>
-      <!-- 头像编辑 -->
-      <view class="edit-avatar-section" bindtap="changeAvatar">
-        <image 
-          class="edit-avatar"
-          src="{{editAvatar || '/images/default-avatar.svg'}}"
-          mode="aspectFill"
-        />
-        <view class="edit-avatar-overlay">
-          <image class="camera-icon" src="/images/icons/camera-white.png" mode="aspectFit"></image>
+  <!-- v4.0: 编辑个人资料弹窗（底部弹出） -->
+  <view class="popup-mask {{showEditPopup ? 'popup-mask-visible' : ''}}" wx:if="{{showEditPopup}}" bindtap="closeEditPopup" catchtouchmove="preventTouchMove">
+    <view class="popup-container {{showEditPopup ? 'popup-enter' : ''}}" catchtap="">
+      <view class="swipe-indicator"></view>
+      <view class="popup-header">
+        <view class="popup-icon">
+          <image src="/images/icons/edit-gray.png" mode="aspectFit" />
         </view>
-        <text class="edit-avatar-hint">点击更换头像</text>
+        <text class="popup-title">编辑个人资料</text>
+        <view class="popup-close" bindtap="closeEditPopup">
+          <image src="/images/icons/x-mark.png" mode="aspectFit" />
+        </view>
       </view>
-      <!-- 昵称编辑 -->
-      <view class="edit-field">
-        <text class="edit-field-label">昵称</text>
-        <input 
-          class="edit-input"
-          value="{{editNickname}}"
-          placeholder="请输入昵称"
-          maxlength="12"
-          bindinput="onNicknameInput"
-        />
-      </view>
-      <view class="edit-popup-actions">
-        <view class="edit-btn cancel" bindtap="closeEditPopup">取消</view>
-        <view class="edit-btn confirm" bindtap="saveProfile">保存</view>
-      </view>
+      <scroll-view class="popup-content" scroll-y>
+        <view class="popup-inner">
+          <!-- 头像编辑 -->
+          <view class="edit-avatar-section" bindtap="changeAvatar">
+            <image 
+              class="edit-avatar"
+              src="{{editAvatar || '/images/default-avatar.svg'}}"
+              mode="aspectFill"
+            />
+            <view class="edit-avatar-overlay">
+              <image class="camera-icon" src="/images/icons/camera-white.png" mode="aspectFit"></image>
+            </view>
+            <text class="edit-avatar-hint">点击更换头像</text>
+          </view>
+          <!-- 昵称编辑 -->
+          <view class="edit-field">
+            <text class="edit-field-label">昵称</text>
+            <input 
+              class="edit-input"
+              value="{{editNickname}}"
+              placeholder="请输入昵称"
+              maxlength="12"
+              bindinput="onNicknameInput"
+            />
+          </view>
+          <!-- 保存按钮 -->
+          <view class="submit-btn" bindtap="saveProfile">保存</view>
+        </view>
+      </scroll-view>
     </view>
   </view>
 
@@ -81,7 +83,7 @@
     </view>
   </view>
 
-  <!-- 功能菜单 - 清晰的视觉层次 -->
+  <!-- v4.0: 功能菜单 — 去描述，精简 -->
   <view class="card menu-card card-stagger">
     <view class="menu-section">
       <view
@@ -94,10 +96,7 @@
         <view class="menu-icon-wrapper {{item.bgClass}}">
           <image class="menu-icon" src="{{item.icon}}" mode="aspectFit" lazy-load></image>
         </view>
-        <view class="menu-content">
-          <view class="menu-title">{{item.title}}</view>
-          <view class="menu-desc">{{item.desc}}</view>
-        </view>
+        <text class="menu-title">{{item.title}}</text>
         <view class="menu-arrow">
           <image src="/images/icons/arrow-right.png" mode="aspectFit" lazy-load></image>
         </view>
@@ -113,6 +112,6 @@
 
   <!-- 版本信息 -->
   <view class="version-info">
-    <text>Baby Care Tracker v3.2.0</text>
+    <text>Baby Care Tracker {{appVersion}}</text>
   </view>
 </view>
