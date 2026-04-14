@@ -1,6 +1,6 @@
 # Baby Care Tracker UI 设计系统
 
-> **版本**: v3.2 | **更新日期**: 2026-04-09 | **设计风格**: 美拉德色系 (Maillard)
+> **版本**: v4.0 | **更新日期**: 2026-04-13 | **设计风格**: 美拉德色系 (Maillard)
 
 ---
 
@@ -96,6 +96,17 @@
 | `--radius-sm` | 12rpx | 小元素/标签 |
 | `--radius-md` | 24rpx | 中等卡片 |
 | `--radius-lg` | 32rpx | 大卡片/弹窗 |
+| `--radius-pill` | 999rpx | 胶囊/标签（v4.0 新增） |
+| `--radius-xl` | 40rpx | 弹窗大圆角（v4.0 新增） |
+
+#### v4.0 新增变量（6 个）
+
+| 变量 | 亮色值 | 暗色值 | 用途 |
+|------|--------|--------|------|
+| `--growth-color` | `#7BA9C9` | `#5C8CA8` | 生长独立色 |
+| `--surface-elevated` | `rgba(212,184,150,0.06)` | `rgba(212,184,150,0.04)` | 表面层次 |
+| `--elevation-1` | `0 2rpx 8rpx rgba(139,123,107,0.04)` | `0 2rpx 8rpx rgba(0,0,0,0.15)` | 层级阴影 L1 |
+| `--elevation-2` | `0 4rpx 16rpx rgba(139,123,107,0.06)` | `0 4rpx 16rpx rgba(0,0,0,0.2)` | 层级阴影 L2 |
 
 ### 阴影
 
@@ -125,6 +136,9 @@
 | `timingBreathe` | 1.5s | 计时呼吸灯 |
 | `shimmer` | 1.5s | 骨架屏微光 |
 | `dotPulse` | 1.2s | 加载点动画 |
+| `progressGrow` | 0.6s | 进度条增长（v4.0 新增） |
+| `recPulse` | 1.5s | 录制指示灯呼吸（v4.0 新增） |
+| `capsuleTransition` | 0.3s | 胶囊状态切换（v4.0 新增） |
 | `eggScaleBounce` | 0.6s | 彩蛋弹跳入场 |
 | 卡片交错 | 0-0.4s | `.card-stagger:nth-child(n)` |
 

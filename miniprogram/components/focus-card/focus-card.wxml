@@ -1,0 +1,12 @@
+<view class="focus-card focus-{{urgency}} {{darkMode ? 'dark-mode' : ''}}" bindtap="onTap">
+  <view class="focus-left-bar"></view>
+  <image class="focus-icon" src="{{icon}}" mode="aspectFit" lazy-load wx:if="{{icon}}"></image>
+  <view class="focus-content">
+    <text class="focus-title">{{title}}</text>
+    <text class="focus-desc" wx:if="{{description}}">{{description}}</text>
+  </view>
+  <view class="focus-urgency-tag" wx:if="{{urgency === 'overdue' || urgency === 'upcoming'}}">
+    {{urgency === 'overdue' ? '已逾期' : '即将到期'}}
+  </view>
+  <image class="focus-arrow" src="/images/icons/arrow-right.png" mode="aspectFit" lazy-load></image>
+</view>

@@ -59,6 +59,8 @@ Page({
   },
 
   async onLoad() {
+    const app = getApp();
+    this.setData({ appVersion: app.globalData.version || 'v4.0.1' });
     await this.loadUserInfo();
   },
 

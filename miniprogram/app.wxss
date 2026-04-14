@@ -130,7 +130,15 @@ page {
   --temperature-btn-end: #C48B8B;
   --growth-btn-start: #7BA9C9;
   --growth-btn-end: #5B8FAF;
-  
+
+  /* ============ v4.0 新增变量（6 个） ============ */
+  --growth-color: #7BA9C9;                                     /* 生长独立色 */
+  --surface-elevated: rgba(212, 184, 150, 0.06);               /* 表面层次色 */
+  --elevation-1: 0 2rpx 8rpx rgba(139, 123, 107, 0.04);       /* 层级阴影 L1 */
+  --elevation-2: 0 4rpx 16rpx rgba(139, 123, 107, 0.06);      /* 层级阴影 L2 */
+  --radius-pill: 999rpx;                                        /* 胶囊/标签圆角 */
+  --radius-xl: 40rpx;                                           /* 弹窗大圆角 */
+
   background-color: var(--bg-primary);
   font-family: 'PingFang SC', 'Source Han Sans CN', sans-serif;
   font-size: 14px;
@@ -547,6 +555,42 @@ page {
   animation: fadeInUp 0.6s ease-out;
 }
 
+/* ============ v4.0 新增动画（3 个） ============ */
+
+/* 进度条增长动画 */
+@keyframes progressGrow {
+  from { width: 0; }
+  to { width: var(--progress-target); }
+}
+
+/* 录制指示灯呼吸动画 */
+@keyframes recPulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+/* 胶囊状态切换过渡 */
+@keyframes capsuleTransition {
+  0% { opacity: 0.7; transform: scale(0.98); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* 减少动画偏好 - 小程序不支持 * 通配符，使用 page/view 替代 */
+@media (prefers-reduced-motion: reduce) {
+  page, view, text, image, scroll-view {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* v4.0: 通用 picker 箭头 image */
+.picker-arrow-img {
+  width: 16rpx;
+  height: 16rpx;
+  opacity: 0.4;
+}
+
 /* ============================================================
  * 暖夜模式 CSS 变量覆盖
  * 仅在 class="dark-mode" 的元素及其子元素中生效
@@ -667,6 +711,13 @@ page {
   --density-level-2: #A08050;
   --density-level-3: #886840;
   --density-level-4: #705838;
+
+  /* === v4.0 新增变量暗色覆盖（4 个） === */
+  --growth-color: #5C8CA8;
+  --surface-elevated: rgba(212, 184, 150, 0.04);
+  --elevation-1: 0 2rpx 8rpx rgba(0, 0, 0, 0.15);
+  --elevation-2: 0 4rpx 16rpx rgba(0, 0, 0, 0.2);
+  /* --radius-pill / --radius-xl 为固定值，无需暗色覆盖 */
 }
 
 /* ============================================================

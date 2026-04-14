@@ -2,7 +2,7 @@
 
 > **需求文档**: `specs/warm-night-mode/requirements.md` v1.1
 > **设计文档**: `specs/warm-night-mode/design.md` v1.0
-> **版本**: v1.0 | **日期**: 2026-04-08
+> **版本**: v1.0 | **日期**: 2026-04-08 | **状态**: ✅ 已完成（2026-04-08）
 
 ---
 

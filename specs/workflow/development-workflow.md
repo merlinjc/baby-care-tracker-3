@@ -1,6 +1,6 @@
 # 开发工作流三阶段规范
 
-> **版本**: v1.0 | **更新日期**: 2026-04-10 | **状态**: 生效中
+> **版本**: v1.1 | **更新日期**: 2026-04-14 | **状态**: 生效中
 
 ---
 
@@ -27,14 +27,24 @@
 
 ### 1.2 编写 Spec 文档
 
-在 `specs/` 下创建以 feature 命名的目录，包含三个标准文件：
+在 `specs/` 下创建以 feature 命名的目录，包含三个标准文件（大型功能可选 plan.md）：
 
 ```
 specs/<feature-name>/
-├── requirements.md    # 需求文档
-├── design.md          # 设计文档
-└── tasks.md           # 实施计划
+├── requirements.md    # 需求文档（必须）
+├── design.md          # 设计文档（必须）
+├── tasks.md           # 实施计划（必须）
+└── plan.md            # 每日执行计划（可选，见下方判断标准）
 ```
+
+#### plan.md 使用判断标准
+
+| 条件 | 是否需要 plan.md |
+|------|------------------|
+| 预估工时 ≥ 3 天 | **是** — 按天排期，每天有验收节点 |
+| 涉及 ≥ 5 个文件的大改 | **是** — 需要明确每日产出边界 |
+| 预估工时 < 3 天且改动集中 | **否** — tasks.md 足够 |
+| 需要多人协作或多轮 Review | **是** — plan.md 作为协调基准 |
 
 #### requirements.md 模板
 
@@ -295,13 +305,60 @@ M2 开始 → 继续 commit
 git commit -m "docs: 同步更新文档 — <feature-name> 迭代产出"
 ```
 
-### 3.3 版本号更新
+### 3.3 版本管理（CHANGELOG + 版本号同步）
 
-在 `README.md` 版本历史表中追加新行：
+#### 3.3.1 判断版本升级级别
+
+```
+完成 feature 后 → 判断版本升级级别：
+  ├── MAJOR（架构重构）  → 分配新代号 + 更新 CHANGELOG + 全量版本同步
+  ├── MINOR（新功能模块）→ 沿用代号 + 更新 CHANGELOG + 全量版本同步
+  └── PATCH（修复/微调）→ 仅更新 CHANGELOG + 选择性版本同步
+```
+
+#### 3.3.2 版本代号规则
+
+| 规则 | 说明 |
+|------|------|
+| **MAJOR 版本** | 赋予正式代号（如 Sprout / Cradle / Lullaby / Milo） |
+| **MINOR/PATCH** | 沿用所属 MAJOR 代号 |
+| **命名主题** | 与婴幼儿/育儿/成长相关的英文词汇 |
+| **注册表** | `CHANGELOG.md` 顶部维护「代号注册表」 |
+
+#### 3.3.3 更新 CHANGELOG.md
+
+在 `CHANGELOG.md` 中**插入新版本区块**（位于文件顶部、代号注册表之后）：
 
 ```markdown
-| v3.3 | YYYY-MM-DD | <主要功能简述> |
+## [v4.1.0] Milo — YYYY-MM-DD
+
+### Added
+- <新增功能>
+
+### Changed
+- <变更内容>
+
+### Fixed
+- <修复内容>
 ```
+
+#### 3.3.4 版本号同步清单
+
+**以下所有位置的版本号必须保持一致：**
+
+| # | 位置 | 文件路径 | 更新内容 |
+|---|------|----------|----------|
+| 1 | **CHANGELOG.md** | `CHANGELOG.md` | 新增版本区块（Added/Changed/Fixed） |
+| 2 | **README 产品版本** | `README.md` § 1 表格 | `产品版本` 字段 |
+| 3 | **README 版本历史** | `README.md` § 12 表格 | 追加新行（版本+代号+日期+简述+链接） |
+| 4 | **架构文档版本头** | `architecture.md` | `> 版本: vX.Y` |
+| 5 | **编码规范版本头** | `coding-conventions.md` | `> 版本: vX.Y` |
+| 6 | **Git Flow 版本线** | `git-flow.md` § 5 版本线表 | 追加新行 |
+| 7 | **Profile 页版本** | `miniprogram/pages/profile/profile.wxml` | `Baby Care Tracker vX.Y.Z` |
+| 8 | **App globalData** | `miniprogram/app.js` | `globalData.version` |
+
+> **MAJOR/MINOR 版本**：全部 8 项必须更新。
+> **PATCH 版本**：至少更新 #1、#3、#6、#7、#8。
 
 ### 3.4 创建 Pull Request
 
@@ -338,6 +395,9 @@ git push origin --delete feature/<spec-name>
 - [ ] `ui-design-system.md` 已同步更新（如有新 CSS 变量/样式）
 - [ ] `component-library.md` 已同步更新（如有新组件）
 - [ ] `service-api.md` 已同步更新（如有新服务/方法）
+- [ ] `CHANGELOG.md` 已追加本次版本条目
+- [ ] 版本代号已分配（MAJOR 版本时）
+- [ ] 版本号同步清单（§ 3.3.4）全部更新
 - [ ] `README.md` 版本历史已更新
 - [ ] PR 已创建并包含完整描述
 - [ ] Feature 分支已清理

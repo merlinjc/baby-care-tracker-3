@@ -69,10 +69,11 @@
   right: 8rpx;
 }
 
+/* v4.0: 状态徽章 pill 化 */
 .status-badge {
   font-size: 20rpx;
-  padding: 2rpx 8rpx;
-  border-radius: 8rpx;
+  padding: 2rpx 10rpx;
+  border-radius: var(--radius-pill);
   font-weight: 500;
 }
 

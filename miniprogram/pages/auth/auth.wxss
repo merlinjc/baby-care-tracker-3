@@ -135,20 +135,20 @@
   gap: 16rpx;
 }
 
+/* v4.0: 功能图标容器 56rpx 圆形 */
 .feature-icon {
-  width: 96rpx;
-  height: 96rpx;
-  border-radius: 28rpx;
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8rpx 24rpx rgba(139, 123, 107, 0.12);
   flex-shrink: 0;
 }
 
 .feature-icon image {
-  width: 56rpx;
-  height: 56rpx;
+  width: 32rpx;
+  height: 32rpx;
   display: block;
 }
 
@@ -194,7 +194,7 @@
   font-weight: 600;
   color: var(--white);
   background: linear-gradient(135deg, var(--primary-color) 0%, var(--gradient-end) 100%);
-  border-radius: 50rpx;
+  border-radius: var(--radius-pill);
   border: none;
   box-shadow: 0 12rpx 40rpx rgba(212, 184, 150, 0.4);
   transition: all 0.3s ease;
@@ -254,18 +254,19 @@
   gap: 16rpx;
 }
 
+/* v4.0: 步骤指示器 10rpx */
 .step-dot {
-  width: 20rpx;
-  height: 20rpx;
+  width: 10rpx;
+  height: 10rpx;
   border-radius: 50%;
   background: var(--border-color);
   transition: all 0.3s ease;
 }
 
 .step-dot.active {
-  width: 48rpx;
-  border-radius: 10rpx;
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--gradient-end) 100%);
+  width: 32rpx;
+  border-radius: var(--radius-pill);
+  background: var(--primary-color);
 }
 
 .step-dot.completed {

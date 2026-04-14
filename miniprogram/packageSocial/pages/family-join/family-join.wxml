@@ -1,9 +1,6 @@
 <view class="family-join-container {{darkMode ? 'dark-mode' : ''}}">
-  <!-- 页面标题 -->
+  <!-- v4.0: 页头精简 — 去装饰图标 -->
   <view class="page-header">
-    <view class="header-icon">
-      <image src="/images/icons/add-family.png" mode="aspectFit"></image>
-    </view>
     <view class="header-text">
       <text class="header-title">加入家庭</text>
       <text class="header-subtitle">输入邀请码加入家庭成员</text>

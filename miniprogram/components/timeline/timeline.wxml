@@ -8,6 +8,9 @@
 
   <!-- 记录列表 -->
   <view class="timeline-list" wx:else>
+    <!-- v4.0: 时间轴线 -->
+    <view class="timeline-line"></view>
+
     <!-- 日期分组 -->
     <view class="date-group" wx:for="{{groupedRecords}}" wx:key="date">
       <view class="date-header">
@@ -17,6 +20,9 @@
 
       <!-- 记录项（支持左滑编辑） -->
       <view class="record-item-wrapper" wx:for="{{item.records}}" wx:for-item="record" wx:key="_id">
+        <!-- v4.0: 功能色节点圆点 -->
+        <view class="timeline-node {{record.recordType || 'default'}}"></view>
+
         <view 
           class="record-item {{manageMode && record.isSelected ? 'selected' : ''}} {{openedSwipeId === record._id ? 'swiped' : ''}}" 
           bindtap="onRecordTap"

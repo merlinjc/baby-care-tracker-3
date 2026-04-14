@@ -5,6 +5,40 @@
   background: transparent;
 }
 
+/* v4.0: 时间轴线 */
+.timeline-list {
+  position: relative;
+}
+
+.timeline-line {
+  position: absolute;
+  left: 56rpx;
+  top: 0;
+  bottom: 0;
+  width: 2rpx;
+  background: var(--border-color);
+  z-index: 0;
+}
+
+.timeline-node {
+  position: absolute;
+  left: 51rpx;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 10rpx;
+  height: 10rpx;
+  border-radius: 50%;
+  border: 2rpx solid var(--bg-secondary);
+  z-index: 1;
+  background: var(--primary-color);
+}
+
+.timeline-node.feeding { background: var(--feeding-color); }
+.timeline-node.sleep { background: var(--sleep-color); }
+.timeline-node.diaper { background: var(--diaper-color); }
+.timeline-node.temperature { background: var(--temperature-color); }
+.timeline-node.growth { background: var(--growth-color, #7BA9C9); }
+
 /* 空状态 */
 .empty-state {
   display: flex;

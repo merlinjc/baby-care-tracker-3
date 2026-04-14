@@ -91,6 +91,12 @@
   line-height: 1;
 }
 
+.popup-close image {
+  width: 24rpx;
+  height: 24rpx;
+  opacity: 0.5;
+}
+
 /* 内容区域 */
 .popup-content {
   flex: 1;
@@ -105,10 +111,11 @@
   margin-bottom: 40rpx;
 }
 
+/* v4.0: 头像 100rpx */
 .avatar-wrapper {
   position: relative;
-  width: 160rpx;
-  height: 160rpx;
+  width: 100rpx;
+  height: 100rpx;
 }
 
 .avatar-image {

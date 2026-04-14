@@ -19,7 +19,7 @@
       </view>
       <text class="popup-title">喂养记录</text>
       <view class="popup-close" bindtap="close">
-        <text>×</text>
+        <image src="/images/icons/x-mark.png" mode="aspectFit" />
       </view>
     </view>
 
@@ -62,6 +62,14 @@
       <view class="section" wx:if="{{feedingType === 'formula'}}">
         <text class="section-title">喂养量（点击累加）</text>
         
+        <!-- v4.0: 常用量快捷填入 -->
+        <view class="recent-amounts" wx:if="{{recentAmounts.length > 0}}">
+          <text class="recent-label">最近:</text>
+          <view class="recent-item" wx:for="{{recentAmounts}}" wx:key="*this" data-amount="{{item}}" bindtap="selectRecentAmount">
+            <text>{{item}}ml</text>
+          </view>
+        </view>
+
         <!-- 快捷用量选择 -->
         <view class="quick-amount">
           <view 

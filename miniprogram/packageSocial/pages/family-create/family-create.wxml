@@ -1,9 +1,6 @@
 <view class="family-create-container {{darkMode ? 'dark-mode' : ''}}">
-  <!-- 页面标题 -->
+  <!-- v4.0: 页头精简 — 去装饰图标 -->
   <view class="page-header">
-    <view class="header-icon">
-      <image src="/images/icons/family-gray.png" mode="aspectFit"></image>
-    </view>
     <view class="header-text">
       <text class="header-title">创建家庭</text>
       <text class="header-subtitle">邀请家人一起记录宝宝成长</text>

@@ -1,6 +1,6 @@
 # Baby Care Tracker 项目架构文档
 
-> **版本**: v3.1 | **更新日期**: 2026-04-08
+> **版本**: v4.0 | **更新日期**: 2026-04-13
 
 ---
 
@@ -90,6 +90,7 @@ baby-care-tracker-3/
 │   │   ├── baby-edit-popup/              # 宝宝编辑弹窗
 │   │   ├── error-state/                  # 错误状态组件（全局注册）
 │   │   ├── icon/                         # 图标组件
+│   │   ├── focus-card/                   # 聚焦卡片（v4.0 新增）
 │   │   ├── easter-egg-popup/             # 彩蛋弹窗
 │   │   └── easter-egg-toast/             # 彩蛋 Toast
 │   │
