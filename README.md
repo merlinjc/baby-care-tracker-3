@@ -11,7 +11,7 @@
 | 属性 | 值 |
 |------|-----|
 | **产品名称** | Baby Care Tracker（宝宝成长记录） |
-| **产品版本** | v4.0.1 Milo |
+| **产品版本** | v4.1.0 Milo |
 | **项目类型** | 微信小程序（原生开发） |
 | **AppID** | `wx1f1bc8e6ff2be61d` |
 | **CloudBase 环境** | `neo3-7gtg0bdtc9fcc672` |
