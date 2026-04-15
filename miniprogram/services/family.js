@@ -108,6 +108,19 @@ class FamilyService {
         throw new Error('已经是家庭成员');
       }
 
+      // ★ [v4.1 FR-9] 检查用户是否已属于其他家庭，防止幽灵成员
+      const existingFamily = await this.getFamilyByUserId(userId);
+      if (existingFamily && existingFamily._id !== family._id) {
+        // 检查是否是唯一管理员
+        if (PermissionUtil.isAdmin(userId, existingFamily)
+            && !PermissionUtil.hasOtherAdmin(existingFamily, userId)) {
+          throw new Error('您是当前家庭的唯一管理员，请先转让管理权限或解散旧家庭再加入新家庭');
+        }
+        // D-4: 先从旧家庭移除；如果后续加入新家庭失败，用户变成无家庭状态
+        // 这是可接受的降级——用户下次打开会被 ensureUserReady 引导到 auth 页重新加入
+        await this._removeSelfFromFamily(existingFamily._id, userId);
+      }
+
       const now = new Date().toISOString();
 
       // 添加成员
