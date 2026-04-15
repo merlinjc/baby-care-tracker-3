@@ -1,6 +1,6 @@
 /**
  * 发现页
- * 疫苗、生长、里程碑、AI 助手入口
+ * 疫苗、生长、里程碑入口
  */
 
 const { ICONS } = require('../../utils/icon-config');
@@ -35,13 +35,6 @@ Page({
         bgColor: 'linear-gradient(135deg, rgba(184, 168, 212, 0.15), rgba(168, 152, 196, 0.2))',
         title: '发育里程碑',
         url: '/packageGrowth/pages/milestone/milestone',
-        badge: 0
-      },
-      {
-        icon: ICONS.discover.ai,
-        bgColor: 'linear-gradient(135deg, rgba(168, 212, 168, 0.15), rgba(152, 196, 152, 0.2))',
-        title: 'AI助手',
-        url: '/packageSocial/pages/ai-assistant/ai-assistant',
         badge: 0
       }
     ],
