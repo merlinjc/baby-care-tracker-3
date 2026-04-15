@@ -373,8 +373,8 @@ class ShareCanvasService {
     // 9. 本周成就 (模块⑧)
     currentY = await this._drawAchievementSection(ctx, data, currentY);
 
-    // 10. AI 建议 (模块⑨)
-    currentY = await this._drawAIAdvice(ctx, data, currentY);
+    // [v4.1] AI 建议已屏蔽，跳过绘制
+    // currentY = await this._drawAIAdvice(ctx, data, currentY);
 
     // 11. 底部品牌区 (模块⑩)
     this._drawFooter(ctx, this.totalHeight);

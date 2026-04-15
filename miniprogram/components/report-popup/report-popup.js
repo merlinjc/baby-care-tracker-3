@@ -351,8 +351,8 @@ Component({
         // 计算综合评分
         const { score, comment } = this.calculateScore(reportData, days);
         
-        // 生成 AI 评语
-        const aiComment = this.generateAIComment(reportData, days);
+        // [v4.1] AI 功能已屏蔽，保留 generateAIComment 方法待后续恢复
+        const aiComment = '';
         
         // 格式化日期范围
         const formatDate = (date) => `${date.getMonth() + 1}月${date.getDate()}日`;
