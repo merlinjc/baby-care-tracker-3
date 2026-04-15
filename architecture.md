@@ -1,6 +1,6 @@
 # Baby Care Tracker 项目架构文档
 
-> **版本**: v4.0 | **更新日期**: 2026-04-13
+> **版本**: v4.1 | **更新日期**: 2026-04-15
 
 ---
 
@@ -182,12 +182,17 @@ App.onLaunch()
     └── 延迟 5s → cleanOrphanedCache()（清理孤立记录缓存）
     └── ThemeManager.init()（初始化主题管理器，读取持久化偏好）
 
-页面加载:
+页面加载（v4.1 统一模式）:
     Page.onLoad() / Page.init()
-        → await app.globalData.initPromise（等待用户初始化完成）
-        → 从 StorageUtil 读取本地缓存
-        → 调用服务层获取数据
+        → const check = await app.ensureUserReady()
+        → if (!check.ready) → wx.reLaunch(check.redirectUrl)
+        → check.userInfo / check.familyInfo 已就绪
+        → 加载 familyBabies / currentBaby
         → setData() 渲染 UI
+
+    TabBar Page.onShow()
+        → if (app.checkFamilyStale()) → this.init()（强制重新校验）
+        → 否则 30s 节流正常刷新
 ```
 
 ---

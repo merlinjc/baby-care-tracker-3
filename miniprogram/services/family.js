@@ -108,6 +108,19 @@ class FamilyService {
         throw new Error('已经是家庭成员');
       }
 
+      // ★ [v4.1 FR-9] 检查用户是否已属于其他家庭，防止幽灵成员
+      const existingFamily = await this.getFamilyByUserId(userId);
+      if (existingFamily && existingFamily._id !== family._id) {
+        // 检查是否是唯一管理员
+        if (PermissionUtil.isAdmin(userId, existingFamily)
+            && !PermissionUtil.hasOtherAdmin(existingFamily, userId)) {
+          throw new Error('您是当前家庭的唯一管理员，请先转让管理权限或解散旧家庭再加入新家庭');
+        }
+        // D-4: 先从旧家庭移除；如果后续加入新家庭失败，用户变成无家庭状态
+        // 这是可接受的降级——用户下次打开会被 ensureUserReady 引导到 auth 页重新加入
+        await this._removeSelfFromFamily(existingFamily._id, userId);
+      }
+
       const now = new Date().toISOString();
 
       // 添加成员
@@ -294,9 +307,9 @@ class FamilyService {
 
       // 清除被移除用户的家庭关联
       try {
-        await this.userCollection.where({
-          _openid: targetUserId
-        }).update({
+        // ★ [v4.1 FR-10] 修正：使用 doc(targetUserId) 而非 where({ _openid })
+        // 因为 _openid 是创建者标识，不一定等于 userId（即 _id）
+        await this.userCollection.doc(targetUserId).update({
           data: {
             familyId: this.db.command.remove(),
             familyRole: this.db.command.remove(),
@@ -325,7 +338,27 @@ class FamilyService {
         throw new Error('只有创建者才能解散家庭');
       }
 
+      // D-6: 先删除家庭文档，再清理成员
+      // 这样其他成员读取时会立即得到"家庭不存在"，触发 ensureUserReady 降级处理
       await this.familyCollection.doc(familyId).remove();
+
+      // ★ [v4.1 FR-10] 异步批量清除所有成员的 familyId/familyRole
+      if (family.members && family.members.length > 0) {
+        for (const memberId of family.members) {
+          try {
+            await this.userCollection.doc(memberId).update({
+              data: {
+                familyId: this.db.command.remove(),
+                familyRole: this.db.command.remove(),
+                updatedAt: new Date().toISOString()
+              }
+            });
+          } catch (err) {
+            // 不阻断——成员下次打开时 ensureUserReady 会检测到家庭不存在并清理
+            console.warn(`清除成员 ${memberId} 家庭信息失败:`, err);
+          }
+        }
+      }
     } catch (error) {
       console.error('解散家庭失败:', error);
       throw error;
@@ -339,7 +372,7 @@ class FamilyService {
    * @param {string} targetUserId 目标用户 ID
    * @param {string} role 新角色
    */
-  async updateMemberRole(familyId, userId, targetUserId, role) {
+  async updateMemberRole(familyId, userId, targetUserId, role, _retryCount = 0) {
     try {
       const family = await this.getFamilyDetail(familyId);
 
@@ -358,12 +391,36 @@ class FamilyService {
         return m;
       });
 
-      await this.familyCollection.doc(familyId).update({
-        data: {
-          memberDetails: memberDetails,
-          updatedAt: new Date().toISOString()
+      // ★ [v4.1 FR-11] D-5: 乐观锁——写入后检查 stats.updated
+      try {
+        const result = await this.familyCollection.doc(familyId).update({
+          data: {
+            memberDetails: memberDetails,
+            updatedAt: new Date().toISOString()
+          }
+        });
+
+        // 如果 stats.updated === 0 说明文档被并发修改，需重试
+        if (result.stats && result.stats.updated === 0 && _retryCount < 2) {
+          console.warn('[updateMemberRole] 并发冲突，重试', _retryCount + 1);
+          return this.updateMemberRole(familyId, userId, targetUserId, role, _retryCount + 1);
         }
-      });
+      } catch (writeErr) {
+        if (_retryCount < 2) {
+          console.warn('[updateMemberRole] 写入失败，重试', _retryCount + 1);
+          return this.updateMemberRole(familyId, userId, targetUserId, role, _retryCount + 1);
+        }
+        throw writeErr;
+      }
+
+      // ★ 同步 users.familyRole（best-effort，失败不阻断）
+      try {
+        await this.userCollection.doc(targetUserId).update({
+          data: { familyRole: role, updatedAt: new Date().toISOString() }
+        });
+      } catch (syncErr) {
+        console.warn('同步用户角色失败:', syncErr);
+      }
     } catch (error) {
       console.error('更新成员权限失败:', error);
       throw error;
@@ -608,9 +665,9 @@ class FamilyService {
    */
   async _clearUserFamilyInfo(userId) {
     try {
-      await this.userCollection.where({
-        _openid: userId
-      }).update({
+      // ★ [v4.1 FR-10] 修正：使用 doc(userId) 而非 where({ _openid })
+      // _openid 是云开发自动注入的创建者标识，不等于 userId（即文档 _id）
+      await this.userCollection.doc(userId).update({
         data: {
           familyId: this.db.command.remove(),
           familyRole: this.db.command.remove(),

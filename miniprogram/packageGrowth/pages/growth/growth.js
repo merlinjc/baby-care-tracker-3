@@ -60,8 +60,17 @@ Page({
     bmiRange: 'WHO BMI-for-age 参考范围'
   },
 
-  onLoad() {
+  async onLoad() {
     this._lastShowTime = 0;
+    
+    // [v4.1] 登录守卫
+    const app = getApp();
+    const check = await app.ensureUserReady();
+    if (!check.ready) {
+      wx.reLaunch({ url: check.redirectUrl || '/pages/auth/auth' });
+      return;
+    }
+    
     // 先加载宝宝信息，完成后再加载生长记录
     this.loadBabyInfo(() => {
       this.loadGrowthRecords();

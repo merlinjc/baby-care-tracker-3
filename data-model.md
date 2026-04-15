@@ -1,6 +1,6 @@
 # Baby Care Tracker 数据模型文档
 
-> **版本**: v3.1 | **更新日期**: 2026-04-08
+> **版本**: v4.1 | **更新日期**: 2026-04-15
 
 ---
 
@@ -155,7 +155,7 @@
 | 向数组追加 | `db.command.push()` | 添加家庭成员、宝宝 |
 | 从数组移除 | `db.command.pull()` | 移除成员、宝宝 |
 | 批量查询 | `db.command.in()` | 批量获取宝宝信息 |
-| 删除字段 | `db.command.remove()` | 清除 familyId |
+| 删除字段 | `db.command.remove()` | 清除 familyId + familyRole（解散家庭/退出家庭/被移除时） |
 | 范围查询 | `db.command.gte()/lte()/and()` | 时间范围筛选 |
 
 ---

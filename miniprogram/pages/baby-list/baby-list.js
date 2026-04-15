@@ -17,9 +17,18 @@ Page({
     loading: true
   },
 
-  onLoad() {
+  async onLoad() {
     this._applyTheme();
     this._lastShowTime = 0;
+    
+    // [v4.1] 用户校验
+    const app = getApp();
+    const check = await app.ensureUserReady();
+    if (!check.ready) {
+      wx.reLaunch({ url: check.redirectUrl || '/pages/auth/auth' });
+      return;
+    }
+    
     this.loadBabies();
   },
 

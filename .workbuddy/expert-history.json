@@ -1,0 +1,28 @@
+{
+  "version": 2,
+  "sessions": {
+    "ce007b9d03884ad1b54f65d55cac84ef": [
+      {
+        "expertId": "UiDesigner",
+        "name": "Sam",
+        "profession": "UI设计师",
+        "avatarUrl": "https://acc-1258344699.cos.accelerate.myqcloud.com/workbuddy/experts/avatars/01-Design/UiDesigner/UiDesigner.png",
+        "promptUrl": "https://acc-1258344699.cos.accelerate.myqcloud.com/workbuddy/experts/experts/01-Design/UiDesigner/UiDesigner_zh.md",
+        "usedAt": 1775812487525,
+        "industryId": "01-Design"
+      }
+    ],
+    "98afcb26771f4684b088fb477c3ff1a2": [
+      {
+        "expertId": "WechatOfficialAccountExpert",
+        "name": "Dax",
+        "profession": "微信公众号运营专家",
+        "avatarUrl": "https://acc-1258344699.cos.accelerate.myqcloud.com/workbuddy/experts/avatars/03-Marketing/WechatOfficialAccountExpert/WechatOfficialAccountExpert.png",
+        "promptUrl": "https://acc-1258344699.cos.accelerate.myqcloud.com/workbuddy/experts/experts/03-Marketing/WechatOfficialAccountExpert/WechatOfficialAccountExpert_zh.md",
+        "usedAt": 1776067446038,
+        "industryId": "all"
+      }
+    ]
+  },
+  "lastUpdated": 1776072725251
+}

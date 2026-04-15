@@ -16,6 +16,33 @@
 
 ---
 
+## [v4.1.0] Milo — 2026-04-15
+
+### Added
+- `app.js` 新增 `ensureUserReady()` 统一用户就绪检查（含 5 分钟缓存穿透机制）
+- `app.js` 新增 `checkFamilyStale()` 轻量 onShow 校验（纯本地，不发网络请求）
+- `app.js` 新增 `_clearFamilyData()` 家庭数据清理辅助方法
+- `family.js` 新增 `joinByInviteCode` 旧家庭检查逻辑（防止幽灵成员）
+- `family.js` `dissolveFamily` 新增批量清除所有成员 familyId/familyRole
+- `family.js` `updateMemberRole` 新增乐观锁重试（最多 2 次）+ users.familyRole 同步
+- `auth.js` 新增 `_handleInviteCodeForExistingUser()` 老用户邀请码处理流程
+- 16 个页面统一增加 `ensureUserReady()` 登录守卫（4 TabBar + 3 主包 + 9 分包）
+
+### Changed
+- `record.js` `createRecord()` userId 从 `userInfo.openid` 统一为 `userInfo._id`
+- `record.js` `createRecord()` familyMember 查找从 `members` 改为 `memberDetails`
+- `family.js` `_clearUserFamilyInfo()` 从 `where({ _openid })` 改为 `doc(userId).update()`
+- `family.js` `removeMember()` 清除用户信息也改为 `doc(targetUserId).update()`
+- `family.js` 页面 `currentUserId` 和 `leaveFamily` 移除 openid fallback
+
+### Removed
+- 首页 AI 洞察区块（`home.wxml` insight-v4 整个 view + `home.js` loadAiInsight 调用）
+- 发现页 AI 助手入口（`discover.js` toolItems 减为 3 项）
+- 成长报告 AI 建议卡片（`report-popup.wxml` + `share-canvas.js` AI 绘制）
+- 引导页 AI 介绍（`guide.js` 移除 AI 对象 + `ai-assistant.js` 功能关闭提示）
+
+---
+
 ## [v4.0.1] Milo — 2026-04-13
 
 ### Changed
