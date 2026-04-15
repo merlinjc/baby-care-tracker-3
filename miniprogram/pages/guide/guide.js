@@ -65,9 +65,15 @@ Page({
     ]
   },
 
-  onLoad() {
+  async onLoad() {
     this.setData({ darkMode: ThemeManager.isDark() });
     this._themeOff = ThemeManager.onThemeChange(() => this._applyTheme());
+    
+    // [v4.1] 轻量校验：等待 initUser 完成
+    const app = getApp();
+    if (app.globalData.initPromise) {
+      await app.globalData.initPromise;
+    }
   },
 
   /**

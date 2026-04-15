@@ -26,6 +26,14 @@ Page({
     // 应用主题
     this._applyTheme();
 
+    // [v4.1] 用户有效性验证
+    const app = getApp();
+    const check = await app.ensureUserReady();
+    if (!check.ready) {
+      wx.reLaunch({ url: check.redirectUrl || '/pages/auth/auth' });
+      return;
+    }
+
     // 设置当前日期
     const today = new Date();
     const currentDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
