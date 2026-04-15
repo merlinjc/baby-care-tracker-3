@@ -16,6 +16,19 @@
 
 ---
 
+## [v4.1.1] Milo — 2026-04-15
+
+### Fixed
+- `family.js` `transferAdmin()` 使用 `doc(userId)` 替代 `where({ _openid })` 同步 users.familyRole（修复管理员转让时角色同步可能失败的问题）
+
+### Added
+- 发现页 2x2 网格新增「更多功能」占位引导卡片（虚线边框 + 半透明 + "敬请期待"副标题），填补 AI 助手移除后的空位
+- 云函数 `migrateRecordUserId`：一次性迁移存量 records 的 `createdBy.userId` / `creatorId` 从 openid 格式更新为 `_id`（支持 dryRun、断点续传、超时保护）
+- 云函数 `cleanGhostMembers`：一次性扫描清理 families 中的幽灵成员（支持 dryRun、安全约束不清理 admin、不清空家庭）
+- `icon-config.js` `ICONS.discover` 新增 `more` 图标路径（复用 `plus.png`）
+
+---
+
 ## [v4.1.0] Milo — 2026-04-15
 
 ### Added

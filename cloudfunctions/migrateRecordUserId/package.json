@@ -1,0 +1,9 @@
+{
+  "name": "migrateRecordUserId",
+  "version": "1.0.0",
+  "description": "一次性迁移脚本：将 records 中的 openid 格式 createdBy.userId / creatorId 更新为 users._id",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}
