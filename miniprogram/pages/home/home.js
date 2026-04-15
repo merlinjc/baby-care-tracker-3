@@ -104,6 +104,14 @@ Page({
 
   onShow() {
     this._applyTheme();
+    
+    // [v4.1] FR-5.6: 轻量校验 — 缓存过期时强制重新 init
+    const app = getApp();
+    if (app.checkFamilyStale()) {
+      this.init();
+      return;
+    }
+    
     // 重新获取当前宝宝信息（确保头像等数据是最新的）
     const currentBaby = StorageUtil.getCurrentBaby();
     if (currentBaby) {
@@ -292,87 +300,25 @@ Page({
    */
   async init() {
     try {
-      // 🔑 等待 app.initUser() 完成，避免竞态条件
+      // [v4.1] 统一用户校验（替代原有的 initPromise + userInfo + familyInfo + 成员检测）
       const app = getApp();
-      if (app.globalData.initPromise) {
-        await app.globalData.initPromise;
-      }
-
-      // 获取用户信息（本地存储，此时 app.initUser 已完成保存）
-      const userInfo = StorageUtil.getUserInfo();
-      if (!userInfo || !userInfo._id) {
-        console.warn('[Home] 用户信息不存在，跳转引导页');
-        wx.redirectTo({ url: '/pages/auth/auth' });
-        return;
-      }
-
-      // === 步骤 1: 获取家庭信息 ===
-      let familyInfo = StorageUtil.getFamilyInfo();
+      const check = await app.ensureUserReady();
       
-      if (!familyInfo) {
-        // 本地无缓存，从服务端获取
-        const familyService = new FamilyService();
-        
-        // 🔑 优先使用 userInfo.familyId 直接获取（最可靠的路径）
-        if (userInfo.familyId) {
-          const family = await familyService.getFamilyDetail(userInfo.familyId);
-          if (family) {
-            familyInfo = family;
-            StorageUtil.saveFamilyInfo(family);
-          }
-        }
-        
-        // 如果 familyId 路径失败，降级使用 members 查询
-        if (!familyInfo) {
-          const family = await familyService.getFamilyByUserId(userInfo._id);
-          if (family) {
-            familyInfo = family;
-            StorageUtil.saveFamilyInfo(family);
-            
-            // 同步 familyId 到 userInfo（修补缺失数据）
-            if (!userInfo.familyId) {
-              userInfo.familyId = family._id;
-              StorageUtil.saveUserInfo(userInfo);
-            }
-          }
-        }
-      }
-
-      // 如果仍然没有家庭信息，跳转引导页
-      if (!familyInfo) {
-        console.warn('[Home] 未找到家庭信息，跳转引导页');
-        wx.redirectTo({ url: '/pages/auth/auth' });
-        return;
-      }
-
-      // === 步骤 1.5: 被移除成员检测 ===
-      // 验证当前用户是否仍在家庭成员列表中
-      if (familyInfo.members && Array.isArray(familyInfo.members)) {
-        const isMember = familyInfo.members.includes(userInfo._id);
-        if (!isMember) {
-          console.warn('[Home] 当前用户已被移除出家庭');
-          // 清除本地缓存的家庭信息
-          StorageUtil.saveFamilyInfo(null);
-          StorageUtil.saveCurrentBaby(null);
-          
-          // 更新 userInfo 中的 familyId
-          const updatedUserInfo = { ...userInfo };
-          delete updatedUserInfo.familyId;
-          delete updatedUserInfo.familyRole;
-          StorageUtil.saveUserInfo(updatedUserInfo);
-          
+      if (!check.ready) {
+        if (check.reason === 'removed') {
           wx.showModal({
             title: '提示',
             content: '您已被移除出该家庭，请重新加入或创建新家庭。',
             showCancel: false,
-            confirmText: '确定',
-            success: () => {
-              wx.redirectTo({ url: '/pages/auth/auth' });
-            }
+            success: () => wx.reLaunch({ url: check.redirectUrl })
           });
-          return;
+        } else {
+          wx.reLaunch({ url: check.redirectUrl || '/pages/auth/auth' });
         }
+        return;
       }
+      
+      const { userInfo, familyInfo } = check;
 
       // === 步骤 2: 获取宝宝列表 ===
       let currentBaby = StorageUtil.getCurrentBaby();
@@ -529,11 +475,6 @@ Page({
       // FR-8: 异步计算喂养预测（不阻塞主渲染）
       this.computeFeedingPrediction(this.data.currentBaby._id, nowTs);
       
-      // FR-14: 异步加载 AI 洞察（记录数 > 0 时）
-      if (totalTodayCount > 0) {
-        this.loadAiInsight();
-      }
-
       // 彩蛋检测（500ms 延迟，不阻塞渲染）
       setTimeout(() => {
         this.checkEasterEggs();
@@ -754,6 +695,15 @@ Page({
   goToBabyCreate() {
     wx.navigateTo({
       url: '/pages/baby-create/baby-create'
+    });
+  },
+
+  /**
+   * FR-7: 查看全部待办（跳转到疫苗页）
+   */
+  goToDiscover() {
+    wx.navigateTo({
+      url: '/packageGrowth/pages/vaccine/vaccine'
     });
   },
 
@@ -1080,14 +1030,12 @@ Page({
     }
   },
 
-  /**
-   * FR-14: 跳转到 AI 助手页面
-   */
-  goToAiAssistant() {
-    wx.navigateTo({
-      url: '/packageSocial/pages/ai-assistant/ai-assistant?presetMsg=true'
-    });
-  },
+  // [v4.1] AI 功能已屏蔽，保留代码待后续恢复
+  // goToAiAssistant() {
+  //   wx.navigateTo({
+  //     url: '/packageSocial/pages/ai-assistant/ai-assistant?presetMsg=true'
+  //   });
+  // },
 
   /**
    * FR-11: 时间线左滑编辑

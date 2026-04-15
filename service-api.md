@@ -1,6 +1,6 @@
 # Baby Care Tracker 服务层 API 文档
 
-> **版本**: v3.1 | **更新日期**: 2026-04-08
+> **版本**: v4.1 | **更新日期**: 2026-04-15
 
 ---
 
@@ -66,8 +66,28 @@
 | `removeMember(familyId, userId, targetId)` | `Promise<void>` | 移除成员（仅 admin） |
 | `leaveFamily(familyId, userId)` | `Promise<Object>` | 退出家庭（含管理员转让逻辑） |
 | `transferAdmin(familyId, currentId, newId)` | `Promise<Object>` | 转让管理员 |
-| `updateMemberRole(...)` | `Promise<void>` | 更新成员权限 |
-| `dissolveFamily(familyId, userId)` | `Promise<void>` | 解散家庭 |
+| `updateMemberRole(...)` | `Promise<void>` | 更新成员权限（v4.1: 乐观锁重试 + users.familyRole 同步） |
+| `dissolveFamily(familyId, userId)` | `Promise<void>` | 解散家庭（v4.1: 批量清除所有成员 familyId/familyRole） |
+
+> **v4.1 FamilyService 变更说明**：
+> - `joinByInviteCode` 加入前检查旧家庭，唯一管理员抛错，非唯一管理员自动移除
+> - `dissolveFamily` 删除文档后逐个清除成员 `users.familyId/familyRole`（失败不阻断）
+> - `updateMemberRole` 增加乐观锁重试（`stats.updated === 0` 时最多重试 2 次），完成后同步 `users.familyRole`
+> - `_clearUserFamilyInfo` / `removeMember` 修正为 `doc(userId).update()`
+
+---
+
+## App 全局方法（v4.1 新增）
+
+| 方法 | 返回 | 说明 |
+|------|------|------|
+| `ensureUserReady()` | `Promise<{ ready, userInfo, familyInfo, redirectUrl, reason }>` | 统一用户就绪检查（含 5 分钟缓存穿透） |
+| `checkFamilyStale()` | `boolean` | 轻量 onShow 校验（纯本地时间戳比较，不发网络请求） |
+
+**ensureUserReady 返回 reason 枚举**：
+- `'family_dissolved'` — 家庭已被解散
+- `'removed'` — 用户已被移出家庭
+- `'network_error'` — 网络失败且无本地缓存
 
 ---
 

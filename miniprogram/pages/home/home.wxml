@@ -246,38 +246,6 @@
     <text class="viewer-hint-text">当前为仅查看权限，如需添加记录请联系管理员</text>
   </view>
 
-  <!-- v4.0 区域 F: AI 洞察（一行式摘要） -->
-  <view class="insight-v4 {{aiInsight.collapsed ? 'insight-collapsed' : 'insight-expanded'}}" wx:if="{{aiInsight.show}}" bindtap="toggleAiInsight">
-    <!-- 收起态：一行 -->
-    <view class="insight-v4-compact" wx:if="{{aiInsight.collapsed}}">
-      <image class="insight-v4-icon" src="/images/icons/ai-assistant.png" mode="aspectFit" lazy-load></image>
-      <text class="insight-v4-summary">{{aiInsight.text || '正在分析...'}}</text>
-      <image class="insight-v4-arrow" src="/images/icons/chevron-down.png" mode="aspectFit" lazy-load></image>
-    </view>
-    <!-- 展开态 -->
-    <view class="insight-v4-full" wx:else>
-      <view class="insight-v4-header">
-        <image class="insight-v4-icon" src="/images/icons/ai-assistant.png" mode="aspectFit" lazy-load></image>
-        <text class="insight-v4-title">宝宝洞察</text>
-        <text class="insight-v4-badge" wx:if="{{aiInsight.fallback}}">本地</text>
-        <view style="flex:1"></view>
-        <image class="insight-v4-arrow insight-v4-arrow-up" src="/images/icons/chevron-down.png" mode="aspectFit" lazy-load></image>
-      </view>
-      <view class="insight-v4-body">
-        <view class="insight-loading" wx:if="{{aiInsight.loading}}">
-          <view class="insight-loading-dot"></view>
-          <view class="insight-loading-dot"></view>
-          <view class="insight-loading-dot"></view>
-        </view>
-        <text class="insight-v4-text" wx:else>{{aiInsight.text}}</text>
-        <view class="insight-v4-action" wx:if="{{!aiInsight.loading}}" catchtap="goToAiAssistant">
-          <text>更多建议</text>
-          <image src="/images/icons/arrow-right.png" mode="aspectFit" lazy-load style="width:16rpx;height:16rpx;"></image>
-        </view>
-      </view>
-    </view>
-  </view>
-
   <!-- FR-11/12: 时间线（限 5 条 + 查看全部） -->
   <view class="card timeline-card">
     <view class="timeline-header">

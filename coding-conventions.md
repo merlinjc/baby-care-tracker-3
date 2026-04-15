@@ -1,6 +1,6 @@
 # Baby Care Tracker 开发规范
 
-> **版本**: v4.0 | **更新日期**: 2026-04-14
+> **版本**: v4.1 | **更新日期**: 2026-04-15
 
 ---
 
@@ -82,6 +82,35 @@ onShow() {
 3. 标题栏 `.popup-header`
 4. 可滚动内容 `.popup-content`
 5. 底部按钮 `.popup-footer`（含安全区适配）
+
+### 2.5 乐观锁重试模式（v4.1 新增）
+
+并发写入冲突时，通过 `stats.updated === 0` 检测并重试：
+
+```javascript
+async updateXxx(id, data, _retryCount = 0) {
+  const result = await collection.doc(id).update({ data });
+  if (result.stats && result.stats.updated === 0 && _retryCount < 2) {
+    return this.updateXxx(id, data, _retryCount + 1);
+  }
+}
+```
+
+### 2.6 页面登录守卫模式（v4.1 新增）
+
+所有页面 `onLoad` 头部统一调用 `ensureUserReady()`：
+
+```javascript
+async init() {
+  const app = getApp();
+  const check = await app.ensureUserReady();
+  if (!check.ready) {
+    wx.reLaunch({ url: check.redirectUrl || '/pages/auth/auth' });
+    return;
+  }
+  // ... 后续逻辑使用 check.userInfo / check.familyInfo
+}
+```
 
 ---
 

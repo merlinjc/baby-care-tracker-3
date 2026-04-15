@@ -81,18 +81,18 @@ Page({
         StorageUtil.saveUserInfo(userInfo);
         getApp().globalData.userInfo = userInfo;
 
-        // 加载家庭信息
+        // [v4.1] ★ 优先处理邀请码（FR-4）
+        if (this.data.inviteCode) {
+          await this._handleInviteCodeForExistingUser(userInfo);
+          return;
+        }
+
+        // 无邀请码，正常自动登录
         if (userInfo.familyId) {
           await this.loadFamilyInfo(userInfo.familyId);
         }
-
-        // 加载当前宝宝信息
         await this.loadCurrentBaby();
-
-        // 跳转到首页
-        wx.switchTab({
-          url: '/pages/home/home'
-        });
+        wx.switchTab({ url: '/pages/home/home' });
         return;
       }
 
@@ -306,6 +306,42 @@ Page({
         userInfo = await authService.getUserInfo();
         StorageUtil.saveUserInfo(userInfo);
         getApp().globalData.userInfo = userInfo;
+      }
+      
+      // [v4.1] FR-9.5: 检查是否已有家庭
+      if (userInfo && userInfo.familyId) {
+        const confirmRes = await new Promise(resolve => {
+          wx.showModal({
+            title: '提示',
+            content: '您已属于一个家庭，创建新家庭将离开当前家庭。是否继续？',
+            success: resolve
+          });
+        });
+        
+        if (!confirmRes.confirm) {
+          this.setData({ loading: false });
+          return;
+        }
+        
+        try {
+          const leaveResult = await familyService.leaveFamily(userInfo.familyId, userInfo._id);
+          if (!leaveResult.success && leaveResult.needTransfer) {
+            wx.showToast({ title: '请先转让管理权限', icon: 'none' });
+            this.setData({ loading: false });
+            return;
+          }
+          // 清理本地家庭数据
+          const updatedUser = { ...userInfo };
+          delete updatedUser.familyId;
+          delete updatedUser.familyRole;
+          StorageUtil.saveUserInfo(updatedUser);
+          userInfo = updatedUser;
+        } catch (leaveErr) {
+          console.error('退出旧家庭失败:', leaveErr);
+          wx.showToast({ title: '退出旧家庭失败', icon: 'none' });
+          this.setData({ loading: false });
+          return;
+        }
       }
       
       // 创建家庭组
@@ -535,6 +571,92 @@ Page({
         }
       }
     });
+  },
+
+  /**
+   * [v4.1] 处理已登录老用户的邀请码（FR-4）
+   * @param {Object} userInfo - 当前用户信息
+   */
+  async _handleInviteCodeForExistingUser(userInfo) {
+    const familyService = new FamilyService();
+    
+    try {
+      const validation = await familyService.validateInviteCode(this.data.inviteCode);
+      
+      if (!validation.valid) {
+        wx.showToast({ title: validation.reason || '邀请码无效', icon: 'none' });
+        this._goToHome(userInfo);
+        return;
+      }
+      
+      // 检查是否已是该家庭成员
+      if (userInfo.familyId === validation.familyId) {
+        wx.showToast({ title: '您已是该家庭成员', icon: 'success' });
+        this._goToHome(userInfo);
+        return;
+      }
+      
+      // 弹窗确认是否加入
+      const hasExistingFamily = !!userInfo.familyId;
+      let content = `是否加入「${validation.familyName || '新家庭'}」？`;
+      if (hasExistingFamily) {
+        content += '\n注意：加入新家庭将离开当前家庭';
+      }
+      
+      const res = await new Promise(resolve => {
+        wx.showModal({
+          title: '加入家庭',
+          content,
+          confirmText: '加入',
+          success: resolve
+        });
+      });
+      
+      if (res.confirm) {
+        // Review R2-3: 如果已有家庭，先退出（处理唯一管理员边界）
+        if (hasExistingFamily) {
+          try {
+            const leaveResult = await familyService.leaveFamily(userInfo.familyId, userInfo._id);
+            if (!leaveResult.success && leaveResult.needTransfer) {
+              // 唯一管理员不能直接退出
+              wx.showModal({
+                title: '无法加入',
+                content: '您是当前家庭的唯一管理员，请先在「家庭管理」中转让管理员权限，再加入新家庭。',
+                showCancel: false
+              });
+              this._goToHome(userInfo);
+              return;
+            }
+          } catch (leaveErr) {
+            console.error('退出旧家庭失败:', leaveErr);
+            wx.showToast({ title: '退出旧家庭失败', icon: 'none' });
+            this._goToHome(userInfo);
+            return;
+          }
+        }
+        // 执行加入家庭
+        await this.joinFamily();
+      } else {
+        this._goToHome(userInfo);
+      }
+    } catch (error) {
+      console.error('处理邀请码失败:', error);
+      wx.showToast({ title: '邀请码处理失败', icon: 'none' });
+      this._goToHome(userInfo);
+    }
+  },
+
+  /**
+   * [v4.1] 跳转首页辅助方法（D-7）
+   * @param {Object} userInfo - 当前用户信息
+   */
+  async _goToHome(userInfo) {
+    this.setData({ loading: false, isAutoLoggingIn: false });
+    if (userInfo.familyId) {
+      await this.loadFamilyInfo(userInfo.familyId);
+    }
+    await this.loadCurrentBaby();
+    wx.switchTab({ url: '/pages/home/home' });
   },
 
   /**

@@ -198,14 +198,7 @@
         </view>
       </view>
 
-      <!-- ⑨ AI 育儿建议 -->
-      <view class="ai-advice-card" wx:if="{{briefAIAdvice}}">
-        <view class="ai-advice-header">
-          <image class="ai-icon" src="/images/icons/ai-assistant.png" mode="aspectFit" lazy-load></image>
-          <text class="ai-advice-title">AI 育儿建议</text>
-        </view>
-        <text class="ai-advice-text">{{briefAIAdvice}}</text>
-      </view>
+      <!-- [v4.1] AI 育儿建议已屏蔽，保留代码待后续恢复 -->
 
       <!-- 分享图预览 -->
       <view class="share-preview" wx:if="{{shareImagePath}}" id="sharePreview">

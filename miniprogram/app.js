@@ -117,9 +117,116 @@ App({
       // 清理失败不影响正常使用
     }
   },
+
+  /**
+   * [v4.1] 统一用户就绪检查（含缓存穿透机制）
+   * 各页面 init() 中调用，返回校验结果
+   * 
+   * @returns {Object} { ready, userInfo, familyInfo, redirectUrl, reason }
+   */
+  async ensureUserReady() {
+    // 1. 等待 initUser 完成
+    if (this.globalData.initPromise) {
+      await this.globalData.initPromise;
+    }
+    
+    // 2. 获取用户信息
+    const userInfo = StorageUtil.getUserInfo();
+    if (!userInfo || !userInfo._id || !userInfo.nickname) {
+      return { ready: false, redirectUrl: '/pages/auth/auth' };
+    }
+    
+    // 3. 检查家庭信息
+    if (!userInfo.familyId) {
+      return { ready: false, redirectUrl: '/pages/auth/auth' };
+    }
+    
+    // 4. 获取 familyInfo（含缓存穿透）
+    let familyInfo = StorageUtil.getFamilyInfo();
+    const lastFetchTs = StorageUtil.get('_family_fetch_ts') || 0;
+    const REFRESH_INTERVAL = 5 * 60 * 1000; // 5 分钟
+    const needsRefresh = !familyInfo 
+      || familyInfo._id !== userInfo.familyId 
+      || (Date.now() - lastFetchTs > REFRESH_INTERVAL);
+    
+    if (needsRefresh) {
+      try {
+        // D-1: 使用 getInstance 避免重复实例化
+        const FamilyService = require('./services/family');
+        const familyService = FamilyService.getInstance();
+        const freshFamily = await familyService.getFamilyDetail(userInfo.familyId);
+        
+        if (freshFamily) {
+          familyInfo = freshFamily;
+          StorageUtil.saveFamilyInfo(freshFamily);
+          StorageUtil.set('_family_fetch_ts', Date.now());
+        } else {
+          // 家庭已被解散
+          this._clearFamilyData(userInfo);
+          return { ready: false, redirectUrl: '/pages/auth/auth', reason: 'family_dissolved' };
+        }
+      } catch (err) {
+        // 网络失败：如果有缓存就降级使用，没缓存则报错
+        if (!familyInfo) {
+          return { ready: false, redirectUrl: '/pages/auth/auth', reason: 'network_error' };
+        }
+        // 有缓存，降级使用（不阻断使用）
+      }
+    }
+    
+    if (!familyInfo) {
+      return { ready: false, redirectUrl: '/pages/auth/auth' };
+    }
+    
+    // 5. 验证用户仍在家庭成员中
+    if (!familyInfo.members || !familyInfo.members.includes(userInfo._id)) {
+      this._clearFamilyData(userInfo);
+      return { ready: false, redirectUrl: '/pages/auth/auth', reason: 'removed' };
+    }
+    
+    return { ready: true, userInfo, familyInfo };
+  },
+
+  /**
+   * [v4.1] onShow 轻量校验（FR-5.6）
+   * TabBar 页面 onShow 中调用，仅检查缓存时效性
+   * 不发起网络请求，仅返回缓存是否过期
+   * 
+   * @returns {boolean} 是否需要强制重新 init
+   */
+  checkFamilyStale() {
+    const userInfo = StorageUtil.getUserInfo();
+    if (!userInfo || !userInfo.familyId) return true;
+    
+    const familyInfo = StorageUtil.getFamilyInfo();
+    if (!familyInfo) return true;
+    
+    // 检查缓存时效
+    const lastFetchTs = StorageUtil.get('_family_fetch_ts') || 0;
+    const REFRESH_INTERVAL = 5 * 60 * 1000;
+    return (Date.now() - lastFetchTs > REFRESH_INTERVAL);
+  },
+
+  /**
+   * [v4.1] 清除家庭相关本地数据
+   * @private
+   */
+  _clearFamilyData(userInfo) {
+    StorageUtil.saveFamilyInfo(null);
+    StorageUtil.saveCurrentBaby(null);
+    StorageUtil.remove('_family_fetch_ts');
+    const updated = { ...userInfo };
+    delete updated.familyId;
+    delete updated.familyRole;
+    StorageUtil.saveUserInfo(updated);
+    // D-3: 同步到 globalData
+    this.globalData.userInfo = updated;
+    this.globalData.familyInfo = null;
+    this.globalData.currentBaby = null;
+  },
   
   globalData: {
-    version: 'v4.0.1',       // 当前版本号（Release 时同步更新）
+    version: 'v4.1.0',       // 当前版本号（Release 时同步更新）
     versionCodename: 'Milo',  // 当前版本代号
     userInfo: null,
     currentBaby: null,

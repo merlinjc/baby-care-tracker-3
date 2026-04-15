@@ -141,7 +141,8 @@ class RecordService {
     // 获取创建者信息
     const userInfo = StorageUtil.getUserInfo();
     const familyInfo = StorageUtil.getFamilyInfo();
-    const familyMember = familyInfo?.members?.find(m => m.userId === userInfo?.openid);
+    // ★ [v4.1 FR-6] 使用 memberDetails（Object[]）而非 members（string[]），userId 统一用 _id
+    const familyMember = familyInfo?.memberDetails?.find(m => m.userId === userInfo?._id);
 
     try {
       // 检查网络状态
@@ -156,12 +157,12 @@ class RecordService {
           note: recordData.note || '',
           // 创建者信息（新对象格式）
           createdBy: {
-            userId: userInfo?.openid || '',
+            userId: userInfo?._id || '',
             nickName: familyMember?.nickName || familyMember?.name || userInfo?.nickName || '',
             avatar: familyMember?.avatarUrl || userInfo?.avatarUrl || ''
           },
           // 创建者信息（保留旧扁平格式，兼容）
-          creatorId: userInfo?.openid || null,
+          creatorId: userInfo?._id || null,
           createdByName: familyMember?.nickName || userInfo?.nickName || null,
           createdByAvatar: familyMember?.avatarUrl || userInfo?.avatarUrl || null,
           createdAt: this.db.serverDate(),
@@ -192,12 +193,12 @@ class RecordService {
           note: recordData.note || '',
           // 创建者信息（新对象格式）
           createdBy: {
-            userId: userInfo?.openid || '',
+            userId: userInfo?._id || '',
             nickName: familyMember?.nickName || familyMember?.name || userInfo?.nickName || '',
             avatar: familyMember?.avatarUrl || userInfo?.avatarUrl || ''
           },
           // 创建者信息（保留旧扁平格式，兼容）
-          creatorId: userInfo?.openid || null,
+          creatorId: userInfo?._id || null,
           createdByName: familyMember?.nickName || userInfo?.nickName || null,
           createdByAvatar: familyMember?.avatarUrl || userInfo?.avatarUrl || null,
           createdAt: now,
@@ -223,12 +224,12 @@ class RecordService {
           note: recordData.note || '',
           // 创建者信息（新对象格式）
           createdBy: {
-            userId: userInfo?.openid || '',
+            userId: userInfo?._id || '',
             nickName: familyMember?.nickName || familyMember?.name || userInfo?.nickName || '',
             avatar: familyMember?.avatarUrl || userInfo?.avatarUrl || ''
           },
           // 创建者信息（保留旧扁平格式，兼容）
-          creatorId: userInfo?.openid || null,
+          creatorId: userInfo?._id || null,
           createdByName: familyMember?.nickName || userInfo?.nickName || null,
           createdByAvatar: familyMember?.avatarUrl || userInfo?.avatarUrl || null,
           createdAt: now,
@@ -253,7 +254,7 @@ class RecordService {
             data: recordData.data,
             note: recordData.note || '',
             // 创建者信息
-            creatorId: userInfo?.openid || null,
+            creatorId: userInfo?._id || null,
             createdByName: familyMember?.nickName || userInfo?.nickName || null,
             createdByAvatar: familyMember?.avatarUrl || userInfo?.avatarUrl || null
           },
@@ -268,7 +269,8 @@ class RecordService {
       // BUG-33: 避免与外层 userInfo/familyInfo 变量遮蔽，重命名为 cachedUserInfo/cachedFamilyInfo
       const cachedUserInfo = StorageUtil.getUserInfo();
       const cachedFamilyInfo = StorageUtil.getFamilyInfo();
-      const familyMember = cachedFamilyInfo?.members?.find(m => m.userId === cachedUserInfo?.openid);
+      // ★ [v4.1 FR-6] memberDetails + _id
+      const cachedFamilyMember = cachedFamilyInfo?.memberDetails?.find(m => m.userId === cachedUserInfo?._id);
       
       // 如果云端失败，降级到本地
       const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -281,9 +283,9 @@ class RecordService {
         data: recordData.data,
         note: recordData.note || '',
         // 创建者信息
-        creatorId: cachedUserInfo?.openid || null,
-        createdByName: familyMember?.nickName || cachedUserInfo?.nickName || null,
-        createdByAvatar: familyMember?.avatarUrl || cachedUserInfo?.avatarUrl || null,
+        creatorId: cachedUserInfo?._id || null,
+        createdByName: cachedFamilyMember?.nickName || cachedUserInfo?.nickName || null,
+        createdByAvatar: cachedFamilyMember?.avatarUrl || cachedUserInfo?.avatarUrl || null,
         createdAt: now,
         createdAtTs: nowTs,
         updatedAt: now,
@@ -303,9 +305,9 @@ class RecordService {
           data: recordData.data,
           note: recordData.note || '',
           // 创建者信息
-          creatorId: cachedUserInfo?.openid || null,
-          createdByName: familyMember?.nickName || cachedUserInfo?.nickName || null,
-          createdByAvatar: familyMember?.avatarUrl || cachedUserInfo?.avatarUrl || null
+          creatorId: cachedUserInfo?._id || null,
+          createdByName: cachedFamilyMember?.nickName || cachedUserInfo?.nickName || null,
+          createdByAvatar: cachedFamilyMember?.avatarUrl || cachedUserInfo?.avatarUrl || null
         },
         tempId
       });

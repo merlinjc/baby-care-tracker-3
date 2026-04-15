@@ -15,9 +15,17 @@ Page({
     loading: false
   },
 
-  onLoad() {
+  async onLoad() {
     this.setData({ darkMode: ThemeManager.isDark() });
     this._themeOff = ThemeManager.onThemeChange(() => this._applyTheme());
+    
+    // [v4.1] 登录守卫
+    const app = getApp();
+    const check = await app.ensureUserReady();
+    if (!check.ready) {
+      wx.reLaunch({ url: check.redirectUrl || '/pages/auth/auth' });
+      return;
+    }
   },
 
   /**

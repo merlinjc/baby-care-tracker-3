@@ -27,7 +27,15 @@ Page({
     }
   },
 
-  onLoad() {
+  async onLoad() {
+    // [v4.1] 登录守卫
+    const app = getApp();
+    const check = await app.ensureUserReady();
+    if (!check.ready) {
+      wx.reLaunch({ url: check.redirectUrl || '/pages/auth/auth' });
+      return;
+    }
+    
     this.loadSettings();
     // 初始化主题状态
     this.setData({
