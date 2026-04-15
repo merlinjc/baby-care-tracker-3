@@ -56,7 +56,8 @@ Page({
     
     const userInfo = StorageUtil.getUserInfo();
     this.setData({
-      currentUserId: userInfo?._id || userInfo?.openid || ''
+      // ★ [v4.1 FR-6] ensureUserReady 已保证 _id 存在，不再 fallback openid
+      currentUserId: userInfo?._id || ''
     });
     this.familyService = new FamilyService();
     this.loadFamilyInfo();
@@ -449,8 +450,9 @@ Page({
           wx.showLoading({ title: '退出中...', mask: true });
           try {
             const userInfo = StorageUtil.getUserInfo();
-            if (userInfo && (userInfo._id || userInfo.openid) && this.data.familyInfo && this.data.familyInfo._id) {
-              const userId = userInfo._id || userInfo.openid;
+            // ★ [v4.1 FR-6] 统一使用 _id
+            if (userInfo && userInfo._id && this.data.familyInfo && this.data.familyInfo._id) {
+              const userId = userInfo._id;
               const result = await this.familyService.leaveFamily(this.data.familyInfo._id, userId);
               
               // 需要先转让管理员
