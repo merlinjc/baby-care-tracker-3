@@ -548,17 +548,13 @@ class FamilyService {
         }
       });
 
-      // 同步 users 集合
+      // ★ [v4.1.1 FR-1.2] 修正：使用 doc(userId) 而非 where({ _openid })
+      // _openid 是云开发自动注入的创建者标识，不等于 userId（即文档 _id）
       try {
-        await this.userCollection.where({
-          _openid: currentAdminId
-        }).update({
+        await this.userCollection.doc(currentAdminId).update({
           data: { familyRole: 'editor', updatedAt: new Date().toISOString() }
         });
-
-        await this.userCollection.where({
-          _openid: newAdminId
-        }).update({
+        await this.userCollection.doc(newAdminId).update({
           data: { familyRole: 'admin', updatedAt: new Date().toISOString() }
         });
       } catch (userErr) {
