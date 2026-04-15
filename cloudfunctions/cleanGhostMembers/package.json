@@ -1,0 +1,9 @@
+{
+  "name": "cleanGhostMembers",
+  "version": "1.0.0",
+  "description": "一次性清理脚本：遍历 families，检查成员归属，移除幽灵成员",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

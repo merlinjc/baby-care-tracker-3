@@ -123,6 +123,24 @@
   justify-content: center;
 }
 
+/* ============ v4.1.1 FR-3: 占位引导卡片 ============ */
+.tool-item--placeholder {
+  opacity: 0.55;
+  border: 2rpx dashed var(--border-color);
+  box-shadow: none;
+  background: transparent;
+}
+
+.tool-item--placeholder:active {
+  transform: none;
+}
+
+.tool-subtitle {
+  font-size: 22rpx;
+  color: var(--text-hint);
+  margin-top: 4rpx;
+}
+
 /* ============ v4.0 专业参考标准（精简列表行） ============ */
 .section-header {
   display: flex;

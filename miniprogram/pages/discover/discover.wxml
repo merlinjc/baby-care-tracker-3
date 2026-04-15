@@ -26,7 +26,7 @@
   <!-- v4.0: 功能入口 2x2 网格 -->
   <view class="tool-grid">
     <view 
-      class="tool-item"
+      class="tool-item {{item.isPlaceholder ? 'tool-item--placeholder' : ''}}"
       wx:for="{{toolItems}}"
       wx:key="title"
       data-url="{{item.url}}"
@@ -36,6 +36,7 @@
         <image class="tool-icon" src="{{item.icon}}" mode="aspectFit" lazy-load></image>
       </view>
       <text class="tool-title">{{item.title}}</text>
+      <text class="tool-subtitle" wx:if="{{item.isPlaceholder}}">敬请期待</text>
       <view class="tool-badge" wx:if="{{item.badge > 0}}">{{item.badge}}</view>
     </view>
   </view>
