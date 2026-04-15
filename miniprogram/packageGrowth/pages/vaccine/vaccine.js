@@ -31,9 +31,18 @@ Page({
     days: []
   },
 
-  onLoad() {
+  async onLoad() {
     this._initialized = false;
     this._lastLoadTime = 0;
+    
+    // [v4.1] 登录守卫
+    const app = getApp();
+    const check = await app.ensureUserReady();
+    if (!check.ready) {
+      wx.reLaunch({ url: check.redirectUrl || '/pages/auth/auth' });
+      return;
+    }
+    
     this._initPromise = this.initPage();
   },
 

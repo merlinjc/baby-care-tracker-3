@@ -18,9 +18,18 @@ Page({
     showEditPopup: false
   },
 
-  onLoad(options) {
+  async onLoad(options) {
     this.setData({ darkMode: ThemeManager.isDark() });
     this._themeOff = ThemeManager.onThemeChange(() => this._applyTheme());
+    
+    // [v4.1] 登录守卫
+    const app = getApp();
+    const check = await app.ensureUserReady();
+    if (!check.ready) {
+      wx.reLaunch({ url: check.redirectUrl || '/pages/auth/auth' });
+      return;
+    }
+    
     // BUG-21: 缺少 id 参数时提示用户并返回
     if (!options.id) {
       wx.showToast({ title: '参数错误', icon: 'none' });
@@ -37,6 +46,15 @@ Page({
     try {
       const babyService = new BabyService();
       const baby = await babyService.getBabyById(babyId);
+      
+      // [v4.1] 校验宝宝归属当前家庭（Review R1-2）
+      const userInfo = StorageUtil.getUserInfo();
+      if (baby.familyId && userInfo?.familyId && baby.familyId !== userInfo.familyId) {
+        wx.showToast({ title: '无权限查看', icon: 'none' });
+        setTimeout(() => wx.navigateBack(), 1000);
+        return;
+      }
+      
       const ageText = babyService.formatAge(baby.birthDate);
 
       // 格式化出生日期为字符串

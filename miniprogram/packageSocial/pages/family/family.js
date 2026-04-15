@@ -43,8 +43,17 @@ Page({
     menuMember: null
   },
 
-  onLoad() {
+  async onLoad() {
     this._lastShowTime = 0;
+    
+    // [v4.1] 登录守卫
+    const app = getApp();
+    const check = await app.ensureUserReady();
+    if (!check.ready) {
+      wx.reLaunch({ url: check.redirectUrl || '/pages/auth/auth' });
+      return;
+    }
+    
     const userInfo = StorageUtil.getUserInfo();
     this.setData({
       currentUserId: userInfo?._id || userInfo?.openid || ''
