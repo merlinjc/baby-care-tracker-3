@@ -54,7 +54,8 @@ const ICONS = {
     vaccine: `${BASE}/vaccine-color.png`,
     growth: `${BASE}/growth-color.png`,
     milestone: `${BASE}/milestone-color.png`,
-    ai: `${BASE}/robot.png`
+    ai: `${BASE}/robot.png`,
+    more: `${BASE}/plus.png`              // v4.1.1 FR-3: 占位引导卡片图标
   },
 
   // v4.0 新增图标

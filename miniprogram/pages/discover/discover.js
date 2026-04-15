@@ -36,6 +36,15 @@ Page({
         title: '发育里程碑',
         url: '/packageGrowth/pages/milestone/milestone',
         badge: 0
+      },
+      // v4.1.1 FR-3: 占位引导卡片，填补 2x2 网格空位
+      {
+        icon: ICONS.discover.more,
+        bgColor: 'linear-gradient(135deg, rgba(180, 180, 180, 0.12), rgba(160, 160, 160, 0.18))',
+        title: '更多功能',
+        url: '',
+        badge: 0,
+        isPlaceholder: true
       }
     ],
     // v4.0: 聚焦卡片（最紧急待办）
@@ -167,6 +176,8 @@ Page({
    */
   goToPage(e) {
     const { url } = e.currentTarget.dataset;
+    // v4.1.1 FR-3: 占位卡片不跳转
+    if (!url) return;
     wx.navigateTo({ url });
   },
 
