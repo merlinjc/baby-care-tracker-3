@@ -73,13 +73,31 @@ Page({
   /**
    * 初始化
    */
-  init() {
+  async init() {
+    // [v4.1] 统一用户校验（修复缺失的 await initPromise）
+    const app = getApp();
+    const check = await app.ensureUserReady();
+    
+    if (!check.ready) {
+      if (check.reason === 'removed') {
+        wx.showModal({
+          title: '提示',
+          content: '您已被移除出该家庭，请重新加入或创建新家庭。',
+          showCancel: false,
+          success: () => wx.reLaunch({ url: check.redirectUrl })
+        });
+      } else {
+        wx.reLaunch({ url: check.redirectUrl || '/pages/auth/auth' });
+      }
+      return;
+    }
+    
     const currentBaby = StorageUtil.getCurrentBaby();
     if (!currentBaby) {
       // BUG-22: 先提示用户再跳转
       wx.showToast({ title: '请先添加宝宝信息', icon: 'none' });
       setTimeout(() => {
-        wx.redirectTo({ url: '/pages/baby-create/baby-create' });
+        wx.reLaunch({ url: '/pages/baby-create/baby-create' });
       }, 1500);
       return;
     }

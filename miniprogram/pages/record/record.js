@@ -105,6 +105,14 @@ Page({
 
   onShow() {
     this._applyTheme();
+    
+    // [v4.1] FR-5.6: 轻量校验 — 缓存过期时强制重新 init
+    const app = getApp();
+    if (app.checkFamilyStale()) {
+      this.init();
+      return;
+    }
+    
     const now = Date.now();
     if (this._lastLoadTime && now - this._lastLoadTime < 30000) return;
     this._lastLoadTime = now;
@@ -123,17 +131,38 @@ Page({
    * 初始化
    */
   async init() {
-    // 等待 app.initUser() 完成，避免 Storage 数据尚未就绪
+    // [v4.1] 统一用户校验
     const app = getApp();
-    if (app.globalData.initPromise) {
-      await app.globalData.initPromise;
+    const check = await app.ensureUserReady();
+    
+    if (!check.ready) {
+      if (check.reason === 'removed') {
+        wx.showModal({
+          title: '提示',
+          content: '您已被移除出该家庭，请重新加入或创建新家庭。',
+          showCancel: false,
+          success: () => wx.reLaunch({ url: check.redirectUrl })
+        });
+      } else {
+        wx.reLaunch({ url: check.redirectUrl || '/pages/auth/auth' });
+      }
+      return;
     }
+    
+    const { userInfo, familyInfo } = check;
 
     const currentBaby = StorageUtil.getCurrentBaby();
     if (!currentBaby) {
-      wx.redirectTo({
+      wx.reLaunch({
         url: '/pages/baby-create/baby-create'
       });
+      return;
+    }
+    
+    // [v4.1] 校验当前宝宝归属当前家庭
+    if (currentBaby.familyId && currentBaby.familyId !== userInfo.familyId) {
+      StorageUtil.saveCurrentBaby(null);
+      wx.reLaunch({ url: '/pages/home/home' });
       return;
     }
     
@@ -144,12 +173,8 @@ Page({
       delete this._initialFilter; // 只应用一次
     }
 
-    // 计算编辑权限
-    const userInfo = StorageUtil.getUserInfo();
-    const familyInfo = StorageUtil.getFamilyInfo();
-    initialData.canEdit = (userInfo && familyInfo) 
-      ? PermissionUtil.canEdit(userInfo._id, familyInfo) 
-      : true;
+    // 计算编辑权限（使用 ensureUserReady 返回的数据）
+    initialData.canEdit = PermissionUtil.canEdit(userInfo._id, familyInfo);
 
     // 默认日期筛选为"今天"
     const now = new Date();

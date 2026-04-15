@@ -61,12 +61,36 @@ Page({
   async onLoad() {
     const app = getApp();
     this.setData({ appVersion: app.globalData.version || 'v4.0.1' });
-    await this.loadUserInfo();
+    await this.init();
   },
 
   onShow() {
     this._applyTheme();
     this.loadFamilyInfo();
+  },
+
+  /**
+   * [v4.1] 统一初始化（含用户校验）
+   */
+  async init() {
+    const app = getApp();
+    const check = await app.ensureUserReady();
+    
+    if (!check.ready) {
+      if (check.reason === 'removed') {
+        wx.showModal({
+          title: '提示',
+          content: '您已被移除出该家庭，请重新加入或创建新家庭。',
+          showCancel: false,
+          success: () => wx.reLaunch({ url: check.redirectUrl })
+        });
+      } else {
+        wx.reLaunch({ url: check.redirectUrl || '/pages/auth/auth' });
+      }
+      return;
+    }
+    
+    await this.loadUserInfo();
   },
 
   /**

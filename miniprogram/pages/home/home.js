@@ -104,6 +104,14 @@ Page({
 
   onShow() {
     this._applyTheme();
+    
+    // [v4.1] FR-5.6: 轻量校验 — 缓存过期时强制重新 init
+    const app = getApp();
+    if (app.checkFamilyStale()) {
+      this.init();
+      return;
+    }
+    
     // 重新获取当前宝宝信息（确保头像等数据是最新的）
     const currentBaby = StorageUtil.getCurrentBaby();
     if (currentBaby) {
@@ -292,87 +300,25 @@ Page({
    */
   async init() {
     try {
-      // 🔑 等待 app.initUser() 完成，避免竞态条件
+      // [v4.1] 统一用户校验（替代原有的 initPromise + userInfo + familyInfo + 成员检测）
       const app = getApp();
-      if (app.globalData.initPromise) {
-        await app.globalData.initPromise;
-      }
-
-      // 获取用户信息（本地存储，此时 app.initUser 已完成保存）
-      const userInfo = StorageUtil.getUserInfo();
-      if (!userInfo || !userInfo._id) {
-        console.warn('[Home] 用户信息不存在，跳转引导页');
-        wx.redirectTo({ url: '/pages/auth/auth' });
-        return;
-      }
-
-      // === 步骤 1: 获取家庭信息 ===
-      let familyInfo = StorageUtil.getFamilyInfo();
+      const check = await app.ensureUserReady();
       
-      if (!familyInfo) {
-        // 本地无缓存，从服务端获取
-        const familyService = new FamilyService();
-        
-        // 🔑 优先使用 userInfo.familyId 直接获取（最可靠的路径）
-        if (userInfo.familyId) {
-          const family = await familyService.getFamilyDetail(userInfo.familyId);
-          if (family) {
-            familyInfo = family;
-            StorageUtil.saveFamilyInfo(family);
-          }
-        }
-        
-        // 如果 familyId 路径失败，降级使用 members 查询
-        if (!familyInfo) {
-          const family = await familyService.getFamilyByUserId(userInfo._id);
-          if (family) {
-            familyInfo = family;
-            StorageUtil.saveFamilyInfo(family);
-            
-            // 同步 familyId 到 userInfo（修补缺失数据）
-            if (!userInfo.familyId) {
-              userInfo.familyId = family._id;
-              StorageUtil.saveUserInfo(userInfo);
-            }
-          }
-        }
-      }
-
-      // 如果仍然没有家庭信息，跳转引导页
-      if (!familyInfo) {
-        console.warn('[Home] 未找到家庭信息，跳转引导页');
-        wx.redirectTo({ url: '/pages/auth/auth' });
-        return;
-      }
-
-      // === 步骤 1.5: 被移除成员检测 ===
-      // 验证当前用户是否仍在家庭成员列表中
-      if (familyInfo.members && Array.isArray(familyInfo.members)) {
-        const isMember = familyInfo.members.includes(userInfo._id);
-        if (!isMember) {
-          console.warn('[Home] 当前用户已被移除出家庭');
-          // 清除本地缓存的家庭信息
-          StorageUtil.saveFamilyInfo(null);
-          StorageUtil.saveCurrentBaby(null);
-          
-          // 更新 userInfo 中的 familyId
-          const updatedUserInfo = { ...userInfo };
-          delete updatedUserInfo.familyId;
-          delete updatedUserInfo.familyRole;
-          StorageUtil.saveUserInfo(updatedUserInfo);
-          
+      if (!check.ready) {
+        if (check.reason === 'removed') {
           wx.showModal({
             title: '提示',
             content: '您已被移除出该家庭，请重新加入或创建新家庭。',
             showCancel: false,
-            confirmText: '确定',
-            success: () => {
-              wx.redirectTo({ url: '/pages/auth/auth' });
-            }
+            success: () => wx.reLaunch({ url: check.redirectUrl })
           });
-          return;
+        } else {
+          wx.reLaunch({ url: check.redirectUrl || '/pages/auth/auth' });
         }
+        return;
       }
+      
+      const { userInfo, familyInfo } = check;
 
       // === 步骤 2: 获取宝宝列表 ===
       let currentBaby = StorageUtil.getCurrentBaby();
