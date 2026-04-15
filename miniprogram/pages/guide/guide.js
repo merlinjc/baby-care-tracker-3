@@ -52,15 +52,16 @@ Page({
           { title: '数据导出', desc: '支持导出CSV或JSON格式数据' }
         ]
       },
-      {
-        title: 'AI助手',
-        iconType: 'functional',
-        iconName: 'robot',
-        items: [
-          { title: '智能问答', desc: '向AI助手咨询育儿问题' },
-          { title: '每日评估', desc: 'AI根据记录数据给出健康评估和建议' }
-        ]
-      }
+      // [v4.1] AI 助手引导已屏蔽，保留代码待后续恢复
+      // {
+      //   title: 'AI助手',
+      //   iconType: 'functional',
+      //   iconName: 'robot',
+      //   items: [
+      //     { title: '智能问答', desc: '向AI助手咨询育儿问题' },
+      //     { title: '每日评估', desc: 'AI根据记录数据给出健康评估和建议' }
+      //   ]
+      // }
     ]
   },
 

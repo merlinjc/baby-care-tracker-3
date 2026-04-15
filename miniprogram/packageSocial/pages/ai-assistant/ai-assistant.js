@@ -16,6 +16,8 @@ Page({
   ...shareBehavior,
   data: {
     darkMode: false,
+    // [v4.1] AI 功能已屏蔽
+    aiDisabled: true,
     baby: null,
     messages: [],
     inputText: '',
@@ -31,6 +33,15 @@ Page({
   },
 
   onLoad(options) {
+    // [v4.1] AI 功能已屏蔽，提示用户并返回
+    wx.showModal({
+      title: '功能暂未开放',
+      content: 'AI 育儿助手功能正在升级中，敬请期待。',
+      showCancel: false,
+      success: () => { wx.navigateBack({ fail: () => wx.switchTab({ url: '/pages/home/home' }) }); }
+    });
+    return;
+
     this._lastShowTime = 0;
     this.quotaService = new QuotaService();
     this.contentFilter = new ContentFilterService();
