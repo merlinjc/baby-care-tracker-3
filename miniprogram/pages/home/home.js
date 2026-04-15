@@ -699,6 +699,15 @@ Page({
   },
 
   /**
+   * FR-7: 查看全部待办（跳转到疫苗页）
+   */
+  goToDiscover() {
+    wx.navigateTo({
+      url: '/packageGrowth/pages/vaccine/vaccine'
+    });
+  },
+
+  /**
    * FR-7: 跳转到疫苗页
    */
   goToVaccine() {
