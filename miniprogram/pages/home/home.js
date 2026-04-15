@@ -529,11 +529,6 @@ Page({
       // FR-8: 异步计算喂养预测（不阻塞主渲染）
       this.computeFeedingPrediction(this.data.currentBaby._id, nowTs);
       
-      // FR-14: 异步加载 AI 洞察（记录数 > 0 时）
-      if (totalTodayCount > 0) {
-        this.loadAiInsight();
-      }
-
       // 彩蛋检测（500ms 延迟，不阻塞渲染）
       setTimeout(() => {
         this.checkEasterEggs();
@@ -1080,14 +1075,12 @@ Page({
     }
   },
 
-  /**
-   * FR-14: 跳转到 AI 助手页面
-   */
-  goToAiAssistant() {
-    wx.navigateTo({
-      url: '/packageSocial/pages/ai-assistant/ai-assistant?presetMsg=true'
-    });
-  },
+  // [v4.1] AI 功能已屏蔽，保留代码待后续恢复
+  // goToAiAssistant() {
+  //   wx.navigateTo({
+  //     url: '/packageSocial/pages/ai-assistant/ai-assistant?presetMsg=true'
+  //   });
+  // },
 
   /**
    * FR-11: 时间线左滑编辑
