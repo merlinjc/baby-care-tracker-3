@@ -338,7 +338,27 @@ class FamilyService {
         throw new Error('只有创建者才能解散家庭');
       }
 
+      // D-6: 先删除家庭文档，再清理成员
+      // 这样其他成员读取时会立即得到"家庭不存在"，触发 ensureUserReady 降级处理
       await this.familyCollection.doc(familyId).remove();
+
+      // ★ [v4.1 FR-10] 异步批量清除所有成员的 familyId/familyRole
+      if (family.members && family.members.length > 0) {
+        for (const memberId of family.members) {
+          try {
+            await this.userCollection.doc(memberId).update({
+              data: {
+                familyId: this.db.command.remove(),
+                familyRole: this.db.command.remove(),
+                updatedAt: new Date().toISOString()
+              }
+            });
+          } catch (err) {
+            // 不阻断——成员下次打开时 ensureUserReady 会检测到家庭不存在并清理
+            console.warn(`清除成员 ${memberId} 家庭信息失败:`, err);
+          }
+        }
+      }
     } catch (error) {
       console.error('解散家庭失败:', error);
       throw error;
