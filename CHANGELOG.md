@@ -16,6 +16,31 @@
 
 ---
 
+## [v4.2.0] Milo — 2026-04-17
+
+### Added
+- 新增 `familyOperation` 云函数网关（13 个 action：createFamily/joinFamily/removeMember/dissolveFamily/updateMemberRole/transferAdmin/leaveFamily/refreshInviteCode/validateInviteCode/getFamilyByUserId/createBaby/deleteBaby/clearBabyData）
+- 新增 `migrateFamilyOpenids` 数据迁移云函数（families 集合补充 memberOpenids 字段）
+- 新增 `migrateRecordFamilyId` 数据迁移云函数（records 集合补充 familyId 字段）
+- `createRecord()` 全部 4 条路径（在线/离线/降级记录/降级队列）写入 `familyId` 字段
+- 12 处 `where` 查询附加 `familyId` 条件（record/growth/vaccine/milestone/report-popup/todo/export）
+- 6 个集合配置 CUSTOM 安全规则（users=PRIVATE，families/babies/records/vaccine_records/milestone_records 基于 memberOpenids 交叉校验）
+
+### Changed
+- `family.js` 服务层 10 个方法改为 `callFunction` 适配器模式（createFamily/joinByInviteCode/getFamilyByUserId/refreshInviteCode/removeMember/dissolveFamily/updateMemberRole/leaveFamily/transferAdmin/validateInviteCode）
+- `baby.js` 服务层 createBaby/deleteBaby 改为 `callFunction` 调用
+- `baby-list.js` deleteBaby 改为 `BabyService.deleteBaby()` 调用
+- `settings.js` `clearAllCloudData()` 从逐条客户端删除改为 `callFunction` → `familyOperation/clearBabyData`
+- `family.js` 页面层邀请码自动生成和重新生成改为 `familyService.refreshInviteCode()` 调用，删除客户端 `generateInviteCode()` 方法
+
+### Security
+- 所有跨用户写操作统一收口到 `familyOperation` 云函数，通过 `getWXContext().OPENID` 服务端鉴权
+- 邀请码验证增加实例级速率限制（60 秒窗口，最多 5 次尝试）
+- `updateMemberRole` 增加乐观锁重试（最多 2 次）
+- 安全规则从 READONLY 升级为基于 `familyId` + `memberOpenids` 的精确家庭成员校验
+
+---
+
 ## [v4.1.1] Milo — 2026-04-15
 
 ### Fixed
