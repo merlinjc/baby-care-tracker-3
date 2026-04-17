@@ -7,6 +7,7 @@ const StorageUtil = require('../../utils/storage');
 const { ICONS } = require('../../utils/icon-config');
 const ThemeManager = require('../../utils/theme');
 const shareBehavior = require('../../behaviors/share-behavior');
+const BabyService = require('../../services/baby');
 
 Page({
   ...shareBehavior,
@@ -148,8 +149,10 @@ Page({
       success: async (res) => {
         if (res.confirm) {
           try {
-            const db = wx.cloud.database();
-            await db.collection('babies').doc(id).remove();
+            // [v4.2] 通过 babyService 走云函数删除，同步维护 families.babies
+            const babyService = BabyService.getInstance();
+            const familyInfo = StorageUtil.getFamilyInfo();
+            await babyService.deleteBaby(id, familyInfo._id);
             
             // BUG-13: 如果删除的是当前宝宝，清理本地存储并切换
             const currentBaby = StorageUtil.getCurrentBaby();

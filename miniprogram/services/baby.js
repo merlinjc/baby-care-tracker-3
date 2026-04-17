@@ -1,9 +1,11 @@
 /**
  * 宝宝管理服务
  * 实现宝宝档案管理功能
+ * 
+ * [v4.2] 适配器模式改造：
+ * createBaby / deleteBaby 改为 callFunction 调用 familyOperation 云函数
+ * 保留不改：getBabiesByFamilyId / getBabyById / updateBaby / uploadAvatar
  */
-
-const { createBaby } = require('../models/index');
 
 // 单例模式
 let instance = null;
@@ -37,25 +39,16 @@ class BabyService {
    */
   async createBaby(familyId, name, gender, birthDate, avatar = '') {
     try {
-      const baby = createBaby(familyId, name, gender, birthDate);
-      baby.avatar = avatar;
-
-      const res = await this.babyCollection.add({
-        data: baby
-      });
-
-      // 更新家庭的宝宝列表
-      await this.familyCollection.doc(familyId).update({
+      const res = await wx.cloud.callFunction({
+        name: 'familyOperation',
         data: {
-          babies: this.db.command.push(res._id),
-          updatedAt: this.db.serverDate()
+          action: 'createBaby',
+          params: { familyId, name, gender, birthDate: birthDate.toISOString(), avatar }
         }
       });
-
-      return {
-        _id: res._id,
-        ...baby
-      };
+      const result = res.result;
+      if (!result.success) throw new Error(result.error?.message || '创建宝宝失败');
+      return result.data;
     } catch (error) {
       console.error('创建宝宝档案失败:', error);
       throw error;
@@ -225,16 +218,16 @@ class BabyService {
    */
   async deleteBaby(babyId, familyId) {
     try {
-      // 使用原子操作 pull 从家庭的宝宝列表中移除，避免并发竞态
-      await this.familyCollection.doc(familyId).update({
+      const res = await wx.cloud.callFunction({
+        name: 'familyOperation',
         data: {
-          babies: this.db.command.pull(babyId),
-          updatedAt: this.db.serverDate()
+          action: 'deleteBaby',
+          params: { babyId, familyId }
         }
       });
-
-      // 删除宝宝档案
-      await this.babyCollection.doc(babyId).remove();
+      const result = res.result;
+      if (!result.success) throw new Error(result.error?.message || '删除宝宝失败');
+      return result.data;
     } catch (error) {
       console.error('删除宝宝档案失败:', error);
       throw error;
