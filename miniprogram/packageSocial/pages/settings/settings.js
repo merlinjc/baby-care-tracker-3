@@ -159,21 +159,9 @@ Page({
   },
 
   /**
-   * 辅助：分页获取集合全量数据（突破20条限制）
-   */
-  async _getAllDocuments(collection, where) {
-    const db = wx.cloud.database();
-    let all = [];
-    let batch;
-    do {
-      batch = await db.collection(collection).where(where).skip(all.length).limit(20).get();
-      all = all.concat(batch.data);
-    } while (batch.data.length === 20);
-    return all;
-  },
-
-  /**
    * 清除云端所有数据
+   * ★ [v4.2 FR-14] 改为通过云函数 familyOperation/clearBabyData 执行，
+   * 使用 admin SDK 可删除包括其他成员创建的记录
    */
   async clearAllCloudData() {
     const currentBaby = StorageUtil.getCurrentBaby();
@@ -206,49 +194,33 @@ Page({
     wx.showLoading({ title: '删除中...', mask: true });
 
     try {
-      const db = wx.cloud.database();
       const babyId = currentBaby._id;
       const familyId = currentBaby.familyId;
 
-      // BUG-5: 循环分页获取全量数据后分批删除（每批 10 条，避免限流）
-      const { batchExecute } = require('../../../utils/batch');
+      const callRes = await wx.cloud.callFunction({
+        name: 'familyOperation',
+        data: {
+          action: 'clearBabyData',
+          params: { babyId, familyId }
+        }
+      });
 
-      // 1. 删除所有记录
-      wx.showLoading({ title: '删除记录中(1/4)...', mask: true });
-      const recordsDocs = await this._getAllDocuments('records', { babyId });
-      await batchExecute(recordsDocs, r => db.collection('records').doc(r._id).remove());
+      const result = callRes.result;
+      if (!result.success) throw new Error(result.error?.message || '删除失败');
 
-      // 2. 删除疫苗记录
-      wx.showLoading({ title: '删除疫苗记录(2/4)...', mask: true });
-      const vaccineDocs = await this._getAllDocuments('vaccine_records', { babyId });
-      await batchExecute(vaccineDocs, r => db.collection('vaccine_records').doc(r._id).remove());
-
-      // 3. 删除里程碑记录
-      wx.showLoading({ title: '删除里程碑(3/4)...', mask: true });
-      const milestoneDocs = await this._getAllDocuments('milestone_records', { babyId });
-      await batchExecute(milestoneDocs, r => db.collection('milestone_records').doc(r._id).remove());
-
-      // 4. 删除宝宝信息
-      wx.showLoading({ title: '清理数据(4/4)...', mask: true });
-      await db.collection('babies').doc(babyId).remove();
-
-      // 5. 检查家庭是否还有其他宝宝，没有则删除家庭
-      const babiesRes = await db.collection('babies').where({ familyId }).get();
-      if (babiesRes.data.length === 0) {
-        await db.collection('families').doc(familyId).remove();
-      }
-
-      // 6. 清除本地缓存
+      // 清除本地缓存
       wx.clearStorageSync();
 
       wx.hideLoading();
       wx.showToast({ title: '删除成功', icon: 'success' });
 
-      // 跳转到创建宝宝页面
+      // 根据云函数返回判断跳转目标
       setTimeout(() => {
-        wx.reLaunch({
-          url: '/pages/baby-create/baby-create'
-        });
+        if (result.data && result.data.familyDeleted) {
+          wx.reLaunch({ url: '/pages/auth/auth' });
+        } else {
+          wx.reLaunch({ url: '/pages/baby-create/baby-create' });
+        }
       }, 1500);
 
     } catch (error) {
