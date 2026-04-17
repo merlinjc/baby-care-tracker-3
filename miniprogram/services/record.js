@@ -150,6 +150,7 @@ class RecordService {
         // 在线：直接写入云端
         const cloudRecord = {
           babyId: recordData.babyId,
+          familyId: familyInfo?._id || userInfo?.familyId || '',  // ★ [v4.2 FR-10] 安全规则需要 familyId
           recordType: recordData.recordType,
           startTime: this.db.serverDate(), // 使用服务器时间
           startTimeTs: nowTs, // 同时保存数值时间戳，用于可靠读取
@@ -217,6 +218,7 @@ class RecordService {
         const offlineRecord = {
           _id: tempId,
           babyId: recordData.babyId,
+          familyId: familyInfo?._id || userInfo?.familyId || '',  // ★ [v4.2 FR-10] 安全规则需要 familyId
           recordType: recordData.recordType,
           startTime: now,
           startTimeTs: nowTs,
@@ -248,6 +250,7 @@ class RecordService {
           collection: 'records',
           data: {
             babyId: recordData.babyId,
+            familyId: familyInfo?._id || userInfo?.familyId || '',  // ★ [v4.2 FR-10] 安全规则需要 familyId
             recordType: recordData.recordType,
             startTime: now,
             startTimeTs: nowTs,
@@ -277,6 +280,7 @@ class RecordService {
       const offlineRecord = {
         _id: tempId,
         babyId: recordData.babyId,
+        familyId: cachedFamilyInfo?._id || cachedUserInfo?.familyId || '',  // ★ [v4.2 FR-10] 安全规则需要 familyId
         recordType: recordData.recordType,
         startTime: now,
         startTimeTs: nowTs,
@@ -299,6 +303,7 @@ class RecordService {
         collection: 'records',
         data: {
           babyId: recordData.babyId,
+          familyId: cachedFamilyInfo?._id || cachedUserInfo?.familyId || '',  // ★ [v4.2 FR-10] 安全规则需要 familyId
           recordType: recordData.recordType,
           startTime: now,
           startTimeTs: nowTs,
@@ -358,10 +363,15 @@ class RecordService {
         return localRecords;
       }
 
+      // ★ [v4.2 FR-10] 查询附加 familyId，匹配安全规则
+      const userInfo = StorageUtil.getUserInfo();
+      const familyId = userInfo?.familyId || '';
+
       // 在线：从云端获取
       let query = this.recordCollection
         .where({
           babyId,
+          familyId,
           ...(recordType && { recordType })
         });
 

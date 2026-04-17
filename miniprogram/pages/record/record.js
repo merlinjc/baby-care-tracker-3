@@ -473,7 +473,9 @@ Page({
 
     try {
       const db = wx.cloud.database();
-      const baseWhere = { babyId: currentBaby._id };
+      // ★ [v4.2 FR-10] 查询附加 familyId，匹配安全规则
+      const familyInfo = StorageUtil.getFamilyInfo();
+      const baseWhere = { babyId: currentBaby._id, familyId: familyInfo?._id || '' };
       
       // 添加日期筛选
       if (dateRange.start) {
