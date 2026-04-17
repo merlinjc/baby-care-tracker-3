@@ -136,8 +136,9 @@ class TodoService {
    * @private
    */
   async _computeVaccineStats(baby, ageMonths) {
+    // ★ [v4.2 FR-10] 查询附加 familyId，匹配安全规则
     const vaccineRecords = await fetchAll(
-      this.db.collection('vaccine_records').where({ babyId: baby._id })
+      this.db.collection('vaccine_records').where({ babyId: baby._id, familyId: baby.familyId || '' })
     );
     
     const vaccinePlans = this._getVaccinePlans(baby.birthDate);
@@ -196,8 +197,9 @@ class TodoService {
    * @private
    */
   async _computeMilestoneStats(baby, ageMonths) {
+    // ★ [v4.2 FR-10] 查询附加 familyId，匹配安全规则
     const milestoneRecords = await fetchAll(
-      this.db.collection('milestone_records').where({ babyId: baby._id })
+      this.db.collection('milestone_records').where({ babyId: baby._id, familyId: baby.familyId || '' })
     );
     
     const milestoneDefs = this._getMilestoneDefinitions();

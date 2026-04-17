@@ -109,8 +109,9 @@ Page({
       // 使用配置文件中的里程碑定义
       const definitions = MILESTONE_DEFINITIONS;
       // 使用 fetchAll 突破 20 条限制，修复 P0 数据截断
+      // ★ [v4.2 FR-10] 查询附加 familyId，匹配安全规则
       const records = await fetchAll(
-        db.collection('milestone_records').where({ babyId: baby._id })
+        db.collection('milestone_records').where({ babyId: baby._id, familyId: baby.familyId || '' })
       );
 
       const milestones = this.mergeMilestones(definitions, records);

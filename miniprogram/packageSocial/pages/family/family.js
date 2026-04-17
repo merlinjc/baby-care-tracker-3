@@ -132,25 +132,16 @@ Page({
 
       let inviteCode = familyInfo.inviteCode || '';
       
-      // 如果邀请码为空，自动生成一个
+      // ★ [v4.2 FR-15] 如果邀请码为空，通过云函数自动生成
       if (!inviteCode) {
         try {
-          inviteCode = this.generateInviteCode();
-          const now = new Date();
-          const inviteExpiry = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-          
-          await db.collection('families').doc(familyInfo._id).update({
-            data: {
-              inviteCode: inviteCode,
-              inviteCodeExpiry: inviteExpiry.toISOString(),
-              updatedAt: now
-            }
-          });
-          
-          // 更新本地对象
-          familyInfo.inviteCode = inviteCode;
-          familyInfo.inviteCodeExpiry = inviteExpiry.toISOString();
-          StorageUtil.saveFamilyInfo(familyInfo);
+          const result = await this.familyService.refreshInviteCode(
+            familyInfo._id, this.data.currentUserId
+          );
+          inviteCode = result; // refreshInviteCode 返回新邀请码
+          // 从云函数返回后重新加载家庭信息
+          await this.loadFamilyInfo();
+          return; // loadFamilyInfo 会重新设置所有 data
         } catch (err) {
           console.error('自动生成邀请码失败:', err);
         }
@@ -245,6 +236,7 @@ Page({
 
   /**
    * 重新生成邀请码（仅管理员）
+   * ★ [v4.2 FR-15] 改为通过 familyService.refreshInviteCode() 调用云函数
    */
   async regenerateCode() {
     if (!this.data.isAdmin) {
@@ -258,54 +250,19 @@ Page({
       success: async (res) => {
         if (res.confirm) {
           try {
-            const newCode = this.generateInviteCode();
-            const db = wx.cloud.database();
-            const now = new Date();
-            const inviteExpiry = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-            
-            await db.collection('families').doc(this.data.familyInfo._id).update({
-              data: {
-                inviteCode: newCode,
-                inviteCodeExpiry: inviteExpiry.toISOString(),
-                updatedAt: now
-              }
-            });
-
-            // 更新本地存储
-            const familyInfo = StorageUtil.getFamilyInfo();
-            if (familyInfo) {
-              familyInfo.inviteCode = newCode;
-              familyInfo.inviteCodeExpiry = inviteExpiry.toISOString();
-              StorageUtil.saveFamilyInfo(familyInfo);
-            }
-
-            const expiryInfo = this._calcInviteExpiry(inviteExpiry.toISOString());
-            this.setData({ 
-              inviteCode: newCode,
-              inviteCodeExpiry: inviteExpiry.toISOString(),
-              inviteExpiryText: expiryInfo.text,
-              inviteExpiryWarning: expiryInfo.warning
-            });
+            await this.familyService.refreshInviteCode(
+              this.data.familyInfo._id, this.data.currentUserId
+            );
+            // 刷新页面数据
+            await this.loadFamilyInfo();
             wx.showToast({ title: '生成成功', icon: 'success' });
           } catch (error) {
             console.error('生成邀请码失败:', error);
-            wx.showToast({ title: '生成失败', icon: 'none' });
+            wx.showToast({ title: error.message || '生成失败', icon: 'none' });
           }
         }
       }
     });
-  },
-
-  /**
-   * 生成邀请码
-   */
-  generateInviteCode() {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let code = '';
-    for (let i = 0; i < 6; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return code;
   },
 
   // =================== 成员管理 ===================
