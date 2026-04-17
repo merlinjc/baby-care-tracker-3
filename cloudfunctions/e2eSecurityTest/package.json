@@ -1,0 +1,8 @@
+{
+  "name": "e2eSecurityTest",
+  "version": "1.0.0",
+  "description": "E2E 安全 & 权限自动化测试云函数",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

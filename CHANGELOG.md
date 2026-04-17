@@ -16,6 +16,21 @@
 
 ---
 
+## [v4.2.1] Milo — 2026-04-17
+
+### Added
+- 新增 `e2eSecurityTest` 云函数 — 163 条 E2E 安全测试用例（159 自动化 + 4 手动验证）
+- 15 个测试模块：安全规则(54) + 云函数权限(createFamily/joinFamily/removeMember/dissolveFamily/updateMemberRole/transferAdmin/leaveFamily/refreshInviteCode/validateInviteCode/babyOperations/clearBabyData) + 错误处理 + 跨家庭隔离 + 状态变更验证
+- RuleSimulator 引擎：模拟 CloudBase 安全规则 `get()` 交叉校验判定（覆盖 122 条规则场景）
+- 完整 spec 文档：requirements.md（126 条用例矩阵）+ design.md（1546 行架构设计）+ tasks.md
+
+### Fixed
+- `family-operations.js` `getFamily()` 错误匹配增加 `'does not exist'` 格式（CloudBase `doc(id).get()` 非存在文档的实际错误格式）
+- `index.js` teardown 中 `_.regex()` 改为 `db.RegExp()`（wx-server-sdk 不支持 `_.regex`）
+- `m16-clearBabyData.js` CD-01 验证查询移除不兼容的 `_.regex` 调用
+
+---
+
 ## [v4.2.0] Milo — 2026-04-17
 
 ### Added

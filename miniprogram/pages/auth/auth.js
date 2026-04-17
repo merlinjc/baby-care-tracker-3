@@ -140,13 +140,19 @@ Page({
         StorageUtil.saveFamilyInfo(familyInfo);
         getApp().globalData.familyInfo = familyInfo;
       } else {
-        // 家庭不存在，清理本地存储的家庭信息
-        console.warn('家庭不存在:', familyId);
+        // 家庭不存在或无权访问，清理本地存储的家庭信息
+        console.warn('家庭不存在或无权访问:', familyId);
         StorageUtil.remove('family_info');
         getApp().globalData.familyInfo = null;
       }
     } catch (error) {
       console.error('加载家庭信息失败:', error);
+      // ★ [v4.2] 权限拒绝时不阻塞登录流程，清理脏数据让用户重新创建/加入家庭
+      if (error.errCode === -502003 || (error.message && error.message.includes('Permission denied'))) {
+        console.warn('家庭数据权限被拒绝，清理本地家庭信息');
+        StorageUtil.remove('family_info');
+        getApp().globalData.familyInfo = null;
+      }
     }
   },
 
