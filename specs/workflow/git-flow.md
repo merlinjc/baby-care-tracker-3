@@ -239,6 +239,7 @@ git push origin --delete hotfix/sleep-timer-crash
 | v4.0.1 | Milo | 2026-04-13 | — | 配方奶快捷用量调整 [10-210ml] |
 | v4.1.0 | Milo | 2026-04-15 | `v4.1.0` | AI 屏蔽 + 分享认证加固 + Family 安全修复 |
 | v4.1.1 | Milo | 2026-04-15 | `v4.1.1` | 存量数据修复（records userId 迁移 + 幽灵成员清理）+ 发现页占位卡片 |
+| v4.2.0 | Milo | 2026-04-17 | `v4.2.0` | 云函数网关 & 安全规则治理（13 action 服务端鉴权 + familyId 数据迁移） |
 
 ---
 
