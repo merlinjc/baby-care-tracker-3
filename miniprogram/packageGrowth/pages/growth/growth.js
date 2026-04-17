@@ -182,9 +182,11 @@ Page({
         return;
       }
 
+      // ★ [v4.2 FR-10] 查询附加 familyId，匹配安全规则
       const records = await db.collection('records')
         .where({
           babyId: baby._id,
+          familyId: baby.familyId || '',
           recordType: 'growth'
         })
         .orderBy('startTime', 'desc')

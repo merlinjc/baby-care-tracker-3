@@ -362,11 +362,14 @@ Component({
         const db = wx.cloud.database();
         const baby = this.data.babyInfo;
         
+        // ★ [v4.2 FR-10] 查询附加 familyId，匹配安全规则
+        const familyId = baby.familyId || '';
+        
         const [growthResult, vaccineResult, milestoneResult, todoStats] = 
           await Promise.all([
             // 最近一条生长记录
             db.collection('records')
-              .where({ babyId, recordType: 'growth' })
+              .where({ babyId, familyId, recordType: 'growth' })
               .orderBy('startTime', 'desc')
               .limit(1)
               .get()
@@ -374,13 +377,13 @@ Component({
             
             // 已接种疫苗记录
             db.collection('vaccine_records')
-              .where({ babyId })
+              .where({ babyId, familyId })
               .get()
               .catch(() => ({ data: [] })),
             
             // 已达成里程碑
             db.collection('milestone_records')
-              .where({ babyId })
+              .where({ babyId, familyId })
               .get()
               .catch(() => ({ data: [] })),
             

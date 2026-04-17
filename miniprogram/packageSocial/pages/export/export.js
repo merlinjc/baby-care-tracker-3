@@ -59,9 +59,11 @@ Page({
       
       if (!baby) return;
 
+      // ★ [v4.2 FR-10] 查询附加 familyId，匹配安全规则
       const countRes = await db.collection('records')
         .where({
-          babyId: baby._id
+          babyId: baby._id,
+          familyId: baby.familyId || ''
         })
         .count();
 
@@ -134,9 +136,11 @@ Page({
       let allRecords = [];
       let batch;
       do {
+        // ★ [v4.2 FR-10] 查询附加 familyId，匹配安全规则
         batch = await db.collection('records')
           .where({
             babyId: baby._id,
+            familyId: baby.familyId || '',
             recordType: db.command.in(selectedTypes),
             startTime: dateFilter
           })
