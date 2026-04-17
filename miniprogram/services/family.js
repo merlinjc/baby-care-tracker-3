@@ -135,6 +135,11 @@ class FamilyService {
         console.warn('家庭文档不存在:', familyId);
         return null;
       }
+      // ★ [v4.2] 权限拒绝时返回 null 并打印警告，避免阻塞启动流程
+      if (error.errCode === -502003 || (error.errMsg && error.errMsg.includes('Permission denied'))) {
+        console.warn('获取家庭详情权限不足（安全规则可能未生效或用户不在家庭成员中）:', familyId);
+        return null;
+      }
       console.error('获取家庭详情失败:', error);
       throw error;
     }
