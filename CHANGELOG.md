@@ -16,6 +16,32 @@
 
 ---
 
+## [v4.2.2] Milo — 2026-04-20
+
+### Added
+- `coding-conventions.md` 新增 §8 数据库操作约束（三条铁律 / 查询附 familyId 模板 / 调用 familyOperation 模板 / 违规检查清单）
+- `service-api.md` 服务方法追加 `[cloud]` / `[direct]` 路径标签，新增 `_callFamilyOperation` 适配器契约说明和 `leaveFamily` 特殊契约章节
+- `data-model.md` 新增 §5 安全规则配置章节（6 集合 ACL 表 + 跨用户写说明 + 客户端查询约束）
+- 新建 `specs/v4.2.2-docs-alignment-and-hotfix/` 三份 spec 文档（requirements / design / tasks）
+
+### Changed
+- `architecture.md` 升级到 v4.2.2：§2 云函数清单从 1 个扩展为 7 个；§3 分层架构新增"云函数网关层"；§6.5 安全模型重写为云函数网关 + 安全规则双层防护；§7 追加跨用户写成本说明
+- `data-model.md` 升级到 v4.2.2：`families` 表新增 `memberOpenids` / `_openidsMigratedAt`，`creatorId` / `members` / `memberDetails[].userId` 说明更正为 `users._id`（v4.1 后统一）；`records` / `vaccine_records` / `milestone_records` 三集合新增 `familyId` / `_familyIdMigratedAt`
+- `service-api.md` 升级到 v4.2.2：`FamilyService` 13 个方法全部加 `[cloud]` / `[direct]` 标签；`BabyService` 补充完整方法表
+- `coding-conventions.md` 升级到 v4.2.2：原 §8 权限体系调整为 §9，补充服务端/客户端双重校验说明
+- `miniprogram/pages/auth/auth.js` 单例规范化：10 处 `new AuthService()` / `new FamilyService()` 改为 `XxxService.getInstance()`
+- `miniprogram/packageSocial/pages/family/family.js loadFamilyInfo` 改走服务层 `familyService.getFamilyDetail()`，删除页面层裸 `db.collection` 调用
+- `miniprogram/services/ai.js` `createModel('hunyuan-exp')` 修正为 `createModel('hunyuan')`，消除 provider 名与实际调用模型名 `hunyuan-2.0-instruct-20251111` 的歧义
+
+### Fixed
+- `specs/v4.2-cloud-function-gateway/` 三份 spec 状态字段从"待确认"回溯为 "✅ 已完成（2026-04-17）"
+- `specs/v4.2-e2e-security-tests/` 三份 spec 状态字段与 26 个 tasks checkbox 回溯为已完成
+
+### Removed
+- `miniprogram/services/auth.js` 的 `getOpenId()` 方法（全项目零调用方，`cloudfunctions/getOpenId` 云函数仍保留用于 `traceUser` 依赖）
+
+---
+
 ## [v4.2.1] Milo — 2026-04-17
 
 ### Added
