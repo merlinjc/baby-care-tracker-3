@@ -13,6 +13,10 @@
  * - FR-9  dissolveFamily isAdmin 判定
  * - FR-10 createFamily 防重复
  * - FR-11 clearBabyData 查询附 familyId
+ *
+ * Hotfix 补充（V431-11 ~ V431-13）：
+ * - getBabyById action（admin SDK + 业务层同家庭校验）
+ * - updateBaby action（admin SDK + editor+ 权限 + 白名单 + 跨家庭拦截）
  */
 const path = require('path');
 const { USERS, buildFamilies, TEST_PREFIX } = require('../lib/test-data');
@@ -23,6 +27,8 @@ const createBabyAction = require(path.join(realPath, 'actions/createBaby'));
 const deleteBabyAction = require(path.join(realPath, 'actions/deleteBaby'));
 const updateMemberRoleAction = require(path.join(realPath, 'actions/updateMemberRole'));
 const dissolveFamilyAction = require(path.join(realPath, 'actions/dissolveFamily'));
+const getBabyByIdAction = require(path.join(realPath, 'actions/getBabyById'));
+const updateBabyAction = require(path.join(realPath, 'actions/updateBaby'));
 const errors = require(path.join(realPath, 'errors'));
 const { OperationLogger } = require(path.join(realPath, 'lib/logger'));
 const { RateLimiter } = require(path.join(realPath, 'lib/rate-limit'));
@@ -328,6 +334,153 @@ module.exports = async function(runner, db, _) {
     return {
       pass: res.success === false && res.error && res.error.code === 'PERMISSION_DENIED',
       actual: { success: res.success, errorCode: res.error?.code }
+    };
+  });
+
+  // ====================================================
+  // V431-11：getBabyById 同家庭成员可读、跨家庭/viewer 拒绝
+  // ====================================================
+  await runner.test('V431-11', '[Hotfix2] getBabyById 同家庭可读、跨家庭拒绝、无家庭拒绝', async () => {
+    const babyId = `${TEST_PREFIX}baby_x`;
+
+    // 同家庭 admin Alice → 可读
+    const aliceRes = await getBabyByIdAction(
+      buildCtx(USERS.alice, 'getBabyById'),
+      { babyId }
+    );
+
+    // 同家庭 viewer Carol → 也应可读（getBabyById 只校验成员，不校验角色）
+    const carolRes = await getBabyByIdAction(
+      buildCtx(USERS.carol, 'getBabyById'),
+      { babyId }
+    );
+
+    // 跨家庭 Dave (family_b) → PERMISSION_DENIED
+    const daveRes = await getBabyByIdAction(
+      buildCtx(USERS.dave, 'getBabyById'),
+      { babyId }
+    );
+
+    // 无家庭 Frank → PERMISSION_DENIED
+    const frankRes = await getBabyByIdAction(
+      buildCtx(USERS.frank, 'getBabyById'),
+      { babyId }
+    );
+
+    const aliceCanRead = aliceRes.success === true && aliceRes.data?.baby?._id === babyId;
+    const carolCanRead = carolRes.success === true && carolRes.data?.baby?._id === babyId;
+    const daveBlocked = daveRes.success === false && daveRes.error?.code === 'PERMISSION_DENIED';
+    const frankBlocked = frankRes.success === false && frankRes.error?.code === 'PERMISSION_DENIED';
+
+    return {
+      pass: aliceCanRead && carolCanRead && daveBlocked && frankBlocked,
+      actual: { aliceCanRead, carolCanRead, daveBlocked, frankBlocked },
+      detail: '同家庭成员（含 viewer）均可读；跨家庭/无家庭 → PERMISSION_DENIED'
+    };
+  });
+
+  // ====================================================
+  // V431-12：updateBaby editor 可改、viewer 拒绝、白名单过滤
+  // ====================================================
+  await runner.test('V431-12', '[Hotfix3] updateBaby editor 可改、viewer 拒绝、白名单过滤敏感字段', async () => {
+    const babyId = `${TEST_PREFIX}baby_x`;
+
+    // 1. Bob(editor) 修改 name → 成功
+    const bobRes = await updateBabyAction(
+      buildCtx(USERS.bob, 'updateBaby'),
+      { babyId, data: { name: 'V431-12-BobEdit' } }
+    );
+    const bobCanEdit = bobRes.success === true && bobRes.data?.updated === true;
+
+    // 2. Carol(viewer) 修改 name → PERMISSION_DENIED
+    const carolRes = await updateBabyAction(
+      buildCtx(USERS.carol, 'updateBaby'),
+      { babyId, data: { name: 'ShouldFail' } }
+    );
+    const carolBlocked = carolRes.success === false && carolRes.error?.code === 'PERMISSION_DENIED';
+
+    // 3. Bob 尝试篡改 familyId / _openid → 白名单过滤后应仅 name 生效
+    await updateBabyAction(
+      buildCtx(USERS.bob, 'updateBaby'),
+      {
+        babyId,
+        data: {
+          name: 'V431-12-Whitelist',
+          familyId: 'malicious_family_id',
+          _openid: 'malicious_openid',
+          _id: 'malicious_id'
+        }
+      }
+    );
+    const afterDoc = await db.collection('babies').doc(babyId).get();
+    const familyIdUntouched = afterDoc.data.familyId === FAMILIES.family_a._id;
+    const openidUntouched = afterDoc.data._openid !== 'malicious_openid';
+
+    // 还原 name 为 Baby X
+    await updateBabyAction(
+      buildCtx(USERS.bob, 'updateBaby'),
+      { babyId, data: { name: 'Baby X' } }
+    );
+
+    return {
+      pass: bobCanEdit && carolBlocked && familyIdUntouched && openidUntouched,
+      actual: {
+        bobCanEdit,
+        carolBlocked,
+        carolErrorCode: carolRes.error?.code,
+        familyIdUntouched,
+        openidUntouched,
+        currentFamilyId: afterDoc.data.familyId
+      },
+      detail: 'editor 可改 name、viewer 被拒、白名单过滤 familyId/_openid/_id 篡改'
+    };
+  });
+
+  // ====================================================
+  // V431-13：updateBaby 跨家庭拦截 + 双时间戳
+  // ====================================================
+  await runner.test('V431-13', '[Hotfix3] updateBaby 跨家庭 → PERMISSION_DENIED + 自动写 updatedAtTs', async () => {
+    const babyId = `${TEST_PREFIX}baby_x`;  // family_a 的宝宝
+
+    // 1. Dave (family_b) 尝试改 family_a 的 baby_x → PERMISSION_DENIED
+    const daveRes = await updateBabyAction(
+      buildCtx(USERS.dave, 'updateBaby'),
+      { babyId, data: { name: 'HackedByDave' } }
+    );
+    const daveBlocked = daveRes.success === false && daveRes.error?.code === 'PERMISSION_DENIED';
+
+    // 2. Alice 正常修改，验证 updatedAtTs 双时间戳写入
+    const beforeTs = Date.now();
+    const aliceRes = await updateBabyAction(
+      buildCtx(USERS.alice, 'updateBaby'),
+      { babyId, data: { name: 'V431-13-Timestamp' } }
+    );
+
+    let updatedAtTsOk = false;
+    let updatedAtOk = false;
+    if (aliceRes.success) {
+      const doc = await db.collection('babies').doc(babyId).get();
+      const ts = doc.data.updatedAtTs;
+      updatedAtTsOk = typeof ts === 'number' && ts >= beforeTs && ts <= Date.now() + 1000;
+      updatedAtOk = doc.data.updatedAt !== undefined;
+    }
+
+    // 还原 name
+    await updateBabyAction(
+      buildCtx(USERS.alice, 'updateBaby'),
+      { babyId, data: { name: 'Baby X' } }
+    );
+
+    return {
+      pass: daveBlocked && aliceRes.success === true && updatedAtTsOk && updatedAtOk,
+      actual: {
+        daveBlocked,
+        daveErrorCode: daveRes.error?.code,
+        aliceUpdateSuccess: aliceRes.success,
+        updatedAtTsOk,
+        updatedAtOk
+      },
+      detail: '跨家庭被拦截；同家庭 admin 修改后自动写 updatedAt + updatedAtTs'
     };
   });
 };
