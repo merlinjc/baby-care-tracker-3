@@ -457,35 +457,41 @@ class RecordService {
     try {
       if (this.networkUtil.checkOnline() && !recordId.startsWith('temp_')) {
         // 在线且非离线记录：更新云端
+        // [v4.3.1 FR-7] 补 updatedAtTs 双时间戳，修复 mergeRecords 按 updatedAtTs 比较失效
+        const nowTs = Date.now();
         await this.recordCollection.doc(recordId).update({
           data: {
             ...data,
-            updatedAt: this.db.serverDate()
+            updatedAt: this.db.serverDate(),
+            updatedAtTs: nowTs
           }
         });
 
-        // 更新本地缓存
-        this.updateRecordInCache(recordId, data);
+        // 更新本地缓存（同时写入 updatedAtTs，保持与云端一致）
+        this.updateRecordInCache(recordId, { ...data, updatedAtTs: nowTs });
       } else {
         // 离线或离线记录：更新本地并加入队列
-        this.updateRecordInCache(recordId, data);
+        // [v4.3.1 FR-7] 离线分支也补 updatedAtTs，同步时由 sync._normalizeTimestamps 校正 updatedAt
+        const nowTs = Date.now();
+        this.updateRecordInCache(recordId, { ...data, updatedAtTs: nowTs });
 
         StorageUtil.addToOfflineQueue({
           type: 'update',
           collection: 'records',
           recordId,
-          data
+          data: { ...data, updatedAtTs: nowTs }
         });
       }
     } catch (error) {
       console.error('更新记录失败:', error);
       // 降级到本地
-      this.updateRecordInCache(recordId, data);
+      const nowTs = Date.now();
+      this.updateRecordInCache(recordId, { ...data, updatedAtTs: nowTs });
       StorageUtil.addToOfflineQueue({
         type: 'update',
         collection: 'records',
         recordId,
-        data
+        data: { ...data, updatedAtTs: nowTs }
       });
     }
   }

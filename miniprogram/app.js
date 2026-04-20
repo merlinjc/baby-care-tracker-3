@@ -50,7 +50,8 @@ App({
    */
   async initUser() {
     try {
-      const authService = new AuthService();
+      // [v4.3.1 FR-16] 统一单例：从 new AuthService() 改为 getInstance()
+      const authService = AuthService.getInstance();
       
       // 获取或创建用户信息
       const userInfo = await authService.getUserInfo();
