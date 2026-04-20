@@ -101,7 +101,7 @@ Page({
       let userInfo = StorageUtil.getUserInfo();
       
       if (!userInfo) {
-        const authService = new AuthService();
+        const authService = AuthService.getInstance();
         userInfo = await authService.getUserInfo();
         StorageUtil.saveUserInfo(userInfo);
       }
@@ -199,7 +199,7 @@ Page({
         updateData.avatar = newAvatar;
       }
 
-      const authService = new AuthService();
+      const authService = AuthService.getInstance();
       await authService.updateUserInfo(userInfo._id, updateData);
 
       // 更新本地数据
@@ -263,7 +263,7 @@ Page({
       // 1. 如果用户在家庭组中，先退出家庭（即使家庭不存在也继续）
       if (familyInfo && userInfo && userInfo.familyId) {
         try {
-          const familyService = new FamilyService();
+          const familyService = FamilyService.getInstance();
           await familyService.leaveFamily(familyInfo._id, userInfo._id);
         } catch (familyError) {
           // 家庭退出失败（如家庭已不存在），继续清理本地数据
@@ -274,7 +274,7 @@ Page({
       // 2. 删除用户数据（如果用户存在）
       if (userInfo && userInfo._id) {
         try {
-          const authService = new AuthService();
+          const authService = AuthService.getInstance();
           await authService.deleteUser(userInfo._id);
         } catch (authError) {
           console.warn('删除用户数据时出错:', authError.message);

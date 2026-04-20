@@ -6,6 +6,7 @@
 const AuthService = require('../../services/auth');
 const FamilyService = require('../../services/family');
 const StorageUtil = require('../../utils/storage');
+const FamilyContext = require('../../utils/family-context');
 const ThemeManager = require('../../utils/theme');
 
 // 身份关系映射（完整版）
@@ -94,8 +95,9 @@ Page({
         // 无邀请码，正常自动登录
         if (userInfo.familyId) {
           await this.loadFamilyInfo(userInfo.familyId);
+          // [v4.3.0] 仅在有 familyId 时加载宝宝，避免退出家庭后打印 "familyId 不存在" 噪音日志
+          await this.loadCurrentBaby();
         }
-        await this.loadCurrentBaby();
         wx.switchTab({ url: '/pages/home/home' });
         return;
       }
@@ -164,18 +166,16 @@ Page({
    */
   async loadCurrentBaby() {
     try {
+      // [v4.3.0 FR-15] 统一通过 FamilyContext 获取 familyId
+      // [v4.2.2 FR-8] 虽仍走裸 DB 读，但查询附加 familyId 符合安全规则
+      const familyId = FamilyContext.resolve();
+
+      // 无 familyId（未加入家庭 / 刚退出家庭）→ 静默 return，不打印警告
+      if (!familyId) return;
+
       const db = wx.cloud.database();
-      const userInfo = StorageUtil.getUserInfo();
-      
-      // BUG-6: 检查 userInfo 和 familyId 是否存在
-      if (!userInfo || !userInfo.familyId) {
-        console.warn('loadCurrentBaby: userInfo 或 familyId 不存在');
-        return;
-      }
-      
-      // 查询用户关联的宝宝
       const res = await db.collection('babies').where({
-        familyId: userInfo.familyId
+        familyId
       }).get();
 
       if (res.data && res.data.length > 0) {
