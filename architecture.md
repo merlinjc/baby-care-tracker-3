@@ -1,6 +1,6 @@
 # Baby Care Tracker 项目架构文档
 
-> **版本**: v4.2.1 | **更新日期**: 2026-04-17
+> **版本**: v4.2.2 | **更新日期**: 2026-04-20
 
 ---
 
@@ -34,8 +34,14 @@ baby-care-tracker-3/
 ├── PRD.md                                # 产品需求文档 (v3.1)
 ├── README.md                             # 项目说明
 │
-├── cloudfunctions/                       # 云函数（仅 1 个）
-│   └── getOpenId/                        # 获取用户 openid
+├── cloudfunctions/                       # 云函数（7 个）
+│   ├── getOpenId/                        # 获取用户 openid（traceUser 依赖，客户端已不显式调用）
+│   ├── familyOperation/                  # ★ 跨用户写操作网关（13 个 action）
+│   ├── migrateFamilyOpenids/             # 一次性：补充 families.memberOpenids 字段
+│   ├── migrateRecordFamilyId/            # 一次性：补充 records.familyId 字段
+│   ├── migrateRecordUserId/              # 一次性：openid → _id 格式统一
+│   ├── cleanGhostMembers/                # 一次性：幽灵成员清理
+│   └── e2eSecurityTest/                  # E2E 安全测试套件（163 用例，15 模块）
 │
 ├── miniprogram/                          # 小程序主代码
 │   ├── app.js                            # 应用入口
@@ -148,13 +154,30 @@ baby-care-tracker-3/
 │  - 基础设施能力                                │
 │  - 无业务耦合                                  │
 ├────────────────────────────────────────────┤
-│               数据层 (CloudBase NoSQL)        │
+│        ★ 云函数网关层 (familyOperation)        │
+│  13 个 action，基于 OPENID 服务端鉴权            │
+│  - createFamily / joinFamily / leaveFamily   │
+│  - removeMember / updateMemberRole           │
+│  - transferAdmin / dissolveFamily            │
+│  - createBaby / deleteBaby / clearBabyData   │
+│  - refreshInviteCode / validateInviteCode    │
+│  - getFamilyByUserId                         │
+│  所有跨用户写操作经此层 + admin SDK 绕过规则      │
+├────────────────────────────────────────────┤
+│         数据层 (CloudBase NoSQL)              │
 │  users / families / babies / records /        │
 │  vaccine_records / milestone_records          │
-│  - 安全规则基于 _openid 隔离                   │
-│  - 仅 1 个云函数 (getOpenId)                  │
+│  - 客户端读：直连 + 查询附加 familyId            │
+│  - 跨用户写：通过 familyOperation 云函数         │
+│  - 自有写：匹配 _openid 或 doc._openid         │
+│  - 6 个集合均配置 PRIVATE / CUSTOM 安全规则      │
 └────────────────────────────────────────────┘
 ```
+
+**数据流摘要**：
+- **读路径**：Page → Service → `db.collection().where({ babyId, familyId }).get()` → 安全规则 `get('database.families.' + doc.familyId).memberOpenids` 校验 → 返回数据
+- **跨用户写路径**：Page → Service → `wx.cloud.callFunction('familyOperation', { action, params })` → 云函数 `getWXContext().OPENID` 鉴权 → admin SDK 写入
+- **自有写路径**：Page → Service → 直连 `db.collection().add/update` → 安全规则 `doc._openid == auth.openid` 校验
 
 ---
 
@@ -215,8 +238,35 @@ App.onLaunch()
 - 排便类型兼容新旧字段名
 - 时间戳解析支持 6 种格式
 
-### 6.5 安全模型
-小程序端直接操作数据库，通过云开发安全规则基于 `_openid` 隔离数据权限。仅有 1 个云函数用于获取 openid。
+### 6.5 安全模型（v4.2+）
+
+采用 **云函数网关 + 安全规则交叉校验** 双层防护架构：
+
+#### 第一层：安全规则（6 个集合）
+
+| 集合 | aclTag | 规则要点 |
+|------|--------|----------|
+| `users` | `PRIVATE` | 仅匹配自己 `_openid`，跨用户写必经云函数 |
+| `families` | `CUSTOM` | 读：`auth.openid in doc.memberOpenids`；写：全关闭（必经云函数） |
+| `babies` | `CUSTOM` | 读：`auth.openid in get('database.families.' + doc.familyId).memberOpenids`；update：仅创建者 |
+| `records` | `CUSTOM` | 同 `babies`；update/delete：创建者（`doc._openid == auth.openid`） |
+| `vaccine_records` | `CUSTOM` | 同 `records` |
+| `milestone_records` | `CUSTOM` | 同 `records` |
+
+#### 第二层：云函数网关（`familyOperation`，13 个 action）
+
+- 服务端通过 `cloud.getWXContext().OPENID` 获取调用者身份，**不可伪造**
+- admin SDK 绕过安全规则，执行跨用户写入（push/pull members、update users.familyRole 等）
+- 统一返回契约：`{ success: boolean, data?: any, error?: { code, message } }`
+
+#### 关键数据字段（v4.2 新增）
+
+- `families.memberOpenids: string[]` — 成员 openid 数组，安全规则校验核心字段
+- `records/vaccine_records/milestone_records.familyId: string` — 租户隔离字段，安全规则 `get()` 交叉查 families 用
+
+#### 客户端必须遵守
+
+**所有查询必须在 `where` 条件中附加 `familyId`**，否则安全规则无法执行 `get()` 校验，查询会被拒绝。详见 `coding-conventions.md` §8 数据库操作约束。
 
 ---
 
@@ -235,6 +285,7 @@ App.onLaunch()
 | 延迟执行 | `setTimeout` | 彩蛋检测 500ms、缓存清理 5s |
 | 懒加载 | `"lazyCodeLoading": "requiredComponents"` | app.json 全局配置 |
 | 分包预加载 | `preloadRule` | 首页→Growth、发现→全部 |
+| 跨用户写走云函数 | 通过 `familyOperation` 云函数 | 加一跳 200-500ms，但频率极低（家庭成员/宝宝管理类操作） |
 
 ---
 
