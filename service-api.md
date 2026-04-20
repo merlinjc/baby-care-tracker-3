@@ -1,26 +1,30 @@
 # Baby Care Tracker 服务层 API 文档
 
-> **版本**: v4.1 | **更新日期**: 2026-04-15
+> **版本**: v4.2.2 | **更新日期**: 2026-04-20
 
 ---
 
 ## 服务总览
 
-所有服务均采用**单例模式**，通过 `XxxService.getInstance()` 或 `new XxxService()` 获取实例。
+所有服务均采用**单例模式**，通过 `XxxService.getInstance()` 获取实例（闭包单例，`new` 与 `getInstance()` 行为等价，规范约定使用 `getInstance()`）。
 
-| 服务 | 文件大小 | 操作集合 | 缓存 |
-|------|---------|---------|------|
-| RecordService | 28KB | records | 15s 内存缓存 |
-| FamilyService | 17KB | families, users | 无 |
-| BabyService | 6KB | babies, families | 无 |
-| AuthService | 2.5KB | users | 无 |
-| SyncService | 9.4KB | records, families | 无 |
-| TodoService | 10KB | vaccine_records, milestone_records | 30s 内存缓存 |
-| TrendService | 21KB | 通过 RecordService | 30s 内存缓存 |
-| AIService | 5KB | 无 | 无 |
-| QuotaService | 2.6KB | 无(localStorage) | 按日重置 |
-| ReportDataHelper | 15KB | 无（纯计算） | 无 |
-| ShareCanvasService | 44KB | 无（Canvas 绘制） | 图片缓存 |
+| 服务 | 文件大小 | 操作集合 | 缓存 | 走云函数 |
+|------|---------|---------|------|---------|
+| RecordService | 28KB | records | 15s 内存缓存 | N（直连，CRUD 受 `doc._openid` 规则保护） |
+| FamilyService | 17KB | families, users | 无 | **Y（10/13 方法经 `familyOperation`）** |
+| BabyService | 6KB | babies, families | 无 | **Y（createBaby / deleteBaby）** |
+| AuthService | 2.5KB | users | 无 | N（`users` ACL=PRIVATE，注入 `_openid`） |
+| SyncService | 9.4KB | records, families | 无 | N（仅同步离线队列） |
+| TodoService | 10KB | vaccine_records, milestone_records | 30s 内存缓存 | N |
+| TrendService | 21KB | 通过 RecordService | 30s 内存缓存 | N |
+| AIService | 5KB | 无 | 无 | N（wx.cloud.extend.AI 调用混元） |
+| QuotaService | 2.6KB | 无(localStorage) | 按日重置 | N |
+| ReportDataHelper | 15KB | 无（纯计算） | 无 | N |
+| ShareCanvasService | 44KB | 无（Canvas 绘制） | 图片缓存 | N |
+
+**方法标签约定**：
+- `[cloud]` — 走 `familyOperation` 云函数（跨用户写操作）
+- `[direct]` — 客户端直连数据库（读操作 / 自有写操作）
 
 ---
 
@@ -56,24 +60,85 @@
 
 ## FamilyService
 
-| 方法 | 返回 | 说明 |
-|------|------|------|
-| `createFamily(options)` | `Promise<Family>` | 创建家庭（自动生成邀请码） |
-| `joinByInviteCode(code, memberInfo)` | `Promise<Object>` | 通过邀请码加入 |
-| `getFamilyByUserId(userId)` | `Promise<Family\|null>` | 通过成员查找家庭 |
-| `getFamilyDetail(familyId)` | `Promise<Family\|null>` | 获取家庭详情（不存在返回 null） |
-| `refreshInviteCode(familyId, userId)` | `Promise<string>` | 刷新邀请码（仅 admin） |
-| `removeMember(familyId, userId, targetId)` | `Promise<void>` | 移除成员（仅 admin） |
-| `leaveFamily(familyId, userId)` | `Promise<Object>` | 退出家庭（含管理员转让逻辑） |
-| `transferAdmin(familyId, currentId, newId)` | `Promise<Object>` | 转让管理员 |
-| `updateMemberRole(...)` | `Promise<void>` | 更新成员权限（v4.1: 乐观锁重试 + users.familyRole 同步） |
-| `dissolveFamily(familyId, userId)` | `Promise<void>` | 解散家庭（v4.1: 批量清除所有成员 familyId/familyRole） |
+v4.2 起，跨用户写操作统一经 `familyOperation` 云函数。客户端方法签名保持不变（适配器模式），内部切换为 `callFunction`。
 
-> **v4.1 FamilyService 变更说明**：
-> - `joinByInviteCode` 加入前检查旧家庭，唯一管理员抛错，非唯一管理员自动移除
-> - `dissolveFamily` 删除文档后逐个清除成员 `users.familyId/familyRole`（失败不阻断）
-> - `updateMemberRole` 增加乐观锁重试（`stats.updated === 0` 时最多重试 2 次），完成后同步 `users.familyRole`
-> - `_clearUserFamilyInfo` / `removeMember` 修正为 `doc(userId).update()`
+### 方法表
+
+| 方法 | 路径 | 返回 | 说明 |
+|------|-----|------|------|
+| `createFamily(options)` | `[cloud]` | `Promise<Family>` | 云函数 `createFamily` action，自动生成 6 位邀请码 + 初始化 `memberOpenids` |
+| `joinByInviteCode(code, memberInfo)` | `[cloud]` | `Promise<Object>` | 云函数 `joinFamily` action，含 60s 内最多 5 次限流 + 唯一管理员校验 |
+| `joinFamily(code, userId)` | `[cloud]` | `Promise<Object>` | 兼容旧方法，内部转调 `joinByInviteCode` |
+| `getFamilyByUserId(userId)` | `[cloud]` | `Promise<Family\|null>` | 云函数 `getFamilyByUserId`（openid 自动识别，userId 参数已忽略） |
+| `getFamilyDetail(familyId)` | `[direct]` | `Promise<Family\|null>` | 客户端直连；不存在或权限拒绝时返回 `null`（不抛错） |
+| `getFamilyMembers(familyId)` | `[direct]` | `Promise<Array>` | 内部调 `getFamilyDetail`，优先读 `memberDetails` |
+| `checkMembership(userId, familyId)` | `[direct]` | `Promise<Object>` | 内部调 `getFamilyDetail` 判定成员身份 |
+| `refreshInviteCode(familyId, userId)` | `[cloud]` | `Promise<string>` | 云函数 `refreshInviteCode` action，仅 admin 可调用 |
+| `removeMember(familyId, userId, targetId)` | `[cloud]` | `Promise<void>` | 云函数 `removeMember` action |
+| `leaveFamily(familyId, userId)` | `[cloud]` ⚠️ | `Promise<Object>` | **特殊契约**，详见下方 |
+| `transferAdmin(familyId, currentId, newId)` | `[cloud]` | `Promise<Object>` | 云函数 `transferAdmin` action |
+| `updateMemberRole(familyId, userId, targetId, role)` | `[cloud]` | `Promise<void>` | 云函数 `updateMemberRole` action（含乐观锁重试 2 次） |
+| `dissolveFamily(familyId, userId)` | `[cloud]` | `Promise<void>` | 云函数 `dissolveFamily` action，批量清除所有成员 familyId |
+| `validateInviteCode(inviteCode)` | `[cloud]` | `Promise<Object>` | 云函数 `validateInviteCode` action |
+
+### `_callFamilyOperation` 私有适配器
+
+所有 `[cloud]` 方法（除 `leaveFamily` 特殊契约外）经此方法封装：
+
+```javascript
+async _callFamilyOperation(action, params = {}) {
+  const res = await wx.cloud.callFunction({
+    name: 'familyOperation',
+    data: { action, params }
+  });
+  const result = res.result;  // 云函数返回 { success, data?, error? }
+  if (!result.success) {
+    throw new Error(result.error?.message || `${action} 失败`);
+  }
+  return result.data;  // 成功时直接返回业务数据
+}
+```
+
+**云函数返回值契约**：`{ success: boolean, data?: any, error?: { code: string, message: string } }`
+- `success=true` 时 `data` 为业务数据
+- `success=false` 时 `error.code` 为业务错误码（如 `USER_NOT_FOUND` / `FAMILY_NOT_FOUND` / `PERMISSION_DENIED` / `RATE_LIMITED` / `INVALID_CODE` / `CODE_EXPIRED` / `ALREADY_MEMBER` / `SOLE_ADMIN` / `INTERNAL_ERROR`），`error.message` 为中文提示
+
+### ⚠️ `leaveFamily` 特殊契约
+
+**不**走通用 `_callFamilyOperation`，因为云函数在"唯一管理员需转让"场景下返回 `success: false` 但 `data` 仍有业务信息：
+
+```javascript
+// 典型返回场景
+{ success: true,  data: { message: '已退出家庭' } }                    // 正常退出
+{ success: true,  data: { familyDissolved: true, message: '家庭已解散' } }  // 最后一人
+{ success: true,  data: { familyNotFound: true, ... } }                // 家庭不存在（幂等）
+{ success: true,  data: { notMember: true, ... } }                     // 本就不是成员（幂等）
+{ success: false, data: { needTransfer: true, otherMembers: [...] } }  // ★ 唯一管理员需先转让
+```
+
+客户端实现中 `success=false && data.needTransfer=true` **不抛错**，而是返回 `{ success: false, needTransfer: true, otherMembers, message }`，由调用方决策后续流程（弹窗让用户选转让对象）。
+
+> **遗留问题**：此契约在 v4.3.0 MINOR 版本中将统一为 `{ success: true, data: { status: 'need_transfer' | 'dissolved' | 'ok', ... } }` 纯状态机模式。
+
+---
+
+## BabyService
+
+v4.2 起，`createBaby` / `deleteBaby` 涉及 `families.babies` 数组的跨用户写操作，迁移到云函数。
+
+### 方法表
+
+| 方法 | 路径 | 返回 | 说明 |
+|------|-----|------|------|
+| `createBaby(familyId, name, gender, birthDate, avatar)` | `[cloud]` | `Promise<Baby>` | 云函数 `createBaby` action；校验操作者是家庭成员；admin SDK 写 `families.babies` |
+| `deleteBaby(babyId, familyId)` | `[cloud]` | `Promise<Object>` | 云函数 `deleteBaby` action；admin SDK pull `families.babies` + 删除 babies 文档 |
+| `getBabiesByFamilyId(familyId)` | `[direct]` | `Promise<Array>` | 直连，安全规则 `get()` 校验通过；双路径（where babyId + families.babies 批量 in） |
+| `getBabyById(babyId)` | `[direct]` | `Promise<Baby>` | 直连；doc 级查询，安全规则对 families 交叉校验 |
+| `updateBaby(babyId, data)` | `[direct]` | `Promise<void>` | 直连；受 `doc._openid == auth.openid` 保护（仅创建者可改） |
+| `uploadAvatar(babyId, filePath)` | `[direct]` | `Promise<string>` | 上传云存储 + 调 `updateBaby` 更新 avatar 字段 |
+| `calculateAgeInMonths(birthDate)` | `[direct]` | `number` | 纯计算 |
+| `calculateAgeInDays(birthDate)` | `[direct]` | `number` | 纯计算 |
+| `formatAge(birthDate)` | `[direct]` | `string` | 纯计算 |
 
 ---
 
