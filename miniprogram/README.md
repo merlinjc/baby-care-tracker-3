@@ -496,7 +496,8 @@ wx.cloud.init({
 ```javascript
 // services/ai.js
 this.ai = wx.cloud.extend.AI;
-this.model = this.ai.createModel('hunyuan-exp');
+// createModel 接收 provider 名；具体模型名在调用时指定
+this.model = this.ai.createModel('hunyuan');
 // 实际调用使用: 'hunyuan-2.0-instruct-20251111'
 ```
 
