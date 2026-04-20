@@ -45,7 +45,12 @@ Page({
 
   async onLoad() {
     this._lastShowTime = 0;
-    
+
+    // [v4.3.0 hotfix] 服务实例必须在任何 await 之前初始化
+    // 小程序生命周期：onLoad 的 await 等待期间 onShow 会先触发，
+    // 若 familyService 放在 await 之后赋值，onShow 的 loadFamilyInfo 会拿到 undefined
+    this.familyService = FamilyService.getInstance();
+
     // [v4.1] 登录守卫
     const app = getApp();
     const check = await app.ensureUserReady();
@@ -59,12 +64,14 @@ Page({
       // ★ [v4.1 FR-6] ensureUserReady 已保证 _id 存在，不再 fallback openid
       currentUserId: userInfo?._id || ''
     });
-    this.familyService = FamilyService.getInstance();
     this.loadFamilyInfo();
   },
 
   onShow() {
     this._applyTheme();
+    // [v4.3.0 hotfix] 防御：若 onShow 早于 onLoad 完成触发（async 生命周期竞态），跳过本次刷新
+    // onLoad 内部尾部已经会调用 loadFamilyInfo，数据一定会被加载
+    if (!this.familyService) return;
     // 30s 节流：避免频繁切换重复加载
     const now = Date.now();
     if (this._lastShowTime && now - this._lastShowTime < 30000) return;
