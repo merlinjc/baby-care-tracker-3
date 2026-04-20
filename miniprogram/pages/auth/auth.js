@@ -659,7 +659,8 @@ Page({
         if (hasExistingFamily) {
           try {
             const leaveResult = await familyService.leaveFamily(userInfo.familyId, userInfo._id);
-            if (!leaveResult.success && leaveResult.needTransfer) {
+            // [v4.3.0 FR-5] 使用 status 状态机判断（legacy needTransfer 同步兼容）
+            if (leaveResult.status === 'need_transfer') {
               // 唯一管理员不能直接退出
               wx.showModal({
                 title: '无法加入',

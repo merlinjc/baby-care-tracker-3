@@ -242,8 +242,37 @@ Page({
   /**
    * 退出使用
    * 删除用户数据，从家庭组中移除
+   *
+   * [v4.3.0 hotfix] 若用户是家庭唯一管理员 + 家庭有其他成员：
+   * - 必须阻断注销流程，引导去家庭管理页转让
+   * - 否则会导致"幽灵家庭"：用户已删除但 leaveFamily 因 need_transfer 被服务端拒绝
    */
   async logout() {
+    // [v4.3.0 hotfix] 前置检查：唯一管理员禁止注销
+    const userInfoPre = StorageUtil.getUserInfo();
+    const familyInfoPre = StorageUtil.getFamilyInfo();
+    if (userInfoPre && userInfoPre._id && familyInfoPre && familyInfoPre._id) {
+      const PermissionUtil = require('../../utils/permission');
+      const isAdmin = PermissionUtil.isAdmin(userInfoPre._id, familyInfoPre);
+      const hasOtherAdmin = PermissionUtil.hasOtherAdmin(familyInfoPre, userInfoPre._id);
+      const otherMembers = (familyInfoPre.members || []).filter(id => id !== userInfoPre._id);
+      if (isAdmin && !hasOtherAdmin && otherMembers.length > 0) {
+        wx.showModal({
+          title: '无法注销',
+          content: '您是当前家庭的唯一管理员，请先在「家庭管理」中转让管理员权限或退出家庭，再注销账号。',
+          confirmText: '去家庭管理',
+          cancelText: '取消',
+          confirmColor: ThemeManager.getConfirmColor('primary'),
+          success: (res) => {
+            if (res.confirm) {
+              wx.navigateTo({ url: '/packageSocial/pages/family/family' });
+            }
+          }
+        });
+        return;
+      }
+    }
+
     const res = await wx.showModal({
       title: '退出使用',
       content: '退出使用将删除您的所有数据，并从家庭组中移除。下次使用需要重新注册。确定退出吗？',
@@ -264,7 +293,17 @@ Page({
       if (familyInfo && userInfo && userInfo.familyId) {
         try {
           const familyService = FamilyService.getInstance();
-          await familyService.leaveFamily(familyInfo._id, userInfo._id);
+          const leaveResult = await familyService.leaveFamily(familyInfo._id, userInfo._id);
+          // [v4.3.0 hotfix] 兜底：若前置检查遗漏，服务端返回 need_transfer 时中止注销
+          if (leaveResult.status === 'need_transfer') {
+            wx.hideLoading();
+            wx.showModal({
+              title: '无法注销',
+              content: '检测到您是家庭唯一管理员，请先转让管理员权限再注销账号。',
+              showCancel: false
+            });
+            return;
+          }
         } catch (familyError) {
           // 家庭退出失败（如家庭已不存在），继续清理本地数据
           console.warn('退出家庭时出错，继续清理本地数据:', familyError.message);
