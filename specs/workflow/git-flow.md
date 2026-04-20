@@ -243,6 +243,7 @@ git push origin --delete hotfix/sleep-timer-crash
 | v4.2.1 | Milo | 2026-04-17 | `v4.2.1` | E2E 安全测试套件（163 条用例，15 模块，100% 通过） |
 | v4.2.2 | Milo | 2026-04-20 | `v4.2.2` | 文档对齐 v4.2 实际架构 + 4 项低风险代码热修复 + v4.2 spec 状态回溯 |
 | v4.3.0 | Milo | 2026-04-20 | `v4.3.0` | 稳定性加固（FamilyContext/PermissionGuard/离线队列完整性）+ 云函数模块化（actions/+lib/）+ 可观测性（operation_logs/rate_limits/每日巡检） |
+| v4.3.1 | Milo | 2026-04-20 | `v4.3.1` | v4.3.0 全量 review 修复（22 项 FR）：createBaby 写 _openid 修生产 blocker、权限收紧 isAdmin 修绕过、deleteBaby 级联删、updatedAtTs 双时间戳补齐 |
 
 ---
 

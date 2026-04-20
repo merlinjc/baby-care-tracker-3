@@ -16,6 +16,81 @@
 
 ---
 
+## [v4.3.1] Milo — 2026-04-20
+
+### Changed
+
+**云函数权限模型对齐（FR-2 / FR-9）**：
+- `cloudfunctions/familyOperation/actions/createBaby.js`：权限收紧为 `isAdmin`（原 `isMember` 允许 viewer 创建宝宝，违反权限矩阵）
+- `cloudfunctions/familyOperation/actions/deleteBaby.js`：权限收紧为 `isAdmin`；同时大改为级联删除 records / vaccine_records / milestone_records，支持 cursor 断点续传
+- `cloudfunctions/familyOperation/actions/dissolveFamily.js`：判定从 `creatorId === userId` 改为 `isAdmin`（兼容 transferAdmin 后的新 admin 解散家庭）
+- `cloudfunctions/familyOperation/actions/updateMemberRole.js`：判定改 `isAdmin`；新增 role 白名单（admin/editor/viewer）、SOLE_ADMIN 守卫（唯一 admin 不能自降级）、单一 admin 约束（转让 admin 时原 admin 自动降级为 editor + 同步 creatorId）
+
+**客户端权限纵深防御（FR-6 / FR-12 / FR-13 / FR-14 / FR-15）**：
+- `miniprogram/utils/permission.js`：`getUserRole` 默认值从 `editor` 改为 `viewer`（最小权限原则），消除被踢缓存过期窗口内的脏写风险
+- `miniprogram/packageGrowth/pages/vaccine/vaccine.js` / `milestone/milestone.js`：add / update / delete 全部接入 `PermissionGuard` 前置校验；familyId 统一走 `FamilyContext.resolveForBaby(baby)`；补齐双时间戳
+- `miniprogram/pages/record/record.js`：`batchDelete` 增加 `PermissionGuard.checkCanDelete(record)` 归属预分桶，避免 editor 批量删他人记录时 UI 闪烁丢记录
+- `miniprogram/packageSocial/pages/family/family.js`：`transferAndLeave` 分状态处理 `leaveFamily` 返回（`ok`/`dissolved` 清本地，`need_transfer` 提示不清，其他 toast）
+- `miniprogram/pages/auth/auth.js`：`_handleInviteCodeForExistingUser` 判定迁到 `status === 'need_transfer'` 状态机
+
+**云函数数据完整性（FR-1 / FR-5 / FR-7 / FR-10 / FR-11）**：
+- `cloudfunctions/familyOperation/actions/createBaby.js`：显式写入 `_openid = ctx.openid`，修复客户端直连 `updateBaby` 被安全规则 `doc._openid == auth.openid` 拒绝的生产 blocker
+- `cloudfunctions/familyOperation/actions/createFamily.js`：新增防重复校验，用户已在有效家庭中返回 `ALREADY_IN_FAMILY`（幽灵引用允许继续，避免双宿幽灵成员）
+- `cloudfunctions/familyOperation/actions/removeMember.js`：`targetOpenid` 为空时跳过 `memberOpenids` 更新并写告警日志（替代 v4.3.0 `_.pull('')` 的破坏性 no-op），由 `patrolMemberOpenids` 后续修复
+- `cloudfunctions/familyOperation/actions/clearBabyData.js`：3 个 phase 的 `where` 查询补 `familyId`
+- `miniprogram/services/record.js` `updateRecord` / `miniprogram/services/sync.js` `executeOperation(update)`：补齐 `updatedAtTs` 双时间戳，修复 `mergeRecords` 按 `updatedAtTs` 比较失效的完整闭环
+
+**可观测性（FR-18）**：
+- `cloudfunctions/patrolMemberOpenids/index.js`：新增阶段 2 反向漂移检查（遍历 users.familyId 非空用户校验是否仍在 families.members 中）；cursor 结构升级为 `{ stage, skip }` 两阶段断点续传；反向漂移仅告警不自动修
+
+**客户端分批操作（FR-4）**：
+- `miniprogram/packageSocial/pages/settings/settings.js` `clearAllCloudData`：循环处理云函数 `in_progress` 状态，携带 cursor 续传直至 `succeeded`；loading 提示实时更新进度；超过迭代上限时保留 cursor 到本地
+
+**文档对齐（FR-17）**：
+- `data-model.md` §2.7 `operation_logs.status` 枚举对齐代码实现（`started`/`succeeded`/`partial`/`failed`/`in_progress`）
+- `data-model.md` §2.8 `rate_limits.windowStart` 类型修正为 number（实际代码）；移除误传的 `windowStartTs`
+- `service-api.md` BabyService.createBaby/deleteBaby 契约说明 + FamilyService 错误码补充 `ALREADY_IN_FAMILY` / `INVALID_ROLE`
+- `coding-conventions.md` §9.4 新增"默认角色与最小权限原则"；§9.5 新增"creatorId vs isAdmin 的选择"
+- `architecture.md` §6.5 权限纵深防御升级为三道闸模型；巡检任务补充阶段 2 说明
+
+**其他（FR-16 / FR-19）**：
+- `miniprogram/app.js` `initUser`：统一使用 `AuthService.getInstance()`，消除 v4.2.2 FR-9 残留的 `new AuthService()`
+- `miniprogram/services/record.js` `createRecord` catch 分支 `offlineRecord` 补齐 `createdBy` 对象（与 try 分支对齐）
+
+### Fixed
+
+- 【生产 blocker】所有通过 `createBaby` 创建的宝宝无法被创建者后续 `updateBaby`（因 admin SDK 未写 `_openid`，安全规则 `doc._openid == auth.openid` 失败）
+- 【权限绕过】viewer 能通过直接调用 `familyOperation.createBaby` / `deleteBaby` 绕过 UI 限制增删宝宝
+- 【数据一致性】`updateRecord` 写云端/离线同步两个路径都缺 `updatedAtTs`，导致 v4.3.0 FR-6 `mergeRecords` 按 `updatedAtTs` 比较失效，"离线 update 未同步时被云端旧版本覆盖"的修复实际没生效
+- 【幽灵家庭】`removeMember` 目标用户文档已删除时 `_.pull('')` no-op，被移除成员 openid 残留在 `memberOpenids` 中仍能读取家庭数据
+- 【批量删除闪烁】`record.js batchDelete` editor 选中他人记录时，本地缓存先删 → 云端拒绝 → UI 短暂丢记录
+- 【权限提升漏洞】`permission.getUserRole` 默认 editor，刚被踢缓存窗口内允许写操作产生脏数据
+- 【级联数据缺失】`deleteBaby` 不删关联 records/vaccine/milestone，宝宝删后留孤儿数据
+- 【权限判定错位】`dissolveFamily` / `updateMemberRole` 用 `creatorId === userId`，transferAdmin 后新 admin 无法管理/解散
+- 【清除数据假完成】`settings.clearAllCloudData` 不处理 `in_progress` 状态，大数据量时只删第一批就提示成功
+
+### Security
+
+- `createBaby` admin SDK 写入 `_openid` 显式等于调用者 openid（而非空），使客户端安全规则 `doc._openid == auth.openid` 能正确放行创建者的后续修改，不依赖管理员介入
+- 云函数统一使用 `isAdmin(userId, family)` 判定（兼容 `memberDetails[].role === 'admin'` + `creatorId` 双路径），取代零散的 `creatorId === userId` 硬比较
+- 客户端默认角色从 `editor` 降为 `viewer`，遵循最小权限原则
+
+### Migration Notes
+
+**存量数据影响**：
+- v4.3.1 之前创建的 babies 文档缺 `_openid` 字段。创建者依然**无法通过客户端 `updateBaby`** 修改这些宝宝 —— 需通过 admin SDK 修复。建议后续开发一次性 `migrateBabyOpenids` 云函数为存量 babies 补 `_openid`（列入 v4.3.2 backlog）
+- 老数据若 `users.familyId` 对应的 family 已不存在，`createFamily` 会视为幽灵引用允许创建新家庭（自动修复）
+
+**部署顺序**（强制）：
+1. 云函数部署：`familyOperation` + `patrolMemberOpenids`（用户需重新登录 CloudBase MCP 后执行）
+2. 客户端小程序发布（依赖云函数已部署）
+
+**调用方无需修改**：
+- BabyService.createBaby / deleteBaby 签名不变
+- FamilyService 错误码表扩展（新码 `ALREADY_IN_FAMILY` / `INVALID_ROLE`），调用方按需增加 error.code 分支
+
+---
+
 ## [v4.3.0] Milo — 2026-04-20
 
 ### Added
