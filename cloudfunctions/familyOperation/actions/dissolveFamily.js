@@ -3,9 +3,13 @@
  * v4.3.0 改动：
  * - 接入 OperationLogger 补偿日志（FR-9）
  * - 时间戳改用 Date（FR-13）
+ * v4.3.1 改动（FR-9）：
+ * - 权限判定改 isAdmin，兼容 transferAdmin 后的新 admin 解散家庭
+ *   （原 creatorId === userId 不兼容"旧管理员转让后新管理员解散"场景）
  */
 const errors = require('../errors');
 const { getFamily } = require('../lib/family');
+const { isAdmin } = require('../lib/auth');
 
 module.exports = async (ctx, params) => {
   const { db, _, userId, logger } = ctx;
@@ -14,8 +18,9 @@ module.exports = async (ctx, params) => {
   const family = await getFamily(db, familyId);
   if (!family) return errors.FAMILY_NOT_FOUND();
 
-  if (family.creatorId !== userId) {
-    return errors.PERMISSION_DENIED('只有创建者才能解散家庭');
+  // [v4.3.1 FR-9] 改为 isAdmin（兼容多 admin 场景与 transferAdmin 后的新 admin）
+  if (!isAdmin(userId, family)) {
+    return errors.PERMISSION_DENIED('只有管理员才能解散家庭');
   }
 
   // [v4.3.0 FR-9] 启动补偿日志

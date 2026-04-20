@@ -8,6 +8,7 @@
  *
  * [v4.3.0 FR-9] 接入 OperationLogger 补偿日志
  * [v4.3.0 FR-13] 时间戳改用 Date
+ * [v4.3.1 FR-11] 所有查询附加 familyId（安全规则约束 + 防止跨家庭误删）
  */
 const errors = require('../errors');
 const { getFamily } = require('../lib/family');
@@ -48,8 +49,9 @@ module.exports = async (ctx, params) => {
   // ===== Phase 1: records =====
   if (state.phase === 'records') {
     while (budget()) {
+      // [v4.3.1 FR-11] 查询附 familyId
       const batch = await db.collection('records')
-        .where({ babyId })
+        .where({ babyId, familyId })
         .limit(CHUNK_SIZE)
         .get();
       if (batch.data.length === 0) {
@@ -72,7 +74,7 @@ module.exports = async (ctx, params) => {
   if (state.phase === 'vaccine') {
     while (budget()) {
       const batch = await db.collection('vaccine_records')
-        .where({ babyId })
+        .where({ babyId, familyId })
         .limit(CHUNK_SIZE)
         .get();
       if (batch.data.length === 0) {
@@ -95,7 +97,7 @@ module.exports = async (ctx, params) => {
   if (state.phase === 'milestone') {
     while (budget()) {
       const batch = await db.collection('milestone_records')
-        .where({ babyId })
+        .where({ babyId, familyId })
         .limit(CHUNK_SIZE)
         .get();
       if (batch.data.length === 0) {
