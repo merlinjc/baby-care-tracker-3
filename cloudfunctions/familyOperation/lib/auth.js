@@ -9,6 +9,8 @@
  * @returns {Promise<Object|null>} 用户文档或 null
  */
 async function getUserFromOpenid(db, openid) {
+  // 防御：openid 为空（如通过 MCP/后台直接调用云函数）→ 直接返回 null
+  if (!openid) return null;
   const res = await db.collection('users')
     .where({ _openid: openid })
     .limit(1)
