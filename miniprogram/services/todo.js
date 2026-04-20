@@ -8,6 +8,7 @@
 
 const { calculateAgeMonths } = require('../utils/date');
 const { fetchAll } = require('../utils/db-helper');
+const FamilyContext = require('../utils/family-context');
 
 // 单例实例
 let instance = null;
@@ -138,7 +139,7 @@ class TodoService {
   async _computeVaccineStats(baby, ageMonths) {
     // ★ [v4.2 FR-10] 查询附加 familyId，匹配安全规则
     const vaccineRecords = await fetchAll(
-      this.db.collection('vaccine_records').where({ babyId: baby._id, familyId: baby.familyId || '' })
+      this.db.collection('vaccine_records').where({ babyId: baby._id, familyId: FamilyContext.resolveForBaby(baby) })
     );
     
     const vaccinePlans = this._getVaccinePlans(baby.birthDate);
@@ -199,7 +200,7 @@ class TodoService {
   async _computeMilestoneStats(baby, ageMonths) {
     // ★ [v4.2 FR-10] 查询附加 familyId，匹配安全规则
     const milestoneRecords = await fetchAll(
-      this.db.collection('milestone_records').where({ babyId: baby._id, familyId: baby.familyId || '' })
+      this.db.collection('milestone_records').where({ babyId: baby._id, familyId: FamilyContext.resolveForBaby(baby) })
     );
     
     const milestoneDefs = this._getMilestoneDefinitions();

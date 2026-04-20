@@ -8,6 +8,7 @@ const RecordService = require('../../../services/record');
 const { formatDate, calculateAgeMonths } = require('../../../utils/date');
 const ThemeManager = require('../../../utils/theme');
 const shareBehavior = require('../../../behaviors/share-behavior');
+const FamilyContext = require('../../../utils/family-context');
 const {
   WHO_WEIGHT_BOY, WHO_WEIGHT_GIRL,
   WHO_HEIGHT_BOY, WHO_HEIGHT_GIRL,
@@ -186,7 +187,7 @@ Page({
       const records = await db.collection('records')
         .where({
           babyId: baby._id,
-          familyId: baby.familyId || '',
+          familyId: FamilyContext.resolveForBaby(baby),
           recordType: 'growth'
         })
         .orderBy('startTime', 'desc')

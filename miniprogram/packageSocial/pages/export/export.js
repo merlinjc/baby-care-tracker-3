@@ -6,6 +6,7 @@
 const StorageUtil = require('../../../utils/storage');
 const ThemeManager = require('../../../utils/theme');
 const shareBehavior = require('../../../behaviors/share-behavior');
+const FamilyContext = require('../../../utils/family-context');
 
 Page({
   ...shareBehavior,
@@ -63,7 +64,7 @@ Page({
       const countRes = await db.collection('records')
         .where({
           babyId: baby._id,
-          familyId: baby.familyId || ''
+          familyId: FamilyContext.resolveForBaby(baby)
         })
         .count();
 
@@ -140,7 +141,7 @@ Page({
         batch = await db.collection('records')
           .where({
             babyId: baby._id,
-            familyId: baby.familyId || '',
+            familyId: FamilyContext.resolveForBaby(baby),
             recordType: db.command.in(selectedTypes),
             startTime: dateFilter
           })
