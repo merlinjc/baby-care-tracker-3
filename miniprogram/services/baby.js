@@ -140,32 +140,41 @@ class BabyService {
   /**
    * 更新宝宝信息
    *
-   * [v4.3.1 契约] 受安全规则 doc._openid == auth.openid 保护，仅创建者可改。
-   * 约束：
-   * - v4.3.1 后创建的宝宝：createBaby 写入 _openid = 创建者 openid，创建者可正常调用此方法
-   * - v4.3.1 前的存量宝宝：_openid 缺失或不等于当前 openid，此方法会抛 -502003
-   *   → 需要通过后台脚本补齐 _openid，或后续 v4.3.2 新增 updateBaby 云函数化支持非 creator
+   * [v4.3.1 Hotfix3] 改走云函数 `familyOperation/updateBaby`：
+   * - 原客户端直连受 `doc._openid == auth.openid` 限制，非创建者 + 存量宝宝均失败
+   * - 云函数 admin SDK 绕过规则，业务层校验：
+   *   * 必须是家庭成员
+   *   * 必须 admin 或 editor（viewer 不能改）
+   *   * baby.familyId === user.familyId
+   * - 允许字段白名单：name / gender / birthDate / avatar
    *
    * @param {string} babyId 宝宝 ID
-   * @param {Object} data 更新数据
+   * @param {Object} data 更新数据（name / gender / birthDate / avatar）
    */
   async updateBaby(babyId, data) {
     try {
-      await this.babyCollection.doc(babyId).update({
+      // birthDate 如为 Date 对象，序列化为 ISO 字符串（云函数会归一为 Date）
+      const payload = { ...data };
+      if (payload.birthDate instanceof Date) {
+        payload.birthDate = payload.birthDate.toISOString();
+      }
+
+      const res = await wx.cloud.callFunction({
+        name: 'familyOperation',
         data: {
-          ...data,
-          updatedAt: this.db.serverDate()
+          action: 'updateBaby',
+          params: { babyId, data: payload }
         }
       });
+      const result = res.result;
+      if (!result.success) {
+        const err = new Error(result.error?.message || '更新宝宝信息失败');
+        err.code = result.error?.code || 'UNKNOWN';
+        throw err;
+      }
+      return result.data;
     } catch (error) {
       console.error('更新宝宝信息失败:', error);
-      // [v4.3.1 Hotfix] 权限错误友好提示
-      if (error.errCode === -502003 || (error.errMsg && error.errMsg.includes('permission denied'))) {
-        const friendlyError = new Error('仅创建者可修改（如需其他成员修改请联系管理员）');
-        friendlyError.code = 'PERMISSION_DENIED';
-        friendlyError.cause = error;
-        throw friendlyError;
-      }
       throw error;
     }
   }

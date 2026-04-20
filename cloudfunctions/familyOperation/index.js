@@ -38,7 +38,8 @@ const actions = {
   deleteBaby: require('./actions/deleteBaby'),
   clearBabyData: require('./actions/clearBabyData'),
   // v4.3.1 Hotfix：客户端直连受安全规则限制，改走云函数 admin SDK
-  getBabyById: require('./actions/getBabyById')
+  getBabyById: require('./actions/getBabyById'),
+  updateBaby: require('./actions/updateBaby')
 };
 
 exports.main = async (event, context) => {

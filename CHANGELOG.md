@@ -61,6 +61,7 @@
 
 - 【生产 blocker】所有通过 `createBaby` 创建的宝宝无法被创建者后续 `updateBaby`（因 admin SDK 未写 `_openid`，安全规则 `doc._openid == auth.openid` 失败）
 - 【运行时 crash，Hotfix】`baby-detail` 页访问时 `getBabyById` 报 -502003 —— 根因是 `babies.read` 规则要求 auth.openid 在 `families.memberOpenids` 中，当真实 memberOpenids 未同步时客户端直连必然失败。最终方案改走云函数 `familyOperation/getBabyById` action，由 admin SDK 读取后在业务层校验 `baby.familyId === user.familyId` + `isMember`
+- 【运行时 crash，Hotfix3】`updateBaby` 同样被 `doc._openid == auth.openid` 规则拒绝（存量宝宝 _openid 不是当前 openid / 非创建者成员）。新增 `familyOperation/updateBaby` action，admin SDK 绕过规则 + 业务层校验（同家庭 + 非 viewer + 字段白名单 name/gender/birthDate/avatar）。BabyService.updateBaby 改走云函数，`uploadAvatar` 连锁自动修复
 - 【运行时 crash，Hotfix】`baby-edit-popup.submit` 在父页加载失败时 `this.data.baby === null`，访问 `baby._id` 抛 TypeError — 新增 null 守卫 + observer 自动关闭空数据弹窗
 - 【警告，Hotfix】`baby-edit-popup` WXML 绑定了 `onTouchStart/Move/End` 但组件未引入 `swipe-close` behavior，正式接入 behavior 消除 warning
 - 【编译错误，Hotfix】`baby-edit-popup.wxss:303` 使用了组件 wxss 不允许的属性选择器 `.submit-btn[disabled]`，改为条件类 `.submit-btn.is-disabled`，WXML 通过 `{{loading ? 'is-disabled' : ''}}` 动态切换
