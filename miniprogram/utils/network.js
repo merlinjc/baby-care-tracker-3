@@ -112,7 +112,13 @@ class NetworkUtil {
   }
 }
 
-// 单例模式
-const networkUtil = new NetworkUtil();
+// 单例模式（v4.3.0 FR-2：与其他 util 单例模式统一）
+// 调用方：NetworkUtil.getInstance().checkOnline()
+let instance = null;
 
-module.exports = networkUtil;
+NetworkUtil.getInstance = function () {
+  if (!instance) instance = new NetworkUtil();
+  return instance;
+};
+
+module.exports = NetworkUtil;

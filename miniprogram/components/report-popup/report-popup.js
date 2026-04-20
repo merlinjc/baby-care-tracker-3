@@ -388,7 +388,7 @@ Component({
               .catch(() => ({ data: [] })),
             
             // 待办统计（含疫苗+里程碑）
-            require('../../services/todo').getTodoStats(baby)
+            require('../../services/todo').getInstance().getTodoStats(baby)
               .catch(() => null),
           ]);
         

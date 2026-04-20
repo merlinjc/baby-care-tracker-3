@@ -372,5 +372,6 @@ class TodoService {
   }
 }
 
-// 导出单例
-module.exports = new TodoService();
+// 导出类（v4.3.0 FR-2：与其他服务单例模式统一）
+// 调用方：TodoService.getInstance().xxx()
+module.exports = TodoService;

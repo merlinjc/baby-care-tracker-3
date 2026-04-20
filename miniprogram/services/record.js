@@ -17,8 +17,9 @@ class RecordService {
     
     this.db = wx.cloud.database();
     this.recordCollection = this.db.collection('records');
-    this.networkUtil = NetworkUtil;
-    this.deduplicationUtil = DeduplicationUtil;
+    // [v4.3.0 FR-2] 单例模式统一：改走 getInstance()
+    this.networkUtil = NetworkUtil.getInstance();
+    this.deduplicationUtil = DeduplicationUtil.getInstance();
     this._todayStatsCache = null; // getTodayStats 15s 缓存
     
     instance = this;

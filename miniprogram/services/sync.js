@@ -16,7 +16,8 @@ class SyncService {
     this.db = wx.cloud.database();
     this.watchers = {}; // 订阅器集合
     this.syncInProgress = false; // 同步进行中标记
-    this.networkUtil = NetworkUtil;
+    // [v4.3.0 FR-2] 单例模式统一：改走 getInstance()
+    this.networkUtil = NetworkUtil.getInstance();
     this.MAX_RETRY_COUNT = 3; // 最大重试次数
     
     // 监听网络状态变化
