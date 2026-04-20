@@ -59,7 +59,7 @@ Page({
       // ★ [v4.1 FR-6] ensureUserReady 已保证 _id 存在，不再 fallback openid
       currentUserId: userInfo?._id || ''
     });
-    this.familyService = new FamilyService();
+    this.familyService = FamilyService.getInstance();
     this.loadFamilyInfo();
   },
 
@@ -77,35 +77,28 @@ Page({
    */
   async loadFamilyInfo() {
     try {
-      const db = wx.cloud.database();
       let familyInfo = StorageUtil.getFamilyInfo();
-      
+
       if (!familyInfo || !familyInfo._id) {
         this.setData({ loading: false });
         return;
       }
 
-      // 从数据库获取最新的家庭信息
-      let familyRes;
-      try {
-        familyRes = await db.collection('families').doc(familyInfo._id).get();
-      } catch (docError) {
-        // 家庭文档不存在，清理本地数据
-        if (docError.errMsg && docError.errMsg.includes('cannot find document')) {
-          console.warn('家庭文档不存在，清理本地数据');
-          StorageUtil.remove('family_info');
-          this.setData({ 
-            familyInfo: null, 
-            members: [],
-            inviteCode: '',
-            loading: false 
-          });
-          return;
-        }
-        throw docError;
+      // ★ [v4.2.2 FR-8] 统一通过服务层获取（内部已处理 cannot find document 和权限拒绝降级）
+      const fresh = await this.familyService.getFamilyDetail(familyInfo._id);
+      if (!fresh) {
+        console.warn('家庭文档不存在或无权访问，清理本地数据');
+        StorageUtil.remove('family_info');
+        this.setData({
+          familyInfo: null,
+          members: [],
+          inviteCode: '',
+          loading: false
+        });
+        return;
       }
-      
-      familyInfo = familyRes.data;
+
+      familyInfo = fresh;
       const userId = this.data.currentUserId;
       
       // 获取当前用户角色
