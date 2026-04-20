@@ -668,6 +668,9 @@ class RecordService {
     }
     
     StorageUtil.set(key, records);
+
+    // [v4.3.0 FR-6] 新增/更新记录后立即失效今日统计缓存
+    this._todayStatsCache = null;
   }
 
   /**
@@ -816,32 +819,70 @@ class RecordService {
       const filtered = records.filter(r => r._id !== recordId);
       StorageUtil.set(key, filtered);
     });
+
+    // [v4.3.0 FR-6] 删除记录后立即失效今日统计缓存
+    this._todayStatsCache = null;
   }
 
   /**
-   * 合并云端和本地记录（去重）
+   * 合并云端和本地记录（去重 + 保留本地较新版本）
+   *
+   * [v4.3.0 FR-6] 合并策略修正：
+   * - 云端不存在、本地独有（含 _offline=true）→ 保留本地
+   * - _id 同时存在于云端和本地：按 updatedAtTs 比较
+   *   * 本地较新（离线 update 未同步）→ 保留本地
+   *   * 云端较新（他人修改）→ 用云端覆盖
+   *   * 无法比较（缺字段）→ 云端优先（旧行为兜底）
+   * - 本地 _offline=true 的强制保留本地（未同步到云端的离线修改）
+   *
    * @param {Array} cloudRecords 云端记录
    * @param {Array} localRecords 本地记录
    * @returns {Array} 合并后的记录
    */
   mergeRecords(cloudRecords, localRecords) {
-    const cloudIdSet = new Set(cloudRecords.map(r => r._id));
-    const merged = [...cloudRecords];
-    
-    // 仅添加云端不存在的本地离线记录（_offline 且 ID 不在云端结果中）
-    localRecords.forEach(localRecord => {
-      if (!cloudIdSet.has(localRecord._id)) {
-        merged.push(localRecord);
+    const cloudMap = new Map();
+    cloudRecords.forEach(r => cloudMap.set(r._id, r));
+
+    const merged = [];
+    const localMap = new Map();
+    localRecords.forEach(r => localMap.set(r._id, r));
+
+    // 遍历云端记录，与本地同 _id 比较
+    cloudRecords.forEach(cloudRec => {
+      const local = localMap.get(cloudRec._id);
+      if (!local) {
+        merged.push(cloudRec);
+        return;
+      }
+      // 离线标记强制本地优先
+      if (local._offline === true) {
+        merged.push(local);
+        return;
+      }
+      // 按 updatedAtTs 比较（缺失则退回云端优先）
+      const cloudTs = cloudRec.updatedAtTs || 0;
+      const localTs = local.updatedAtTs || 0;
+      if (localTs > cloudTs) {
+        merged.push(local);
+      } else {
+        merged.push(cloudRec);
       }
     });
 
-    // 按时间排序 —— 优先使用 startTimeTs，与 getFromLocalCache 保持一致
+    // 添加云端没有的本地记录（主要是 _offline 的 temp_ 记录）
+    localRecords.forEach(localRec => {
+      if (!cloudMap.has(localRec._id)) {
+        merged.push(localRec);
+      }
+    });
+
+    // 按时间降序（优先使用 startTimeTs）
     merged.sort((a, b) => {
       const tsA = a.startTimeTs || (a.startTime ? new Date(a.startTime).getTime() : 0);
       const tsB = b.startTimeTs || (b.startTime ? new Date(b.startTime).getTime() : 0);
       return tsB - tsA;
     });
-    
+
     return merged;
   }
 
