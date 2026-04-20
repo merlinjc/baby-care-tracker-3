@@ -51,6 +51,10 @@ Page({
   },
 
   async onLoad(options) {
+    // [v4.2.2 FR-9] 单例初始化（闭包单例，new 与 getInstance 结果等价，但规范约定用 getInstance）
+    this.authService = AuthService.getInstance();
+    this.familyService = FamilyService.getInstance();
+
     // 检查是否有邀请码参数（通过分享链接进入）
     if (options.inviteCode) {
       this.setData({ 
@@ -71,7 +75,7 @@ Page({
     this.setData({ loading: true, loadingText: '加载中...' });
 
     try {
-      const authService = new AuthService();
+      const authService = AuthService.getInstance();
       // 获取用户信息（会查询数据库判断是否已存在）
       const userInfo = await authService.getUserInfo();
 
@@ -132,9 +136,8 @@ Page({
    */
   async loadFamilyInfo(familyId) {
     try {
-      const FamilyService = require('../../services/family');
-      const familyService = new FamilyService();
-      const familyInfo = await familyService.getFamilyDetail(familyId);
+      // [v4.2.2 FR-9] 使用 onLoad 中初始化的单例，避免重复 require + new
+      const familyInfo = await this.familyService.getFamilyDetail(familyId);
       
       if (familyInfo) {
         StorageUtil.saveFamilyInfo(familyInfo);
@@ -245,7 +248,7 @@ Page({
     this.setData({ loading: true, loadingText: '保存中...' });
 
     try {
-      const authService = new AuthService();
+      const authService = AuthService.getInstance();
       let userInfo = StorageUtil.getUserInfo();
 
       // 防御性检查：确保用户信息存在
@@ -303,12 +306,12 @@ Page({
     this.setData({ loading: true, loadingText: '创建中...' });
 
     try {
-      const familyService = new FamilyService();
+      const familyService = FamilyService.getInstance();
       let userInfo = StorageUtil.getUserInfo();
 
       // 防御性检查：确保用户信息存在
       if (!userInfo || !userInfo._id) {
-        const authService = new AuthService();
+        const authService = AuthService.getInstance();
         userInfo = await authService.getUserInfo();
         StorageUtil.saveUserInfo(userInfo);
         getApp().globalData.userInfo = userInfo;
@@ -358,7 +361,7 @@ Page({
       });
 
       // 更新用户信息，关联家庭
-      const authService = new AuthService();
+      const authService = AuthService.getInstance();
       await authService.updateUserInfo(userInfo._id, {
         familyId: family._id,
         familyRole: 'admin'
@@ -488,12 +491,12 @@ Page({
     this.setData({ joiningFamily: true });
 
     try {
-      const familyService = new FamilyService();
+      const familyService = FamilyService.getInstance();
       let userInfo = StorageUtil.getUserInfo();
 
       // 防御性检查：确保用户信息存在
       if (!userInfo || !userInfo._id) {
-        const authService = new AuthService();
+        const authService = AuthService.getInstance();
         userInfo = await authService.getUserInfo();
         StorageUtil.saveUserInfo(userInfo);
         getApp().globalData.userInfo = userInfo;
@@ -511,7 +514,7 @@ Page({
         const familyInfo = await familyService.getFamilyDetail(result.familyId);
 
         // 更新用户信息
-        const authService = new AuthService();
+        const authService = AuthService.getInstance();
         await authService.updateUserInfo(userInfo._id, {
           familyId: result.familyId,
           familyRole: 'editor'
@@ -584,7 +587,7 @@ Page({
    * @param {Object} userInfo - 当前用户信息
    */
   async _handleInviteCodeForExistingUser(userInfo) {
-    const familyService = new FamilyService();
+    const familyService = FamilyService.getInstance();
     
     try {
       const validation = await familyService.validateInviteCode(this.data.inviteCode);
