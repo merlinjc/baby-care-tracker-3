@@ -92,12 +92,45 @@ Page({
           return;
         }
 
-        // 无邀请码，正常自动登录
-        if (userInfo.familyId) {
-          await this.loadFamilyInfo(userInfo.familyId);
-          // [v4.3.0] 仅在有 familyId 时加载宝宝，避免退出家庭后打印 "familyId 不存在" 噪音日志
-          await this.loadCurrentBaby();
+        // [v4.3.0 hotfix] 退出家庭后的用户：userInfo 存在但无 familyId
+        // 不能跳 home（home 会 reLaunch 回 auth 造成死循环），应停留在 auth 第 3 步
+        // 让用户重新选择"创建家庭"或"加入家庭"
+        if (!userInfo.familyId) {
+          this.setData({
+            avatarUrl: userInfo.avatar || '',
+            nickname: userInfo.nickname || '',
+            selectedRelation: userInfo.relation || '',
+            currentStep: 3,
+            loading: false,
+            isAutoLoggingIn: false
+          });
+          return;
         }
+
+        // 正常自动登录（已注册 + 已有家庭）
+        await this.loadFamilyInfo(userInfo.familyId);
+        await this.loadCurrentBaby();
+
+        // [v4.3.0 hotfix] 再次校验：loadFamilyInfo 可能因家庭解散/被踢出清理了 familyInfo
+        // 此时同步清理本地 userInfo.familyId，并停留在 auth 第 3 步
+        const freshFamily = StorageUtil.getFamilyInfo();
+        if (!freshFamily) {
+          const cleaned = { ...userInfo };
+          delete cleaned.familyId;
+          delete cleaned.familyRole;
+          StorageUtil.saveUserInfo(cleaned);
+          getApp().globalData.userInfo = cleaned;
+          this.setData({
+            avatarUrl: cleaned.avatar || '',
+            nickname: cleaned.nickname || '',
+            selectedRelation: cleaned.relation || '',
+            currentStep: 3,
+            loading: false,
+            isAutoLoggingIn: false
+          });
+          return;
+        }
+
         wx.switchTab({ url: '/pages/home/home' });
         return;
       }
