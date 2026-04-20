@@ -7,6 +7,7 @@ const StorageUtil = require('../utils/storage');
 const NetworkUtil = require('../utils/network');
 const DeduplicationUtil = require('../utils/deduplication');
 const FamilyContext = require('../utils/family-context');
+const { PermissionGuard } = require('./permission-guard');
 const { parseTimestamp } = require('../utils/date');
 
 // 单例模式
@@ -130,6 +131,9 @@ class RecordService {
    * @returns {Promise<Object>} 创建的记录
    */
   async createRecord(recordData) {
+    // [v4.3.0 FR-14] 前置权限预检：Viewer 直接抛 PermissionError，不发起网络请求
+    PermissionGuard.require('record.create');
+
     // 去重检查 - 使用稳定的键，不包含时间戳
     const dedupeKey = `create_${recordData.babyId}_${recordData.recordType}`;
     if (!this.deduplicationUtil.check(dedupeKey, 3000)) {
@@ -491,6 +495,11 @@ class RecordService {
    * @param {string} recordId 记录 ID
    */
   async deleteRecord(recordId) {
+    // [v4.3.0 FR-14] 前置权限预检：Viewer 直接抛 PermissionError
+    // 注：record.delete.own 为 editor+admin 允许；admin 可删他人由云端安全规则保证
+    // 如需严格校验归属（editor 删他人应被拒），调用方可在调用前查出 record 再用 PermissionGuard.requireCanDelete(record)
+    PermissionGuard.require('record.delete.own');
+
     // 去重检查 - 使用稳定的键，不包含时间戳
     const dedupeKey = `delete_${recordId}`;
     if (!this.deduplicationUtil.check(dedupeKey, 3000)) {
