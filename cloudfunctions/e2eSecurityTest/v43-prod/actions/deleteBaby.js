@@ -1,14 +1,16 @@
 /**
- * action: clearBabyData (FR-14)
+ * action: deleteBaby
  *
- * [v4.3.0 FR-10] 断点续传 + 分批并发删除：
- * - 单次执行最多 CHUNK_SIZE 条记录 + TIME_BUDGET_MS 时间预算
- * - 超限时返回 { status: 'in_progress', cursor, progress } 让客户端循环调用
- * - 使用 chunkedDelete 并发（默认 10）加速
+ * [v4.3.1 FR-2 / FR-3] 改动：
+ * - 权限收紧：仅 admin 可删除（原 isMember 允许 viewer/editor 删宝宝）
+ * - 级联删除：同步删除 records / vaccine_records / milestone_records，避免孤儿数据
+ * - 支持断点续传：大数据量时返回 { status: 'in_progress', cursor }，客户端携 cursor 续调
  *
- * [v4.3.0 FR-9] 接入 OperationLogger 补偿日志
- * [v4.3.0 FR-13] 时间戳改用 Date
- * [v4.3.1 FR-11] 所有查询附加 familyId（安全规则约束 + 防止跨家庭误删）
+ * v4.3.0 改动：时间戳改用 Date（FR-13）
+ *
+ * 与 clearBabyData 的区别：
+ * - clearBabyData：清空后若家庭无其他 baby 则解散家庭
+ * - deleteBaby：仅删除该宝宝相关数据 + pull families.babies，家庭保留
  */
 const errors = require('../errors');
 const { getFamily } = require('../lib/family');
@@ -26,19 +28,20 @@ module.exports = async (ctx, params) => {
   const family = await getFamily(db, familyId);
   if (!family) return errors.FAMILY_NOT_FOUND();
 
+  // [v4.3.1 FR-2] 权限收紧为 admin
   if (!isAdmin(userId, family)) {
-    return errors.PERMISSION_DENIED('只有管理员才能清除数据');
+    return errors.PERMISSION_DENIED('只有管理员才能删除宝宝');
   }
 
   const startedAt = Date.now();
   const budget = () => Date.now() - startedAt < TIME_BUDGET_MS;
 
-  // 首次调用：初始化 logger + state；否则从 cursor 恢复
+  // 首次调用：初始化 state；否则从 cursor 恢复
   let state;
   if (!cursor) {
     await logger.start({ babyId, familyId });
     state = {
-      phase: 'records',        // records → vaccine → milestone → finalize
+      phase: 'records',  // records → vaccine → milestone → finalize
       totalCleared: { records: 0, vaccine: 0, milestone: 0 }
     };
   } else {
@@ -61,7 +64,7 @@ module.exports = async (ctx, params) => {
       const ids = batch.data.map(d => d._id);
       const deleted = await chunkedDelete(db, 'records', ids, CONCURRENCY);
       state.totalCleared.records += deleted;
-      await logger.step('clear_records', 'ok', { deleted });
+      await logger.step('delete_records', 'ok', { deleted });
       if (batch.data.length < CHUNK_SIZE) {
         state.phase = 'vaccine';
         break;
@@ -70,7 +73,7 @@ module.exports = async (ctx, params) => {
     if (!budget()) return paused(state);
   }
 
-  // ===== Phase 2: vaccine =====
+  // ===== Phase 2: vaccine_records =====
   if (state.phase === 'vaccine') {
     while (budget()) {
       const batch = await db.collection('vaccine_records')
@@ -84,7 +87,7 @@ module.exports = async (ctx, params) => {
       const ids = batch.data.map(d => d._id);
       const deleted = await chunkedDelete(db, 'vaccine_records', ids, CONCURRENCY);
       state.totalCleared.vaccine += deleted;
-      await logger.step('clear_vaccine', 'ok', { deleted });
+      await logger.step('delete_vaccine', 'ok', { deleted });
       if (batch.data.length < CHUNK_SIZE) {
         state.phase = 'milestone';
         break;
@@ -93,7 +96,7 @@ module.exports = async (ctx, params) => {
     if (!budget()) return paused(state);
   }
 
-  // ===== Phase 3: milestone =====
+  // ===== Phase 3: milestone_records =====
   if (state.phase === 'milestone') {
     while (budget()) {
       const batch = await db.collection('milestone_records')
@@ -107,7 +110,7 @@ module.exports = async (ctx, params) => {
       const ids = batch.data.map(d => d._id);
       const deleted = await chunkedDelete(db, 'milestone_records', ids, CONCURRENCY);
       state.totalCleared.milestone += deleted;
-      await logger.step('clear_milestone', 'ok', { deleted });
+      await logger.step('delete_milestone', 'ok', { deleted });
       if (batch.data.length < CHUNK_SIZE) {
         state.phase = 'finalize';
         break;
@@ -116,7 +119,7 @@ module.exports = async (ctx, params) => {
     if (!budget()) return paused(state);
   }
 
-  // ===== Phase 4: finalize =====
+  // ===== Phase 4: finalize — 删除 baby 文档 + pull families.babies =====
   const now = new Date();
   const nowTs = Date.now();
 
@@ -136,40 +139,10 @@ module.exports = async (ctx, params) => {
     await logger.step('pull_family_baby', 'fail', { error: e.message });
   }
 
-  // 如果家庭没有更多宝宝 → 解散家庭
-  let familyDeleted = false;
-  const remaining = await db.collection('babies').where({ familyId }).count();
-  if ((remaining.total || 0) === 0) {
-    try {
-      await db.collection('families').doc(familyId).remove();
-      familyDeleted = true;
-      await logger.step('remove_family_when_empty', 'ok');
-    } catch (e) {
-      await logger.step('remove_family_when_empty', 'fail', { error: e.message });
-    }
-
-    for (const memberId of (family.members || [])) {
-      try {
-        await db.collection('users').doc(memberId).update({
-          data: {
-            familyId: _.remove(),
-            familyRole: _.remove(),
-            updatedAt: now,
-            updatedAtTs: nowTs
-          }
-        });
-        await logger.step(`clear_user_${memberId}`, 'ok');
-      } catch (e) {
-        await logger.step(`clear_user_${memberId}`, 'fail', { error: e.message });
-      }
-    }
-  }
-
-  const finalResult = Object.assign({
-    status: 'succeeded',
-    familyDeleted
-  }, state.totalCleared);
-
+  const finalResult = Object.assign(
+    { status: 'succeeded', deletedBabyId: babyId },
+    state.totalCleared
+  );
   await logger.succeed(finalResult);
   return errors.ok(finalResult);
 };

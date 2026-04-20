@@ -28,6 +28,13 @@ module.exports = {
   NOT_MEMBER: makeError('NOT_MEMBER', '目标用户不是家庭成员'),
   NO_MEMBER_DATA: makeError('NO_MEMBER_DATA', '家庭成员数据不存在'),
   RATE_LIMITED: makeError('RATE_LIMITED', '操作过于频繁，请稍后再试'),
+  // v4.3.1：用户已在家庭中试图创建新家庭（FR-10）
+  ALREADY_IN_FAMILY: makeError('ALREADY_IN_FAMILY', '您已属于某个家庭，请先退出当前家庭'),
+  // v4.3.1：updateMemberRole 传入非白名单角色（FR-8）
+  INVALID_ROLE: (role) => ({
+    success: false,
+    error: { code: 'INVALID_ROLE', message: `无效的角色：${role}` }
+  }),
   INVALID_ACTION: (action) => ({
     success: false,
     error: { code: 'INVALID_ACTION', message: `未知操作: ${action}` }

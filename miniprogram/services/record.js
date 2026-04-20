@@ -301,7 +301,13 @@ class RecordService {
         startTimeTs: nowTs,
         data: recordData.data,
         note: recordData.note || '',
-        // 创建者信息
+        // [v4.3.1 FR-19] 创建者信息（新对象格式，补齐与 try 分支对齐）
+        createdBy: {
+          userId: cachedUserInfo?._id || '',
+          nickName: cachedFamilyMember?.nickName || cachedFamilyMember?.name || cachedUserInfo?.nickName || '',
+          avatar: cachedFamilyMember?.avatarUrl || cachedUserInfo?.avatarUrl || ''
+        },
+        // 创建者信息（旧扁平格式保留兼容）
         creatorId: cachedUserInfo?._id || null,
         createdByName: cachedFamilyMember?.nickName || cachedUserInfo?.nickName || null,
         createdByAvatar: cachedFamilyMember?.avatarUrl || cachedUserInfo?.avatarUrl || null,
