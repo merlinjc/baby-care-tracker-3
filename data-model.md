@@ -1,6 +1,6 @@
 # Baby Care Tracker 数据模型文档
 
-> **版本**: v4.2.2 | **更新日期**: 2026-04-20
+> **版本**: v4.3.0 | **更新日期**: 2026-04-20
 
 ---
 
@@ -135,6 +135,52 @@
 | `note` | string | 否 | 备注 |
 | `_familyIdMigratedAt` | Date | 否 | 迁移标记（由 `migrateRecordFamilyId` 写入） |
 
+### 2.7 `operation_logs` 云函数操作日志（v4.3+）
+
+`familyOperation` 与 `patrolMemberOpenids` 写操作的补偿日志与审计记录。
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `_id` | string | 系统 | 系统自动生成 |
+| `action` | string | 是 | action 名称（如 `dissolveFamily` / `clearBabyData` / `patrolMemberOpenids`） |
+| `userId` | string | 否 | 操作者 `users._id`（巡检等系统调用可为空） |
+| `openid` | string | 否 | 操作者 openid |
+| `params` | Object | 否 | 原始入参（不含敏感信息） |
+| `status` | enum | 是 | `'running'` \| `'ok'` \| `'failed'` \| `'partial'` |
+| `startedAt` | Date | 是 | 开始时间 |
+| `startedAtTs` | number | 是 | 开始时间数值时间戳 |
+| `finishedAt` | Date | 否 | 结束时间 |
+| `finishedAtTs` | number | 否 | 结束时间数值时间戳 |
+| `durationMs` | number | 否 | 耗时（毫秒） |
+| `cursor` | Object | 否 | 断点续传状态（`clearBabyData` 等分批任务使用） |
+| `stats` | Object | 否 | 统计数据（如删除条数） |
+| `error` | Object | 否 | `{ code, message, stack }` 失败时记录 |
+
+**索引**：
+- `action_startedAt_idx`（复合，`action:1, startedAt:-1`）—— 按 action 类型查近期日志
+- `status_idx`（`status:1`）—— 查失败任务用于补偿
+
+**ACL**：`PRIVATE`（客户端不可读写，仅云函数 admin SDK 访问）。
+
+### 2.8 `rate_limits` 限流计数器（v4.3+）
+
+`familyOperation` 的 `joinFamily` 等 action 使用的持久化限流表，取代 v4.2 内存 Map。
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `_id` | string | 系统 | 系统自动生成 |
+| `key` | string | 是 | 限流键（如 `joinFamily:<openid>`） |
+| `count` | number | 是 | 当前窗口累计次数 |
+| `windowStart` | Date | 是 | 窗口起始时间 |
+| `windowStartTs` | number | 是 | 窗口起始数值时间戳 |
+| `expireAt` | Date | 是 | 窗口过期时间（用于后续 TTL 索引扩展） |
+
+**索引**：
+- `key_idx`（`key:1`，**唯一**）—— upsert 并发安全
+- `windowStart_idx`（`windowStart:1`）—— 清理过期窗口
+
+**ACL**：`PRIVATE`（客户端不可读写）。
+
 ---
 
 ## 3. 缓存策略
@@ -171,7 +217,7 @@
 
 ## 5. 安全规则配置（v4.2+）
 
-6 个集合配置 CloudBase 安全规则实现租户隔离：
+6 个业务集合 + 2 个系统集合（v4.3+）配置 CloudBase 安全规则实现租户隔离：
 
 | 集合 | aclTag | 规则（JSON 简写） |
 |------|--------|------------------|
@@ -181,6 +227,8 @@
 | `records` | `CUSTOM` | `read` 同 `babies`；`update/delete: doc._openid == auth.openid`（创建者可改删） |
 | `vaccine_records` | `CUSTOM` | 同 `records` |
 | `milestone_records` | `CUSTOM` | 同 `records` |
+| `operation_logs` (v4.3) | `PRIVATE` | — （客户端不可读写，仅云函数 admin SDK 访问） |
+| `rate_limits` (v4.3) | `PRIVATE` | — （客户端不可读写，仅云函数 admin SDK 访问） |
 
 ### 5.1 跨用户写操作
 

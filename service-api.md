@@ -1,6 +1,6 @@
 # Baby Care Tracker 服务层 API 文档
 
-> **版本**: v4.2.2 | **更新日期**: 2026-04-20
+> **版本**: v4.3.0 | **更新日期**: 2026-04-20
 
 ---
 
@@ -21,6 +21,14 @@
 | QuotaService | 2.6KB | 无(localStorage) | 按日重置 | N |
 | ReportDataHelper | 15KB | 无（纯计算） | 无 | N |
 | ShareCanvasService | 44KB | 无（Canvas 绘制） | 图片缓存 | N |
+| **PermissionGuard** (v4.3) | 3KB | 无 | 无 | N（纯校验器） |
+
+**v4.3 新增工具**（非 Service，但跨模块复用）：
+
+| 模块 | 文件 | 定位 | 关键 API |
+|------|------|------|---------|
+| FamilyContext | `utils/family-context.js` | familyId 单一来源（纯静态方法类） | `resolve()` / `resolveForBaby(baby)` / `getUserId()` / `getCurrentRole()` / `getCurrentBabyId()` / `getFamily()` / `getCurrentMemberDetail()` |
+| PermissionGuard | `services/permission-guard.js` | 服务层权限前置预检 | `require(permission)` / `requireCanDelete(record)` / `check(permission)` / `checkCanDelete(record)`；抛出 `PermissionError`（code=`PERMISSION_DENIED`） |
 
 **方法标签约定**：
 - `[cloud]` — 走 `familyOperation` 云函数（跨用户写操作）
@@ -103,22 +111,51 @@ async _callFamilyOperation(action, params = {}) {
 - `success=true` 时 `data` 为业务数据
 - `success=false` 时 `error.code` 为业务错误码（如 `USER_NOT_FOUND` / `FAMILY_NOT_FOUND` / `PERMISSION_DENIED` / `RATE_LIMITED` / `INVALID_CODE` / `CODE_EXPIRED` / `ALREADY_MEMBER` / `SOLE_ADMIN` / `INTERNAL_ERROR`），`error.message` 为中文提示
 
-### ⚠️ `leaveFamily` 特殊契约
+### ⚠️ `leaveFamily` 契约（v4.3 升级为状态机）
 
-**不**走通用 `_callFamilyOperation`，因为云函数在"唯一管理员需转让"场景下返回 `success: false` 但 `data` 仍有业务信息：
+**v4.3 起**统一通过 `_callFamilyOperation` 适配器调用，返回值包含 `data.status` 状态机字段：
 
 ```javascript
-// 典型返回场景
-{ success: true,  data: { message: '已退出家庭' } }                    // 正常退出
-{ success: true,  data: { familyDissolved: true, message: '家庭已解散' } }  // 最后一人
-{ success: true,  data: { familyNotFound: true, ... } }                // 家庭不存在（幂等）
-{ success: true,  data: { notMember: true, ... } }                     // 本就不是成员（幂等）
-{ success: false, data: { needTransfer: true, otherMembers: [...] } }  // ★ 唯一管理员需先转让
+// 云函数 action 返回：
+{ success: true, data: { status: 'ok', message: '已退出家庭' } }
+{ success: true, data: { status: 'dissolved', message: '家庭已解散' } }
+{ success: true, data: { status: 'family_not_found', message: '家庭不存在' } }   // 幂等
+{ success: true, data: { status: 'not_member', message: '您本就不是家庭成员' } }    // 幂等
+{ success: true, data: { status: 'need_transfer', otherMembers: [...] } }     // ★ 唯一管理员需转让
 ```
 
-客户端实现中 `success=false && data.needTransfer=true` **不抛错**，而是返回 `{ success: false, needTransfer: true, otherMembers, message }`，由调用方决策后续流程（弹窗让用户选转让对象）。
+客户端 `FamilyService.leaveFamily` 适配为：
 
-> **遗留问题**：此契约在 v4.3.0 MINOR 版本中将统一为 `{ success: true, data: { status: 'need_transfer' | 'dissolved' | 'ok', ... } }` 纯状态机模式。
+```javascript
+{
+  success: boolean,           // false 仅当 status='need_transfer'
+  status: 'ok' | 'dissolved' | 'need_transfer' | 'family_not_found' | 'not_member',
+  otherMembers: Array,        // need_transfer 时非空
+  message: string,
+  // 以下 legacy 字段供旧调用方过渡，新代码请使用 status 分支
+  needTransfer: boolean,
+  familyNotFound: boolean,
+  notMember: boolean,
+  familyDissolved: boolean
+}
+```
+
+**推荐用法**：
+
+```javascript
+const result = await familyService.leaveFamily(familyId, userId);
+switch (result.status) {
+  case 'ok':
+  case 'dissolved':
+  case 'family_not_found':
+  case 'not_member':
+    // 清理本地，跳转首页
+    break;
+  case 'need_transfer':
+    // 弹窗让用户选择 otherMembers 中的成员进行转让
+    break;
+}
+```
 
 ---
 

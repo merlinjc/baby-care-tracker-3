@@ -1,6 +1,6 @@
 # Baby Care Tracker 项目架构文档
 
-> **版本**: v4.2.2 | **更新日期**: 2026-04-20
+> **版本**: v4.3.0 | **更新日期**: 2026-04-20
 
 ---
 
@@ -34,9 +34,10 @@ baby-care-tracker-3/
 ├── PRD.md                                # 产品需求文档 (v3.1)
 ├── README.md                             # 项目说明
 │
-├── cloudfunctions/                       # 云函数（7 个）
+├── cloudfunctions/                       # 云函数（8 个）
 │   ├── getOpenId/                        # 获取用户 openid（traceUser 依赖，客户端已不显式调用）
-│   ├── familyOperation/                  # ★ 跨用户写操作网关（13 个 action）
+│   ├── familyOperation/                  # ★ 跨用户写操作网关（v4.3 模块化：errors + lib/ + actions/ 13 个独立文件）
+│   ├── patrolMemberOpenids/              # ★ v4.3 新增：每日 0 点巡检 memberOpenids 一致性
 │   ├── migrateFamilyOpenids/             # 一次性：补充 families.memberOpenids 字段
 │   ├── migrateRecordFamilyId/            # 一次性：补充 records.familyId 字段
 │   ├── migrateRecordUserId/              # 一次性：openid → _id 格式统一
@@ -147,10 +148,12 @@ baby-care-tracker-3/
 │  - 业务逻辑封装（单例模式）                     │
 │  - 云端优先 + 离线降级策略                      │
 │  - 数据格式归一化和兼容处理                     │
+│  - ★ v4.3 PermissionGuard 前置权限预检         │
 ├────────────────────────────────────────────┤
 │               工具层 (Util)                   │
 │  StorageUtil / NetworkUtil / PermissionUtil   │
 │  ThemeManager (主题管理器)                      │
+│  ★ v4.3 FamilyContext (familyId 单一来源)      │
 │  - 基础设施能力                                │
 │  - 无业务耦合                                  │
 ├────────────────────────────────────────────┤
@@ -267,6 +270,13 @@ App.onLaunch()
 #### 客户端必须遵守
 
 **所有查询必须在 `where` 条件中附加 `familyId`**，否则安全规则无法执行 `get()` 校验，查询会被拒绝。详见 `coding-conventions.md` §8 数据库操作约束。
+
+#### 第三层：可观测性与巡检（v4.3+）
+
+- **操作日志**：`familyOperation` 所有写操作通过 `OperationLogger` 落盘 `operation_logs` 集合（含 action、userId、startedAt、finishedAt、status、cursor、stats、error 等结构化字段），用于补偿重试与审计。
+- **持久化限流**：`joinFamily` 等关键 action 使用 `rate_limits` 集合做窗口限流（key 唯一索引 + windowStart 索引），取代 v4.2 的内存 Map，跨实例有效。
+- **巡检任务**：`patrolMemberOpenids` 云函数每天 0 点（cron `0 0 0 * * * *`）扫描 families，自动修复 `memberOpenids` 与 `members` 不一致，结果落入 `operation_logs`。
+- **权限纵深防御**：客户端 `PermissionGuard.require()` 作为第一道闸（即时反馈、无网络开销），服务端安全规则 + 云函数 action 内 `isAdmin`/`isMember` 校验作为第二道闸。
 
 ---
 

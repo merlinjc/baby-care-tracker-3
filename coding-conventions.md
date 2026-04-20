@@ -1,6 +1,6 @@
 # Baby Care Tracker 开发规范
 
-> **版本**: v4.2.2 | **更新日期**: 2026-04-20
+> **版本**: v4.3.0 | **更新日期**: 2026-04-20
 
 ---
 
@@ -315,25 +315,81 @@ async _callFamilyOperation(action, params = {}) {
 
 **可用 action**（共 13 个）：`createFamily` / `joinFamily` / `removeMember` / `dissolveFamily` / `updateMemberRole` / `transferAdmin` / `leaveFamily` / `refreshInviteCode` / `validateInviteCode` / `getFamilyByUserId` / `createBaby` / `deleteBaby` / `clearBabyData`。
 
-**例外**：`leaveFamily` 不使用通用适配器，详见 `service-api.md` FamilyService 章节的"⚠️ leaveFamily 特殊契约"说明。
+**例外**：`leaveFamily` 返回值包含 `data.status` 状态机（`ok` / `dissolved` / `need_transfer` / `family_not_found` / `not_member`），调用方应基于 `status` 分支而非 `success` 判断业务流程。详见 `service-api.md` FamilyService 章节。
 
-### 8.4 违规检查清单（Code Review 用）
+### 8.4 云函数结构规范（v4.3+）
+
+`familyOperation` 已完成模块化改造，新增 action 时必须遵循目录结构：
+
+```
+cloudfunctions/familyOperation/
+├── index.js             # dispatch 入口（禁止写业务逻辑，控制在 < 80 行）
+├── errors.js            # 统一错误码注册表（所有错误码集中在此）
+├── lib/                 # 公共工具（跨 action 复用）
+│   ├── auth.js          # getUserFromOpenid / isAdmin / isMember
+│   ├── family.js        # getFamily / clearUserFamily
+│   ├── db-helper.js     # getAllDocs / chunkedDelete
+│   ├── logger.js        # OperationLogger
+│   ├── rate-limit.js    # RateLimiter
+│   └── invite-code.js   # 邀请码生成
+└── actions/             # 每个 action 一个独立文件
+    ├── createFamily.js
+    ├── joinFamily.js
+    └── ...（共 13 个）
+```
+
+**Action 签名约定**：
+
+```javascript
+// actions/xxx.js
+module.exports = async function (ctx, params) {
+  // ctx = { db, _, user, userId, openid, logger, rateLimiter }
+  // 写操作必须：1) logger.start(...) 2) 校验权限/参数 3) 执行 4) logger.finish(...) 或 logger.fail(...)
+  // 返回约定：{ success, data, error? }（直接 return，index.js 不二次包装）
+};
+```
+
+**接入检查清单**：
+- [ ] 新增 action 是否在 `actions/` 目录独立文件中？
+- [ ] 是否在 `index.js` 的 `ACTION_MAP` 中注册？
+- [ ] 错误码是否在 `errors.js` 中预先定义？（严禁硬编码字符串）
+- [ ] 写操作是否接入 `OperationLogger`？
+- [ ] 高频/可被恶意调用的 action 是否使用 `ctx.rateLimiter`？
+- [ ] 涉及批量删除的 action 是否使用 `chunkedDelete` + cursor 断点续传？
+
+### 8.5 违规检查清单（Code Review 用）
 
 - [ ] 新增页面/服务对 `records` / `vaccine_records` / `milestone_records` / `babies` 的查询，`where` 是否附加了 `familyId`？
 - [ ] 对 `families` / 他人 `babies` / 他人 `records` 的写操作是否经 `familyOperation` 云函数？
 - [ ] 新增服务是否使用闭包单例模式？是否 `module.exports = XxxService`（导出类而非实例）？
-- [ ] `sync.js` 离线队列 `create` 的 `data` 字段是否包含 `familyId`（否则同步时会被安全规则拒绝）？
+- [ ] `sync.js` 离线队列 `create` 的 `data` 字段是否包含 `familyId` 与 `createdBy` 对象？
 - [ ] 错误处理是否遵循三模式之一（向上抛出 / 静默降级 / 离线降级）？
+- [ ] **v4.3**：获取 `familyId` 是否使用 `FamilyContext.resolve()` / `resolveForBaby()`？是否有 `baby.familyId || ''` 或 `userInfo.familyId || ''` 残留？
+- [ ] **v4.3**：服务层写方法第一行是否调用 `PermissionGuard.require(...)`？
 
 ---
 
 ## 9. 权限体系
 
-三级权限矩阵（`PermissionUtil`）已在 §7 中定义。v4.2 补充说明：
+三级权限矩阵（`PermissionUtil`）已在 §7 中定义。v4.3 新增双重校验机制：
 
-- **客户端检查**：`PermissionUtil.canEdit()` / `canDeleteRecord()` 用于 UI 按钮显隐控制
-- **服务端检查**：跨用户写操作由 `familyOperation` 云函数内部再次校验（`isAdmin(userId, family)` 等），不可被客户端绕过
-- **未来计划**：服务层写方法（`RecordService.create/update/delete`）目前缺前置权限预检，将在 v4.3.0 通过装饰器模式补齐
+### 9.1 客户端（PermissionGuard）
+
+- **前置预检**：`RecordService.createRecord/updateRecord/deleteRecord` 第一行调用 `PermissionGuard.require(permission)`；Viewer 直接抛 `PermissionError`（code=`PERMISSION_DENIED`），**不发起网络请求**。
+- **UI 显隐**：按钮可见性通过 `PermissionGuard.check(permission)` / `checkCanDelete(record)` 非抛错版本控制。
+- **归属检查**：删除他人记录的场景使用 `PermissionGuard.requireCanDelete(record)`，内部委托 `PermissionUtil.canDeleteRecord(record, role, userId)`。
+
+### 9.2 服务端（纵深防御）
+
+- **云函数 action 内校验**：`familyOperation` 每个写 action 进入时调用 `isAdmin` / `isMember` 再次校验，不信任客户端。
+- **安全规则**：作为最后一道闸，保证即使绕过客户端和云函数（理论上不可能），数据库仍然拒绝非法访问。
+
+### 9.3 检查清单
+
+- [ ] 服务层写方法第一行是否 `PermissionGuard.require(...)`？
+- [ ] UI 按钮显隐是否使用 `PermissionGuard.check()` 非抛错版本？
+- [ ] 云函数 action 是否再次校验权限（不信任客户端）？
+- [ ] 删他人记录的场景是否使用 `PermissionGuard.requireCanDelete(record)`？
 
 ---
 
