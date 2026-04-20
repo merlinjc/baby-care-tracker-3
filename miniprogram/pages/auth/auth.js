@@ -367,11 +367,13 @@ Page({
         
         try {
           const leaveResult = await familyService.leaveFamily(userInfo.familyId, userInfo._id);
-          if (!leaveResult.success && leaveResult.needTransfer) {
+          // [v4.3.1 FR-15] 统一 status 状态机判断
+          if (leaveResult.status === 'need_transfer') {
             wx.showToast({ title: '请先转让管理权限', icon: 'none' });
             this.setData({ loading: false });
             return;
           }
+          // status: 'ok' | 'dissolved' | 'family_not_found' | 'not_member' → 允许继续
           // 清理本地家庭数据
           const updatedUser = { ...userInfo };
           delete updatedUser.familyId;

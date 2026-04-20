@@ -505,6 +505,11 @@ Page({
 
   /**
    * 转让管理员并退出
+   *
+   * [v4.3.1 FR-14] 检查 leaveFamily 返回值：
+   * - 只有 status='ok' / 'dissolved' / 'family_not_found' / 'not_member' 才清本地缓存
+   * - status='need_transfer' 时提示并打开转让弹窗（兜底，理论上刚转让完不会触发）
+   * - 抛错时保留本地缓存，不进入登录页（用户可重试）
    */
   async transferAndLeave() {
     const { selectedTransferId, familyInfo, currentUserId } = this.data;
@@ -517,9 +522,29 @@ Page({
     try {
       // 先转让管理员
       await this.familyService.transferAdmin(familyInfo._id, currentUserId, selectedTransferId);
-      
+
       // 再退出家庭
-      await this.familyService.leaveFamily(familyInfo._id, currentUserId);
+      const leaveResult = await this.familyService.leaveFamily(familyInfo._id, currentUserId);
+
+      // [v4.3.1 FR-14] 校验 leaveFamily 状态
+      if (leaveResult.status === 'need_transfer') {
+        // 极端情况：刚 transfer 但服务端仍认为唯一 admin（数据未及时同步）
+        wx.hideLoading();
+        wx.showModal({
+          title: '退出失败',
+          content: '检测到您仍是唯一管理员，可能是数据同步延迟，请稍后重试或刷新页面。',
+          showCancel: false
+        });
+        return;
+      }
+
+      if (leaveResult.status !== 'ok' && leaveResult.status !== 'dissolved' &&
+          leaveResult.status !== 'family_not_found' && leaveResult.status !== 'not_member') {
+        // 其他未知状态：toast 提示，不清本地
+        wx.hideLoading();
+        wx.showToast({ title: leaveResult.message || '退出失败', icon: 'none' });
+        return;
+      }
 
       StorageUtil.clear();
       wx.hideLoading();
