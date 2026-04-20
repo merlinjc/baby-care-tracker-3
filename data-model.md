@@ -1,6 +1,6 @@
 # Baby Care Tracker 数据模型文档
 
-> **版本**: v4.3.0 | **更新日期**: 2026-04-20
+> **版本**: v4.3.1 | **更新日期**: 2026-04-20
 
 ---
 
@@ -145,20 +145,20 @@
 | `action` | string | 是 | action 名称（如 `dissolveFamily` / `clearBabyData` / `patrolMemberOpenids`） |
 | `userId` | string | 否 | 操作者 `users._id`（巡检等系统调用可为空） |
 | `openid` | string | 否 | 操作者 openid |
-| `params` | Object | 否 | 原始入参（不含敏感信息） |
-| `status` | enum | 是 | `'running'` \| `'ok'` \| `'failed'` \| `'partial'` |
+| `context` | Object | 否 | 原始入参上下文（不含敏感信息） |
+| `status` | enum | 是 | `'started'` \| `'succeeded'` \| `'partial'` \| `'failed'` \| `'in_progress'`（v4.3.1 对齐代码实现） |
+| `steps` | Array | 否 | 步骤列表，每项 `{ name, status: 'ok'\|'fail'\|'skip', at, extra }` |
+| `result` | Object | 否 | 成功时的业务结果；巡检用时包含 `{ dryRun, stats, cursor }` |
+| `reason` | string | 否 | `status='partial'` 时的原因描述 |
+| `error` | Object | 否 | `{ message, stack }` 失败时记录 |
 | `startedAt` | Date | 是 | 开始时间 |
 | `startedAtTs` | number | 是 | 开始时间数值时间戳 |
 | `finishedAt` | Date | 否 | 结束时间 |
 | `finishedAtTs` | number | 否 | 结束时间数值时间戳 |
-| `durationMs` | number | 否 | 耗时（毫秒） |
-| `cursor` | Object | 否 | 断点续传状态（`clearBabyData` 等分批任务使用） |
-| `stats` | Object | 否 | 统计数据（如删除条数） |
-| `error` | Object | 否 | `{ code, message, stack }` 失败时记录 |
 
 **索引**：
 - `action_startedAt_idx`（复合，`action:1, startedAt:-1`）—— 按 action 类型查近期日志
-- `status_idx`（`status:1`）—— 查失败任务用于补偿
+- `status_idx`（`status:1`）—— 查失败/进行中任务用于补偿
 
 **ACL**：`PRIVATE`（客户端不可读写，仅云函数 admin SDK 访问）。
 
@@ -168,18 +168,19 @@
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `_id` | string | 系统 | 系统自动生成 |
-| `key` | string | 是 | 限流键（如 `joinFamily:<openid>`） |
+| `_id` | string | 系统 | 由 key 的 MD5 前 16 位派生（格式 `rl_<hash>`），作为幂等唯一键 |
+| `key` | string | 是 | 限流键（如 `invite_<openid>`） |
 | `count` | number | 是 | 当前窗口累计次数 |
-| `windowStart` | Date | 是 | 窗口起始时间 |
-| `windowStartTs` | number | 是 | 窗口起始数值时间戳 |
-| `expireAt` | Date | 是 | 窗口过期时间（用于后续 TTL 索引扩展） |
+| `windowStart` | number | 是 | 窗口起始时间（数值时间戳 `Date.now()`） |
+| `expireAt` | Date | 是 | 窗口过期时间（供后续 TTL 索引扩展清理） |
 
 **索引**：
-- `key_idx`（`key:1`，**唯一**）—— upsert 并发安全
+- `_id`（主键，hash 派生）—— upsert 并发安全
 - `windowStart_idx`（`windowStart:1`）—— 清理过期窗口
 
 **ACL**：`PRIVATE`（客户端不可读写）。
+
+> **v4.3.1 文档对齐**：`windowStart` 实际代码使用数值时间戳（`Date.now()`），而非 Date 对象；`_id` 由 key hash 派生而非系统自生成。
 
 ---
 
