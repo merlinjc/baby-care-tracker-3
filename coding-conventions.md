@@ -1,6 +1,6 @@
 # Baby Care Tracker 开发规范
 
-> **版本**: v4.2.1 | **更新日期**: 2026-04-17
+> **版本**: v4.2.2 | **更新日期**: 2026-04-20
 
 ---
 
@@ -266,4 +266,75 @@ try {
 
 ---
 
-*文档维护：新增代码模式或规范时同步更新此文档。*
+## 8. 数据库操作约束（v4.2+）
+
+v4.2 起引入云函数网关 + 安全规则交叉校验双层防护，客户端与数据库交互需严格遵循以下约定。
+
+### 8.1 三条铁律
+
+| 操作类别 | 实现方式 | 规则原因 |
+|---------|---------|---------|
+| **读操作** | 服务层直连 `wx.cloud.database()`，**`where` 必须附加 `familyId`** | 安全规则通过 `get('database.families.' + doc.familyId).memberOpenids` 执行交叉校验 |
+| **跨用户写** | 必须通过 `familyOperation` 云函数 | families / 他人 babies / 他人 records 的写操作，客户端安全规则全部关闭 |
+| **自有写** | 可直连 | `users` 自己的文档（PRIVATE 匹配 `_openid`）、`records` 自己创建的记录（`doc._openid == auth.openid`）受规则保护 |
+
+### 8.2 查询必须附加 familyId
+
+```javascript
+// ✅ 正确
+const userInfo = StorageUtil.getUserInfo();
+db.collection('records').where({
+  babyId,
+  familyId: userInfo.familyId,  // 必须
+  recordType: 'feeding'
+}).get();
+
+// ❌ 错误 — 安全规则无法执行 get() 校验，查询被拒绝
+db.collection('records').where({ babyId }).get();
+```
+
+**涉及需要附 `familyId` 的集合**：`records` / `vaccine_records` / `milestone_records` / `babies`。
+
+### 8.3 调用 familyOperation 云函数
+
+`FamilyService` / `BabyService` 内部统一使用 `_callFamilyOperation` 适配器：
+
+```javascript
+async _callFamilyOperation(action, params = {}) {
+  const res = await wx.cloud.callFunction({
+    name: 'familyOperation',
+    data: { action, params }
+  });
+  const result = res.result;  // 云函数返回 { success, data?, error? }
+  if (!result.success) {
+    throw new Error(result.error?.message || `${action} 失败`);
+  }
+  return result.data;
+}
+```
+
+**可用 action**（共 13 个）：`createFamily` / `joinFamily` / `removeMember` / `dissolveFamily` / `updateMemberRole` / `transferAdmin` / `leaveFamily` / `refreshInviteCode` / `validateInviteCode` / `getFamilyByUserId` / `createBaby` / `deleteBaby` / `clearBabyData`。
+
+**例外**：`leaveFamily` 不使用通用适配器，详见 `service-api.md` FamilyService 章节的"⚠️ leaveFamily 特殊契约"说明。
+
+### 8.4 违规检查清单（Code Review 用）
+
+- [ ] 新增页面/服务对 `records` / `vaccine_records` / `milestone_records` / `babies` 的查询，`where` 是否附加了 `familyId`？
+- [ ] 对 `families` / 他人 `babies` / 他人 `records` 的写操作是否经 `familyOperation` 云函数？
+- [ ] 新增服务是否使用闭包单例模式？是否 `module.exports = XxxService`（导出类而非实例）？
+- [ ] `sync.js` 离线队列 `create` 的 `data` 字段是否包含 `familyId`（否则同步时会被安全规则拒绝）？
+- [ ] 错误处理是否遵循三模式之一（向上抛出 / 静默降级 / 离线降级）？
+
+---
+
+## 9. 权限体系
+
+三级权限矩阵（`PermissionUtil`）已在 §7 中定义。v4.2 补充说明：
+
+- **客户端检查**：`PermissionUtil.canEdit()` / `canDeleteRecord()` 用于 UI 按钮显隐控制
+- **服务端检查**：跨用户写操作由 `familyOperation` 云函数内部再次校验（`isAdmin(userId, family)` 等），不可被客户端绕过
+- **未来计划**：服务层写方法（`RecordService.create/update/delete`）目前缺前置权限预检，将在 v4.3.0 通过装饰器模式补齐
+
+---
+
+*文档维护：新增代码模式或规范变更时同步更新此文档。*
