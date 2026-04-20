@@ -102,13 +102,24 @@ class BabyService {
 
   /**
    * 获取宝宝详情
+   *
+   * [v4.3.1 Hotfix] 改用 where 查询替代 doc().get()：
+   * - doc().get() 走 read 安全规则的单文档路径，当 babies._openid 不是当前 openid
+   *   且用户是家庭其他成员（非创建者）时，规则匹配不到"通过 familyId 反查家庭成员"分支，
+   *   触发 -502003 permission denied
+   * - where({ _id }) 走集合查询路径，安全规则可通过交叉引用 families.memberOpenids 放行
+   * - 存量 babies（v4.3.1 前创建、缺 _openid 或 _openid 非调用者）均受影响
+   *
    * @param {string} babyId 宝宝 ID
-   * @returns {Promise<Object>} 宝宝信息
+   * @returns {Promise<Object|null>} 宝宝信息（不存在或无权限时返回 null）
    */
   async getBabyById(babyId) {
     try {
-      const res = await this.babyCollection.doc(babyId).get();
-      return res.data;
+      const res = await this.babyCollection
+        .where({ _id: babyId })
+        .limit(1)
+        .get();
+      return res.data && res.data.length > 0 ? res.data[0] : null;
     } catch (error) {
       console.error('获取宝宝详情失败:', error);
       throw error;
@@ -117,6 +128,13 @@ class BabyService {
 
   /**
    * 更新宝宝信息
+   *
+   * [v4.3.1 契约] 受安全规则 doc._openid == auth.openid 保护，仅创建者可改。
+   * 约束：
+   * - v4.3.1 后创建的宝宝：createBaby 写入 _openid = 创建者 openid，创建者可正常调用此方法
+   * - v4.3.1 前的存量宝宝：_openid 缺失或不等于当前 openid，此方法会抛 -502003
+   *   → 需要通过后台脚本补齐 _openid，或后续 v4.3.2 新增 updateBaby 云函数化支持非 creator
+   *
    * @param {string} babyId 宝宝 ID
    * @param {Object} data 更新数据
    */
@@ -130,6 +148,13 @@ class BabyService {
       });
     } catch (error) {
       console.error('更新宝宝信息失败:', error);
+      // [v4.3.1 Hotfix] 权限错误友好提示
+      if (error.errCode === -502003 || (error.errMsg && error.errMsg.includes('permission denied'))) {
+        const friendlyError = new Error('仅创建者可修改（如需其他成员修改请联系管理员）');
+        friendlyError.code = 'PERMISSION_DENIED';
+        friendlyError.cause = error;
+        throw friendlyError;
+      }
       throw error;
     }
   }
