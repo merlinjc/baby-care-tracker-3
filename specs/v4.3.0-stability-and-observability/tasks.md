@@ -155,12 +155,12 @@
 
 ### 阶段四：M4 云函数可观测性
 
-- [ ] **T-4.1** `_operation_logs` 集合与 `lib/logger.js`
-  - 在 CloudBase 控制台创建 `_operation_logs` 集合，ACL 设为 PRIVATE
+- [ ] **T-4.1** `operation_logs` 集合与 `lib/logger.js`
+  - 在 CloudBase 控制台创建 `operation_logs` 集合，ACL 设为 PRIVATE
   - 实现 `lib/logger.js` 的 `OperationLogger` 类（`start / step / succeed / partial / fail`）
   - 所有 logger 方法 `.catch(() => {})`，日志失败不阻断业务
-  - 提交：`feat(cloud): 新增 _operation_logs 集合与 OperationLogger 类 FR-9`
-  - 验收：手动调一次 `dissolveFamily`，`_operation_logs` 集合有对应记录
+  - 提交：`feat(cloud): 新增 operation_logs 集合与 OperationLogger 类 FR-9`
+  - 验收：手动调一次 `dissolveFamily`，`operation_logs` 集合有对应记录
   - _依赖：T-3.1 | 涉及：FR-9_
 
 - [ ] **T-4.2** `dissolveFamily` / `removeMember` / `clearBabyData` 接入 OperationLogger
@@ -168,7 +168,7 @@
   - 关键步骤 `logger.step(name, status, extra)`
   - 成功 `logger.succeed(result)`；部分失败 `logger.partial(reason)`
   - 提交：`feat(cloud): 关键 actions 接入 OperationLogger 补偿日志 FR-9`
-  - 验收：`_operation_logs` 集合有 dissolve 和 clearBabyData 的 steps 数组记录
+  - 验收：`operation_logs` 集合有 dissolve 和 clearBabyData 的 steps 数组记录
   - _依赖：T-4.1 | 涉及：FR-9_
 
 - [ ] **T-4.3** `clearBabyData` 断点续传 + 分批并发
@@ -179,11 +179,11 @@
   - 验收：制造 3000+ 条 records → 触发清除 → 自动多次调用直至完成
   - _依赖：T-3.2 + T-4.2 | 涉及：FR-10_
 
-- [ ] **T-4.4** `_rate_limits` 集合与 `lib/rate-limit.js`
-  - 在 CloudBase 控制台创建 `_rate_limits` 集合，ACL 设为 PRIVATE，配置 `expireAt` 字段 TTL 索引
+- [ ] **T-4.4** `rate_limits` 集合与 `lib/rate-limit.js`
+  - 在 CloudBase 控制台创建 `rate_limits` 集合，ACL 设为 PRIVATE，配置 `expireAt` 字段 TTL 索引
   - 实现 `lib/rate-limit.js` 的 `RateLimiter.check(key)` 方法（参考 design §3.8）
   - `joinFamily` action 改用 `ctx.rateLimiter.check(\`invite_${openid}\`)` 替代内存 Map
-  - 提交：`feat(cloud): 持久化限流 _rate_limits + joinFamily 接入 FR-11`
+  - 提交：`feat(cloud): 持久化限流 rate_limits + joinFamily 接入 FR-11`
   - 验收：快速连续调用 `joinFamily` 6 次，第 6 次返回 `RATE_LIMITED`；1 分钟后恢复
   - _依赖：T-3.1 | 涉及：FR-11_
 
@@ -197,10 +197,10 @@
 - [ ] **T-4.6** 新建 `patrolMemberOpenids` 云函数
   - 新建目录 `cloudfunctions/patrolMemberOpenids/`，含 index.js / package.json / config.json
   - config.json 配置每日 00:00 cron 定时触发
-  - index.js 按 design §3.9 实现巡检逻辑 + 结果写入 `_operation_logs`
+  - index.js 按 design §3.9 实现巡检逻辑 + 结果写入 `operation_logs`
   - 部署后手动触发一次（dryRun 模式）验证
   - 提交：`feat(cloud): 新增 patrolMemberOpenids 每日巡检云函数 FR-12`
-  - 验收：手动触发返回 `{ scanned, consistent, fixed, failed, warnings }`；结果写入 _operation_logs
+  - 验收：手动触发返回 `{ scanned, consistent, fixed, failed, warnings }`；结果写入 operation_logs
   - _依赖：T-4.1 | 涉及：FR-12_
 
 ---
@@ -217,7 +217,7 @@
 
 - [ ] **T-5.2** 手动冒烟测试清单
   - [ ] 首次登录 / 自动登录 / 邀请码加入家庭
-  - [ ] 创建家庭 / 解散家庭（看到 _operation_logs 记录）
+  - [ ] 创建家庭 / 解散家庭（看到 operation_logs 记录）
   - [ ] 离线创建记录 → 重连 → 其他成员能看到昵称头像
   - [ ] Viewer 账号尝试创建 → PermissionGuard 拦截（不发网络请求）
   - [ ] 多宝切换 → 快速切回 → 记录不丢失（familyId 统一源）
@@ -231,7 +231,7 @@
   - `architecture.md`：§3 分层架构图补充云函数模块化层（actions/lib/errors）；§7 追加补偿日志 + 持久化限流 + 巡检机制
   - `coding-conventions.md`：§8 补充 FamilyContext / PermissionGuard 使用约定与代码模板
   - `service-api.md`：新增 FamilyContext / PermissionGuard API 章节；移除 leaveFamily ⚠️ 特殊契约章节；errors 错误码列表
-  - `data-model.md`：§2 新增 `_operation_logs` 和 `_rate_limits` 集合；`families.updatedAt` 类型 ISO → Date（v4.3.0+）
+  - `data-model.md`：§2 新增 `operation_logs` 和 `rate_limits` 集合；`families.updatedAt` 类型 ISO → Date（v4.3.0+）
   - `CHANGELOG.md`：新增 [v4.3.0] 区块（Added / Changed / Deprecated / Removed / Security）
   - `README.md` §1 产品版本 + §12 版本历史
   - 各 commit 按 `docs(xxx): ...` 粒度拆分

@@ -37,8 +37,8 @@ flowchart TB
   end
 
   subgraph DB["数据库（新增集合）"]
-    OL[(_operation_logs<br/>PRIVATE + 审计)]
-    RL[(_rate_limits<br/>PRIVATE + TTL)]
+    OL[(operation_logs<br/>PRIVATE + 审计)]
+    RL[(rate_limits<br/>PRIVATE + TTL)]
   end
 
   PG --> RS
@@ -64,7 +64,7 @@ flowchart TB
 | 服务层 | 闭包单例 | 单例模式统一 |
 | 云函数架构 | `wx-server-sdk` + 模块化 | 单文件 → `actions/` 目录 |
 | 云函数限流 | 数据库原子操作 (`_.inc` + CAS) | 实例内存 Map → 持久化 |
-| 云函数日志 | 独立集合 `_operation_logs` | 从 console 到可查询集合 |
+| 云函数日志 | 独立集合 `operation_logs` | 从 console 到可查询集合 |
 | 定时触发 | `config.json.triggers` cron 表达式 | 新增 `patrolMemberOpenids` |
 
 ---
@@ -512,7 +512,7 @@ class OperationLogger {
   }
 
   async start(context = {}) {
-    const res = await this.db.collection('_operation_logs').add({
+    const res = await this.db.collection('operation_logs').add({
       data: {
         action: this.action,
         status: 'started',
@@ -528,28 +528,28 @@ class OperationLogger {
   async step(name, status, extra = {}) {
     if (!this.logId) return;
     this.steps.push({ name, status, ...extra, at: new Date() });
-    await this.db.collection('_operation_logs').doc(this.logId).update({
+    await this.db.collection('operation_logs').doc(this.logId).update({
       data: { steps: this.steps }
     }).catch(() => {}); // 日志写入失败不影响业务
   }
 
   async succeed(result) {
     if (!this.logId) return;
-    await this.db.collection('_operation_logs').doc(this.logId).update({
+    await this.db.collection('operation_logs').doc(this.logId).update({
       data: { status: 'succeeded', result, finishedAt: new Date() }
     }).catch(() => {});
   }
 
   async partial(reason) {
     if (!this.logId) return;
-    await this.db.collection('_operation_logs').doc(this.logId).update({
+    await this.db.collection('operation_logs').doc(this.logId).update({
       data: { status: 'partial', reason, finishedAt: new Date() }
     }).catch(() => {});
   }
 
   async fail(error) {
     if (!this.logId) return;
-    await this.db.collection('_operation_logs').doc(this.logId).update({
+    await this.db.collection('operation_logs').doc(this.logId).update({
       data: { status: 'failed', error: { message: error.message, stack: error.stack }, finishedAt: new Date() }
     }).catch(() => {});
   }
@@ -695,11 +695,11 @@ class RateLimiter {
     const now = Date.now();
     const docId = hashKey(key);
     try {
-      const doc = await this.db.collection('_rate_limits').doc(docId).get();
+      const doc = await this.db.collection('rate_limits').doc(docId).get();
       const rec = doc.data;
       // 窗口已过期，重置
       if (now - rec.windowStart > WINDOW_MS) {
-        await this.db.collection('_rate_limits').doc(docId).update({
+        await this.db.collection('rate_limits').doc(docId).update({
           data: {
             count: 1,
             windowStart: now,
@@ -712,14 +712,14 @@ class RateLimiter {
       if (rec.count >= MAX_COUNT) {
         return { allowed: false, count: rec.count };
       }
-      await this.db.collection('_rate_limits').doc(docId).update({
+      await this.db.collection('rate_limits').doc(docId).update({
         data: { count: this.db.command.inc(1), expireAt: new Date(now + TTL_MS) }
       });
       return { allowed: true, count: rec.count + 1 };
     } catch (e) {
       if (e.errMsg?.includes('cannot find')) {
         // 首次创建
-        await this.db.collection('_rate_limits').add({
+        await this.db.collection('rate_limits').add({
           data: { _id: docId, key, count: 1, windowStart: now, expireAt: new Date(now + TTL_MS) }
         });
         return { allowed: true, count: 1 };
@@ -807,8 +807,8 @@ exports.main = async (event, context) => {
     if (batch.data.length < 20) break;
   }
 
-  // 写入 _operation_logs
-  await db.collection('_operation_logs').add({
+  // 写入 operation_logs
+  await db.collection('operation_logs').add({
     data: {
       action: 'patrolMemberOpenids',
       status: 'succeeded',
@@ -875,12 +875,12 @@ exports.main = async (event, context) => {
 | `cloudfunctions/familyOperation/lib/rate-limit.js` | **新建** | 持久化 RateLimiter | FR-11 |
 | `cloudfunctions/familyOperation/lib/db-helper.js` | **新建** | getAllDocs + chunkedDelete | FR-7 / FR-10 |
 | `cloudfunctions/familyOperation/actions/*.js` | **新建** × 13 | 每 action 一文件 | FR-7 / FR-5 / FR-9 / FR-10 / FR-11 / FR-13 |
-| `cloudfunctions/patrolMemberOpenids/*` | **新建云函数** | 每日巡检 + _operation_logs 写入 | FR-12 |
+| `cloudfunctions/patrolMemberOpenids/*` | **新建云函数** | 每日巡检 + operation_logs 写入 | FR-12 |
 | `cloudfunctions/e2eSecurityTest/` | 小改 | 补 10+ 条 v4.3 新用例 | NFR-1 |
 | `architecture.md` | 中改 | 新增 §3 云函数模块化层，§7 新增补偿日志机制 | 开发后 |
 | `coding-conventions.md` | 中改 | §8 补 FamilyContext / PermissionGuard 使用约定 | 开发后 |
 | `service-api.md` | 中改 | 移除 leaveFamily ⚠️ 特殊契约，新增 FamilyContext / PermissionGuard API | 开发后 |
-| `data-model.md` | 中改 | 新增 `_operation_logs` / `_rate_limits` 集合；families/records updatedAt 类型 ISO→Date | 开发后 |
+| `data-model.md` | 中改 | 新增 `operation_logs` / `rate_limits` 集合；families/records updatedAt 类型 ISO→Date | 开发后 |
 | `CHANGELOG.md` / `README.md` / `git-flow.md` / `profile.wxml`(via app.js) | 同步 | 版本号 v4.3.0 | 开发后 |
 
 **合计**：客户端新建 2 个 + 重构 8 个 + 小改 10 个；云函数新建 21 个文件 + 重构 1 个；文档更新 6 份。
@@ -924,7 +924,7 @@ exports.main = async (event, context) => {
 - **方案 B（选定）**：只约束新写入，读取侧兼容 ✅
 - **理由**：避免一次性迁移风险；`parseTimestamp` 已支持多格式兼容；长尾逐渐消化
 
-### 决策 8：`_operation_logs` 是否加 TTL
+### 决策 8：`operation_logs` 是否加 TTL
 - **方案 A**：TTL 30 天自动清理
 - **方案 B（选定）**：无 TTL，人工归档 ✅
 - **理由**：补偿日志是审计凭据，应长期保存；若发现膨胀问题再加 TTL
@@ -943,7 +943,7 @@ exports.main = async (event, context) => {
 | 云函数模块化拆分过程中漏掉一个 action 行为 | 中 | 高 | 每拆一个 action 立即跑对应的 e2eSecurityTest 模块验证 |
 | `leaveFamily` 新契约发布时老版小程序仍在用 | 高 | 中 | 云函数侧兼容双契约 3 周（`success: false + needTransfer` 与 `success: true + status: need_transfer` 同时返回 legacy 字段） |
 | 持久化限流在并发极高时 CAS 冲突导致误通过 | 低 | 中 | 限流失败不影响正确性（只是概率性允许极少数突破），不用强一致 |
-| `_operation_logs` 写入失败影响业务 | 低 | 低 | 所有 logger.*() 调用 `.catch(() => {})`，日志失败不阻断业务 |
+| `operation_logs` 写入失败影响业务 | 低 | 低 | 所有 logger.*() 调用 `.catch(() => {})`，日志失败不阻断业务 |
 | 断点续传 cursor 被篡改 | 低 | 低 | cursor 仅含 `phase + skip` 数值，篡改只会影响清理顺序，不造成越权 |
 | patrolMemberOpenids 误修复 | 低 | 高 | 先 dryRun 跑一周，确认无误才启用自动修复；异常情况仅告警不修改 |
 
@@ -973,7 +973,7 @@ exports.main = async (event, context) => {
 ### 文档类
 - [ ] `architecture.md` / `coding-conventions.md` / `service-api.md` / `data-model.md` 版本头 → v4.3.0
 - [ ] `service-api.md` 的 `leaveFamily` ⚠️ 章节已移除，并入通用表
-- [ ] `data-model.md` §5 安全规则表含 `_operation_logs` 和 `_rate_limits`
+- [ ] `data-model.md` §5 安全规则表含 `operation_logs` 和 `rate_limits`
 - [ ] `coding-conventions.md` §8 补充 FamilyContext / PermissionGuard 使用约定
 - [ ] CHANGELOG 含 Added/Changed/Deprecated/Security 四大段
 - [ ] 8 处版本号一致为 v4.3.0
