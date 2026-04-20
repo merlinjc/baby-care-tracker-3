@@ -280,9 +280,14 @@ class SyncService {
 
     switch (type) {
       case 'create':
+        // [v4.3.0 FR-4] 时间戳规整：离线队列 data 在 JSON 序列化/反序列化后，
+        // Date 字段会变成 ISO 字符串。同步前规整回 Date 对象，并用 serverDate 覆盖
+        // startTime/createdAt/updatedAt 以获得权威的服务器时间。
+        const normalizedData = this._normalizeTimestamps(data);
+
         // 创建记录
         const res = await this.db.collection(collection).add({
-          data
+          data: normalizedData
         });
         
         // 更新本地缓存中的临时 ID 为真实 ID
@@ -307,6 +312,33 @@ class SyncService {
       default:
         throw new Error(`未知操作类型: ${type}`);
     }
+  }
+
+  /**
+   * [v4.3.0 FR-4] 规整离线队列 data 的时间戳字段
+   * - startTime/endTime/createdAt/updatedAt 若为字符串（ISO）→ new Date()
+   * - createdAt/updatedAt 用 serverDate 覆盖，保证云端写入为权威时间
+   * - 保留 Ts 数值时间戳（客户端可靠读取）
+   * @private
+   * @param {Object} data 原始队列数据
+   * @returns {Object} 规整后的数据
+   */
+  _normalizeTimestamps(data) {
+    const out = { ...data };
+    const toDate = (v) => {
+      if (!v) return v;
+      if (v instanceof Date) return v;
+      if (typeof v === 'string' || typeof v === 'number') return new Date(v);
+      return v;
+    };
+
+    if (out.startTime) out.startTime = toDate(out.startTime);
+    if (out.endTime) out.endTime = toDate(out.endTime);
+    // createdAt/updatedAt 使用 serverDate 获得权威时间（同步时刻而非离线创建时刻，
+    // 这符合"云端首次落地"语义；离线时刻已通过 createdAtTs 保留）
+    out.createdAt = this.db.serverDate();
+    out.updatedAt = this.db.serverDate();
+    return out;
   }
 
   /**

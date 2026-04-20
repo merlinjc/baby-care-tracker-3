@@ -257,10 +257,19 @@ class RecordService {
             startTimeTs: nowTs,
             data: recordData.data,
             note: recordData.note || '',
-            // 创建者信息
+            // [v4.3.0 FR-4] 创建者信息（新对象格式，补齐避免同步后头像昵称丢失）
+            createdBy: {
+              userId: userInfo?._id || '',
+              nickName: familyMember?.nickName || familyMember?.name || userInfo?.nickName || '',
+              avatar: familyMember?.avatarUrl || userInfo?.avatarUrl || ''
+            },
+            // 创建者信息（旧扁平格式保留兼容）
             creatorId: userInfo?._id || null,
             createdByName: familyMember?.nickName || userInfo?.nickName || null,
-            createdByAvatar: familyMember?.avatarUrl || userInfo?.avatarUrl || null
+            createdByAvatar: familyMember?.avatarUrl || userInfo?.avatarUrl || null,
+            // [v4.3.0 FR-4] 时间戳（离线 data 也带上，供 sync 时规整使用）
+            createdAtTs: nowTs,
+            updatedAtTs: nowTs
           },
           tempId
         });
@@ -310,10 +319,19 @@ class RecordService {
           startTimeTs: nowTs,
           data: recordData.data,
           note: recordData.note || '',
-          // 创建者信息
+          // [v4.3.0 FR-4] 创建者信息（新对象格式，补齐避免同步后头像昵称丢失）
+          createdBy: {
+            userId: cachedUserInfo?._id || '',
+            nickName: cachedFamilyMember?.nickName || cachedFamilyMember?.name || cachedUserInfo?.nickName || '',
+            avatar: cachedFamilyMember?.avatarUrl || cachedUserInfo?.avatarUrl || ''
+          },
+          // 创建者信息（旧扁平格式保留兼容）
           creatorId: cachedUserInfo?._id || null,
           createdByName: cachedFamilyMember?.nickName || cachedUserInfo?.nickName || null,
-          createdByAvatar: cachedFamilyMember?.avatarUrl || cachedUserInfo?.avatarUrl || null
+          createdByAvatar: cachedFamilyMember?.avatarUrl || cachedUserInfo?.avatarUrl || null,
+          // [v4.3.0 FR-4] 时间戳
+          createdAtTs: nowTs,
+          updatedAtTs: nowTs
         },
         tempId
       });
