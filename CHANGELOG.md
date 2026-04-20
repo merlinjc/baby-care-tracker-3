@@ -78,6 +78,7 @@
 - v4.2 遗留：`records.familyId` 三源漂移导致的"写入成功但列表里没有"的短时数据不可见问题（FR-15）
 - v4.2 遗留：`_todayStatsCache` 删除记录后未失效，15s 窗口内首页显示过时数据（FR-6）
 - v4.2 遗留：`mergeRecords` 简单合并导致离线 `update` 未同步时被云端旧版本覆盖（FR-6）
+- `miniprogram/services/todo.js` `_compute()`：`total` 错误地 `+ overdue` 导致逾期疫苗被重复计数（首页实际 2 项疫苗待办却显示"查看全部 4 项"），修正为 `total = vaccine + milestone`；`overdue` 仅作 `vaccine` 的子集用于展示，不再计入总数
 
 ### Security
 

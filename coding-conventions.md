@@ -150,6 +150,21 @@ createdByAvatar: avatar,
 5. 类 Date 对象（含 getTime 方法）
 6. 字符串/数字时间戳
 
+### 3.4 统计字段的子集关系（避免重复累加）
+
+当一个统计对象同时暴露"总量"与"子集量"时，合计字段绝不能再把子集量加回去。典型如 `TodoService.getTodoStats` 的返回：
+
+```javascript
+{
+  vaccine,    // 疫苗总待办（已包含 overdue）
+  milestone,  // 里程碑总待办
+  overdue,    // vaccine 的逾期子集，仅供展示
+  total       // = vaccine + milestone ✅  （不要再 + overdue ❌）
+}
+```
+
+历史教训：`total` 曾错误地写成 `vaccine + milestone + overdue`，导致首页"查看全部 N 项"把逾期疫苗计数两次（实际 2 项显示为 4 项）。新增类似统计对象时，请在注释中明确写出每个字段是否与其他字段存在子集关系。
+
 ---
 
 ## 4. 错误处理约定

@@ -119,7 +119,9 @@ class TodoService {
       ]);
 
       return {
-        total: vaccineResult.count + milestoneResult.count + vaccineResult.overdue,
+        // 修复：vaccineResult.count 已包含逾期疫苗，不应重复累加 overdue，
+        // 否则首页"查看全部 N 项"会显示被放大后的错误数字
+        total: vaccineResult.count + milestoneResult.count,
         vaccine: vaccineResult.count,
         milestone: milestoneResult.count,
         overdue: vaccineResult.overdue,
