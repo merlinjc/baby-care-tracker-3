@@ -103,23 +103,34 @@ class BabyService {
   /**
    * 获取宝宝详情
    *
-   * [v4.3.1 Hotfix] 改用 where 查询替代 doc().get()：
-   * - doc().get() 走 read 安全规则的单文档路径，当 babies._openid 不是当前 openid
-   *   且用户是家庭其他成员（非创建者）时，规则匹配不到"通过 familyId 反查家庭成员"分支，
-   *   触发 -502003 permission denied
-   * - where({ _id }) 走集合查询路径，安全规则可通过交叉引用 families.memberOpenids 放行
-   * - 存量 babies（v4.3.1 前创建、缺 _openid 或 _openid 非调用者）均受影响
+   * [v4.3.1 Hotfix] 改走云函数 admin SDK，不再客户端直连：
+   * - 根因：babies.read 安全规则要求 auth.openid 在 families[doc.familyId].memberOpenids 中
+   *   当真实 memberOpenids 未同步（v4.2 迁移漏洞 / removeMember 旧 bug / patrol 未跑）时，
+   *   客户端 doc().get() 和 where({_id}).get() 都会被拒绝（-502003）
+   * - 云函数内用 admin SDK 读取，业务层校验 baby.familyId === user.familyId 且用户是 family 成员
    *
    * @param {string} babyId 宝宝 ID
    * @returns {Promise<Object|null>} 宝宝信息（不存在或无权限时返回 null）
    */
   async getBabyById(babyId) {
     try {
-      const res = await this.babyCollection
-        .where({ _id: babyId })
-        .limit(1)
-        .get();
-      return res.data && res.data.length > 0 ? res.data[0] : null;
+      const res = await wx.cloud.callFunction({
+        name: 'familyOperation',
+        data: {
+          action: 'getBabyById',
+          params: { babyId }
+        }
+      });
+      const result = res.result;
+      if (!result.success) {
+        // 权限错误（PERMISSION_DENIED）→ 返回 null，让调用方处理
+        if (result.error && result.error.code === 'PERMISSION_DENIED') {
+          console.warn('[BabyService] getBabyById 权限拒绝:', result.error.message);
+          return null;
+        }
+        throw new Error(result.error?.message || '获取宝宝详情失败');
+      }
+      return result.data?.baby || null;
     } catch (error) {
       console.error('获取宝宝详情失败:', error);
       throw error;

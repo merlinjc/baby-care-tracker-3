@@ -36,7 +36,9 @@ const actions = {
   getFamilyByUserId: require('./actions/getFamilyByUserId'),
   createBaby: require('./actions/createBaby'),
   deleteBaby: require('./actions/deleteBaby'),
-  clearBabyData: require('./actions/clearBabyData')
+  clearBabyData: require('./actions/clearBabyData'),
+  // v4.3.1 Hotfix：客户端直连受安全规则限制，改走云函数 admin SDK
+  getBabyById: require('./actions/getBabyById')
 };
 
 exports.main = async (event, context) => {
