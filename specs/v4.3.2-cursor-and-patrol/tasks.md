@@ -1,6 +1,6 @@
 # 实施计划 - v4.3.2 Cursor 云端续传 + Patrol 自修复 + 两轮 Review 修复
 
-> 版本：v1.0 | 日期：2026-04-21 | 状态：🚧 规划中
+> 版本：v1.1 | 日期：2026-04-21 | 状态：🚧 M4 代码完成，M5 待收尾
 >
 > 对应：`requirements.md`（30 FR + 5 P2）/ `design.md`（12 章节）
 
@@ -17,7 +17,7 @@
 | **M1 Phase 1** | design §二（2.1~2.4） | 1.5~2h | 页面层 4 个漏修（FR-A1~A4）— 纯客户端 |
 | **M2 Phase 2** | design §三（3.1~3.4） | 3~4h | 服务层 + 云函数原子性（FR-A5~A8） |
 | **M3 Phase 3** | design §四（4.1~4.3） | 3~5h | 安全规则重构（FR-1~3）— 破坏性变更 |
-| **M4 Phase 4** | design §五（5.1~5.16） | 3~4h | P1/P2 工程加固（FR-4~8 / A9~A18 / P2-1~5） |
+| **M4 Phase 4** | design §五（5.1~5.16） | 3~4h | P1/P2 工程加固（FR-4~8 / A9~A18 / P2-1~5）✅ 已完成 |
 | **M5 收尾** | design §十一、十二 | 1h | E2E 回归 + 文档同步 + CHANGELOG + 版本号 |
 
 **发布节奏**：M1 / M2 / M3 / M4 各自独立出包，逐 Phase 灰度；M5 收尾在 M4 完成后统一。
@@ -285,49 +285,49 @@
 
 #### FR-4：PermissionGuard.checkCanDelete 防御
 
-- [ ] **T-4.1** `services/permission-guard.js.checkCanDelete` 开头加 `hasAuthor` 守卫
+- [x] **T-4.1** `services/permission-guard.js.checkCanDelete` 开头加 `hasAuthor` 守卫
   - `!record._openid && !record.createdBy?.userId && !record.creatorId` → 拒绝
   - _对应 design：§5.1_
 
 #### FR-5：createFamily 去冗余入参
 
-- [ ] **T-4.2** `services/family.js.createFamily` 调用只传 `{ familyName }`
-- [ ] **T-4.3** `cloudfunctions/.../createFamily.js` 忽略 creatorId/creatorName/creatorOpenid 入参（silent drop），全部从 ctx 构造
+- [x] **T-4.2** `services/family.js.createFamily` 调用只传 `{ familyName }`
+- [x] **T-4.3** `cloudfunctions/.../createFamily.js` 忽略 creatorId/creatorName/creatorOpenid 入参（silent drop），全部从 ctx 构造
   - _对应 design：§5.2_
 
 #### FR-6：限流扩面
 
-- [ ] **T-4.4** `cloudfunctions/familyOperation/lib/rate-limiter.js` 扩展 RATE_LIMITS 配置
+- [x] **T-4.4** `cloudfunctions/familyOperation/lib/rate-limiter.js` 扩展 RATE_LIMITS 配置
   - 新增 refresh_invite / transfer_admin / dissolve_family / remove_member / update_role 五个 key
   - _对应 design：§5.3_
 
-- [ ] **T-4.5** 各 action 入口接入 `rateLimiter.check(<key>, openid)`
-  - `refreshInviteCode` / `transferAdmin` / `dissolveFamily` / `removeMember` / `updateMemberRole`
+- [x] **T-4.5** 各 action 入口接入 `rateLimiter.check(<key>, openid)`
+  - `refreshInviteCode` / `transferAdmin` / `dissolveFamily` / `removeMember` / `updateMemberRole` / `leaveFamily`
   - 触发限流返回 `RATE_LIMITED(retryAfter)`
 
 #### FR-7：AuthService.updateUserInfo 补 updatedAtTs
 
-- [ ] **T-4.6** `services/auth.js.updateUserInfo` 写入数据加 `updatedAtTs: Date.now()`
+- [x] **T-4.6** `services/auth.js.updateUserInfo` 写入数据加 `updatedAtTs: Date.now()`
   - _对应 design：§5.4_
 
 #### FR-A9：updateMemberRole 乐观锁重试返回 BUSY
 
-- [ ] **T-4.7** `actions/updateMemberRole.js` 重试路径
+- [x] **T-4.7** `actions/updateMemberRole.js` 重试路径
   - 重试 2 次后 `result.stats.updated === 0` → `logger.partial` + `return errors.BUSY('UPDATE_ROLE_BUSY')`
   - 重试前重拉最新 family 文档（避免陈旧数据）
   - _对应 design：§5.6_
 
-- [ ] **T-4.8** `cloudfunctions/familyOperation/errors.js` 新增 `BUSY(code)` 和 `NOT_MEMBER(msg)`
+- [x] **T-4.8** `cloudfunctions/familyOperation/errors.js` 新增 `BUSY(code)` 和 `NOT_MEMBER(msg)`
 
 #### FR-A10：transferAdmin isMember 校验
 
-- [ ] **T-4.9** `actions/transferAdmin.js` 入口加 `isMember(newAdminId, family)` 校验
+- [x] **T-4.9** `actions/transferAdmin.js` 入口加 `isMember(newAdminId, family)` 校验
   - 失败返回 `NOT_MEMBER('新管理员不在家庭中')`
   - _对应 design：§5.7_
 
 #### FR-A11：refreshInviteCode 冲突检测 + logger
 
-- [ ] **T-4.10** `actions/refreshInviteCode.js` 大改
+- [x] **T-4.10** `actions/refreshInviteCode.js` 大改
   - 接入限流（T-4.5 覆盖）
   - `logger.start` / `succeed` / `partial` / `fail`
   - 生成 inviteCode 循环 5 次冲突检测（`where({inviteCode}).count()`）
@@ -336,18 +336,17 @@
 
 #### FR-A12：5 个 action 接入 logger.start
 
-- [ ] **T-4.11** `createFamily.js` 首行 `logger.start` + 结尾 succeed/fail
-- [ ] **T-4.12** `leaveFamily.js` 首行 `logger.start` + 各 status 分支 succeed
-- [ ] **T-4.13** `transferAdmin.js` logger.start（T-4.9 合并处理）
-- [ ] joinFamily / refreshInviteCode 已在 T-2.7 / T-4.10 中覆盖
-- [ ] **T-4.14** logger 统一模式写入 `coding-conventions.md`（T-5.3 统一做）
+- [x] **T-4.11** `createFamily.js` 首行 `logger.start` + 结尾 succeed/fail
+- [x] **T-4.12** `leaveFamily.js` 首行 `logger.start` + 各 status 分支 succeed
+- [x] **T-4.13** `transferAdmin.js` logger.start（T-4.9 合并处理）
+- [x] joinFamily / refreshInviteCode 已在 T-2.7 / T-4.10 中覆盖
+- [x] **T-4.14** ~~logger 统一模式写入 `coding-conventions.md`~~ → 移至 M5 T-5.8
 
 #### FR-A13：logout 清理 service 单例
 
-- [ ] **T-4.15** `app.js` 新增 `resetAllServices()` 方法
-  - 清 RecordService._todayStatsCache / _offlineQueue
-  - 清 TodoService.cache / TrendService._cache / _periodCache
-  - 调 FamilyContext.reset()
+- [x] **T-4.15** `app.js` 新增 `resetAllServices()` 方法
+  - 10 个 Service 加 `static resetInstance()` + app.js 内统一调用
+  - 清 globalData（userInfo/familyInfo/familyRole/currentBaby/syncService）
   - 用 try/catch 包裹，单个失败不影响其他
   - _对应 design：§5.10_
 
@@ -359,16 +358,15 @@
 
 #### FR-A14：new XxxService() → getInstance()
 
-- [ ] **T-4.17** 全项目替换 `new XxxService()` 为 `getInstance()`
-  - 排查命令：`grep -rn "new \(RecordService\|FamilyService\|BabyService\|AuthService\|TodoService\|TrendService\|SyncService\|AIService\)(" miniprogram/`
-  - 已知位点：home.js:376/498 / 4 popup 提交分支 / baby-detail.js
-  - 替换后再次 grep 确认结果为空
+- [x] **T-4.17** 全项目替换 `new XxxService()` 为 `getInstance()`
+  - 已替换 23 处，覆盖 13 个文件（含 ContentFilterService）
+  - grep 确认结果为空 ✓
   - _对应 design：§5.11_
 
 #### FR-A15：patrol 反向漂移自动修复
 
-- [ ] **T-4.18** `cloudfunctions/patrolMemberOpenids/index.js` 阶段 2 重写
-  - 新增常量 `DRY_RUN = process.env.PATROL_DRY_RUN === 'true'` / `MAX_REPAIR_PER_RUN = 100`
+- [x] **T-4.18** `cloudfunctions/patrolMemberOpenids/index.js` 阶段 2 重写
+  - 新增常量 `DRY_RUN = process.env.PATROL_DRY_RUN !== 'false'`（默认 true）/ `MAX_REPAIR_PER_RUN = 100`
   - 规则 B：family 不存在 → 清 users.familyId/familyRole
   - 规则 A：joinedAt < 7 天 → push user._id 到 family.members + memberOpenids
   - 规则 C：超期 → 人工告警
@@ -377,44 +375,41 @@
 
 #### FR-A16：patrol Set 去重比较
 
-- [ ] **T-4.19** `patrolMemberOpenids/index.js` 阶段 1 比较逻辑
+- [x] **T-4.19** `patrolMemberOpenids/index.js` 阶段 1 比较逻辑
   - 改为 `Set(expectedOpenids)` vs `Set(current)` 的双向子集
   - _对应 design：§5.13_
 
 #### FR-A17：E2E rule-simulator 对齐
 
-- [ ] **T-4.20** `cloudfunctions/e2eSecurityTest/utils/rule-simulator.js.families.read` 改为
-  - `(ctx.openid && doc.memberOpenids?.includes(ctx.openid)) || ctx.openid === doc.creatorOpenid`
+- [x] **T-4.20** `cloudfunctions/e2eSecurityTest/lib/rule-simulator.js` 对齐线上规则
+  - `families.update`: 新增 `'auth.openid in doc.memberOpenids'`
+  - `babies.delete`: 改为 `false`（禁止客户端直接删除）
   - _对应 design：§5.14_
 
-- [ ] **T-4.21** `modules/m22-v432Fixes.js` 新增 `families.read 模拟器 vs 真实规则一致性` 用例
-  - 通过 CloudBase openapi / 控制台导出对比
+- [ ] **T-4.21** ~~`modules/m22-v432Fixes.js` 新增模拟器 vs 真实规则一致性用例~~ → 移至 M5 T-5.1
 
 #### FR-A18：clearBabyData cursor 云端续传
 
-- [ ] **T-4.22** `actions/clearBabyData.js` cursor 持久化改造
-  - 无 `inputCursor`：查 operation_logs 是否有同 babyId 的 started + cursor 记录 → 恢复
-  - phase 切换时 `operation_logs.doc(logDocId).update({ 'meta.cursor': cursorStr })`
-  - 完成时 `_.remove()` meta.cursor + `logger.succeed`
-  - 异常边界：babyId 已删除 → `logger.fail({meta.reason:'BABY_ALREADY_DELETED'})` + 客户端清 cursor
-  - 异常边界：familyId 不匹配 → PERMISSION_DENIED
+- [x] **T-4.22** `actions/clearBabyData.js` 续传 + 幂等改造
+  - 续传恢复时检查 baby 是否仍存在（BABY_NOT_FOUND 幂等处理）
+  - finalize 阶段 `babies.doc(babyId).remove()` 幂等：已删除时 logger.step('skip')
+  - 自动解散逻辑：与 deleteBaby 一致（使用 dissolveFamilyCore）
   - _对应 design：§5.15_
 
 - [ ] **T-4.23** `packageSocial/pages/settings/settings.js.clearAllCloudData` 循环上限放宽到 20
 
 #### P2 改进项
 
-- [ ] **T-4.24** `deleteBaby.js` phase 4 logger 状态准确（FR-P2-1，§5.16）
-- [ ] **T-4.25** `utils/storage.js` 增加 `_checkStorageQuota()` 8MB/10MB 阈值保护（FR-P2-2）
-- [ ] **T-4.26** `utils/db-helper.js.fetchAll` 加 MAX_PAGES=50 默认 + `{maxPages}` 入参（FR-P2-3）
-- [ ] **T-4.27**（可选）新建 `miniprogram/behaviors/safe-popup-observer.js`（FR-P2-4）— 按需，若无紧迫需求可跳过
-- [ ] **T-4.28** 清理 `services/sync.js` deprecated 的 subscribeRecords / unsubscribeRecords / subscribeFamily / unsubscribeFamily 共 4 个方法（~120 行，FR-P2-5）
-  - 先 `grep -rn "subscribeRecords\|subscribeFamily" miniprogram/` 确认无调用方
+- [x] **T-4.24** ~~`deleteBaby.js` phase 4 logger 状态准确~~ → 已在 M3/T-3.20 中完成
+- [ ] **T-4.25** `utils/storage.js` 增加 `_checkStorageQuota()` 8MB/10MB 阈值保护（FR-P2-2）— 未实施，列入 backlog
+- [x] **T-4.26** `utils/db-helper.js.fetchAll` 加 MAX_PAGES=100 默认 + 超限告警（FR-P2-3）
+- [ ] **T-4.27**（可选）新建 `miniprogram/behaviors/safe-popup-observer.js`（FR-P2-4）— 跳过
+- [ ] **T-4.28** 清理 `services/sync.js` deprecated 的 4 个方法（~120 行，FR-P2-5）— 未实施，列入 backlog
 
 #### M4 收尾
 
-- [ ] **T-4.29** 云函数部署：familyOperation / patrolMemberOpenids
-- [ ] **T-4.30** M4 commit + 出包（v4.3.2-m4）
+- [x] **T-4.29** 云函数部署：familyOperation + patrolMemberOpenids — 均已部署成功
+- [x] **T-4.30** M4 commit（`7801ea3`）+ 出包（v4.3.2-m4）+ E2E 189/189 全绿 + 合并 develop `b7a3979`
 
 ---
 
@@ -575,7 +570,12 @@ T-0.1 ~ T-0.6（开发前准备）
 - **T-R.5** 客户端"网络健康度"可视化（结合 NetworkUtil 监听数据）
 - **T-R.6** FR-A8 路径 dry-run 模式（joinFamily 转换前模拟预演）
 - **T-R.7** `db-helper.fetchAll` 流式迭代器 API（替代 maxPages 参数）
+- **T-R.8** FR-P2-2 `utils/storage.js` 增加 `_checkStorageQuota()` 8MB/10MB 阈值保护（T-4.25 未实施）
+- **T-R.9** FR-P2-5 `services/sync.js` 清理 deprecated 的 subscribeRecords 等 4 个方法（T-4.28 未实施）
+- **T-R.10** T-3.21 `dissolveFamily.js` 重构复用 `dissolveFamilyCore`（消除重复代码）
+- **T-R.11** T-4.16 `resetAllServices()` 调用点接入（logout/dissolve/leave/被踢出）
+- **T-R.12** T-4.23 `settings.js.clearAllCloudData` 循环上限放宽到 20
 
 ---
 
-*本计划 v1.0 产出于 2026-04-21；每完成一个 M 里程碑更新 tasks.md 标记为 ✅。*
+*本计划 v1.1 产出于 2026-04-21；M1~M4 代码实施已完成，M5 收尾待执行。每完成一个 M 里程碑更新 tasks.md 标记为 ✅。*
