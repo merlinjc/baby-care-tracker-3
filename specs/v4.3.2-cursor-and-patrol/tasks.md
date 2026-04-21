@@ -154,14 +154,14 @@
 
 #### M2 收尾
 
-- [ ] **T-2.9** 云函数部署：`familyOperation`（joinFamily 改动）
+- [x] **T-2.9** 云函数部署：`familyOperation`（joinFamily 改动）
   - 用 MCP `manageFunctions(action='updateFunctionCode')` 部署（需 CloudBase 登录授权）
   - 冒烟：调用 joinFamily 新账号加入有效家庭 → 正常路径 succeed
   - 冒烟：伪造 STALE_USER_POINTER / STALE_OLD_FAMILY_MEMBERSHIP 分支走到（可选）
 
-- [ ] **T-2.10** e2e m15/m21 回归确认 joinFamily 无破坏
+- [x] **T-2.10** e2e m15/m21 回归确认 joinFamily 无破坏
 
-- [ ] **T-2.11** M2 commit + 独立出包（v4.3.2-m2，临时标识）
+- [x] **T-2.11** M2 commit + 独立出包（v4.3.2-m2，临时标识）
   - 代码 commit 已完成：d428258（feat(v4.3.2-M2): Phase 2 服务层/云函数原子性）
   - 出包在微信开发者工具操作
 
