@@ -32,8 +32,8 @@
 - [x] **T-0.2** 深度 review 两轮，产出 `review-findings.md`（36 条）
 - [x] **T-0.3** 编写 `requirements.md`（30 FR + 5 P2）
 - [x] **T-0.4** 编写 `design.md`（12 章节 / 1412 行）
-- [ ] **T-0.5** 编写 `tasks.md`（本文件）
-- [ ] **T-0.6** 用户审核并确认 Scope 与 Phase 顺序
+- [x] **T-0.5** 编写 `tasks.md`（本文件）
+- [x] **T-0.6** 用户审核并确认 Scope 与 Phase 顺序
 
 ---
 
@@ -43,7 +43,7 @@
 
 #### FR-A1：growth-popup 实例方法修复
 
-- [ ] **T-1.1** `components/growth-popup/growth-popup.js:89` 改 `RecordService.getRecords` → `RecordService.getInstance().getRecords`
+- [x] **T-1.1** `components/growth-popup/growth-popup.js:89` 改 `RecordService.getRecords` → `RecordService.getInstance().getRecords`
   - 验收：真机打开首页 → 点"生长" → console 不抛 `TypeError`
   - 验收：若有 growth 历史记录，弹窗内"上次生长数据"展示区正确回填
   - _涉及：FR-A1_
@@ -51,7 +51,7 @@
 
 #### FR-A2：4 个弹窗接入 swipe-close behavior
 
-- [ ] **T-1.2** `components/feeding-popup/feeding-popup.js` 接入 behavior
+- [x] **T-1.2** `components/feeding-popup/feeding-popup.js` 接入 behavior
   - 引入 `const swipeCloseBehavior = require('../../behaviors/swipe-close')`
   - 添加 `behaviors: [swipeCloseBehavior]`
   - 删除 `data` 中 `popupTranslateY / touchStartY`
@@ -59,13 +59,13 @@
   - 验收：真机下滑可关闭弹窗；console 无 "Component method not found" warning
   - _对应 design：§2.2_
 
-- [ ] **T-1.3** `components/sleep-popup/sleep-popup.js` 同 T-1.2 改法
-- [ ] **T-1.4** `components/diaper-popup/diaper-popup.js` 同 T-1.2 改法
-- [ ] **T-1.5** `components/temperature-popup/temperature-popup.js` 同 T-1.2 改法
+- [x] **T-1.3** `components/sleep-popup/sleep-popup.js` 同 T-1.2 改法
+- [x] **T-1.4** `components/diaper-popup/diaper-popup.js` 同 T-1.2 改法
+- [x] **T-1.5** `components/temperature-popup/temperature-popup.js` 同 T-1.2 改法
 
 #### FR-A3：family-join 加入后持久化完整 familyInfo
 
-- [ ] **T-1.6** `packageSocial/pages/family-join/family-join.js` `handleJoin` 改造
+- [x] **T-1.6** `packageSocial/pages/family-join/family-join.js` `handleJoin` 改造
   - `joinResult.success` 后调用 `familyService.getFamilyDetail(joinResult.familyId)`
   - 成功：`StorageUtil.saveFamilyInfo(family)`（完整对象）
   - 失败降级：保留最小 `{ _id, name }` + toast "加入成功，部分信息需刷新"
@@ -77,7 +77,7 @@
 
 #### FR-A4：record 单条删除归属校验
 
-- [ ] **T-1.7** `pages/record/record.js` 单条删除入口加 `PermissionGuard.checkCanDelete`
+- [x] **T-1.7** `pages/record/record.js` 单条删除入口加 `PermissionGuard.checkCanDelete`
   - 删除 action sheet 点击后、`showModal` 确认前加校验
   - 校验失败 toast "无权删除他人记录" 并 return
   - 验收：editor 账号下点他人记录 → 选"删除" → 被拦截不进入确认弹窗
@@ -86,9 +86,9 @@
 
 #### M1 收尾
 
-- [ ] **T-1.8** `grep -rn "bindtouchstart=" miniprogram/components/` 确认 5 个弹窗（baby-edit + 4 个新）WXML 未受影响
-- [ ] **T-1.9** 真机冒烟：首页→生长弹窗 / 4 个记录弹窗下滑关闭 / 加入家庭流程 / record 单条删除
-- [ ] **T-1.10** M1 commit + 独立出包（版本号 v4.3.2-m1，临时标识）
+- [x] **T-1.8** `grep -rn "bindtouchstart=" miniprogram/components/` 确认 5 个弹窗（baby-edit + 4 个新）WXML 未受影响
+- [ ] **T-1.9** 真机冒烟：首页→生长弹窗 / 4 个记录弹窗下滑关闭 / 加入家庭流程 / record 单条删除（需用户在微信开发者工具/真机操作）
+- [x] **T-1.10** M1 commit（b22a5e8）+ 独立出包（版本号 v4.3.2-m1，临时标识；出包在微信开发者工具操作）
 
 ---
 
