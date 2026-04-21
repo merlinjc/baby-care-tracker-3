@@ -58,7 +58,7 @@ Component({
       this.setData({ retrospectLoading: true });
 
       try {
-        const recordService = new RecordService();
+        const recordService = RecordService.getInstance();
         const babyId = this.properties.babyId;
         const type = this.properties.eggData.dataQueryType;
         const showGrowthComparison = this.properties.eggData.showGrowthComparison;

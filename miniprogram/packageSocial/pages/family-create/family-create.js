@@ -44,7 +44,7 @@ Page({
     this.setData({ loading: true });
 
     try {
-      const familyService = new FamilyService();
+      const familyService = FamilyService.getInstance();
       const userInfo = StorageUtil.getUserInfo();
 
       if (!userInfo || !userInfo._id) {

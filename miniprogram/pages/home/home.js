@@ -322,7 +322,7 @@ Page({
 
       // === 步骤 2: 获取宝宝列表 ===
       let currentBaby = StorageUtil.getCurrentBaby();
-      const babyService = new BabyService();
+      const babyService = BabyService.getInstance();
       const familyBabies = await babyService.getBabiesByFamilyId(familyInfo._id);
 
       if (familyBabies.length === 0) {
@@ -373,7 +373,7 @@ Page({
     this.setData({ loading: true, error: false });
 
     try {
-      const recordService = new RecordService();
+      const recordService = RecordService.getInstance();
       const nowTs = Date.now();
       
       // 并行获取今日统计和最近记录
@@ -858,7 +858,7 @@ Page({
     try {
       // 检查 QuotaService
       const QuotaService = require('../../services/quota');
-      const quotaService = new QuotaService();
+      const quotaService = QuotaService.getInstance();
       
       if (!quotaService.hasQuota()) {
         // 配额用完，使用本地降级
@@ -872,7 +872,7 @@ Page({
       
       // 调用 AIService（8s 超时）
       const AIService = require('../../services/ai');
-      const aiService = new AIService();
+      const aiService = AIService.getInstance();
       
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('timeout')), 8000)

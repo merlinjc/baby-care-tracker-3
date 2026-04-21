@@ -28,6 +28,9 @@ class BabyService {
     return instance;
   }
 
+  /** [v4.3.2 FR-A13] 重置单例（用于退出登录/家庭解散后清理） */
+  static resetInstance() { instance = null; }
+
   /**
    * 创建宝宝档案
    * @param {string} familyId 家庭 ID

@@ -7,13 +7,19 @@
  * 
  * 我们在测试云函数中读取真实文档数据，注入模拟的 auth 对象，
  * 按安全规则表达式逐条求值，判定结果与真实引擎等价。
+ *
+ * [v4.3.2 FR-A17] 规则表达式对齐真实线上规则
+ * - families.read: 仍为 'auth != null'（T-7 阶段未收紧，收紧后改为 memberOpenids contains）
+ * - 新增 families.update: 'auth.openid in doc.memberOpenids'（线上已配置此规则）
+ * - 新增 babies.delete: false（线上已禁止客户端删除）
  */
 
 class RuleSimulator {
   constructor(db) {
     this.db = db;
 
-    // 6 个集合的安全规则定义（与实际配置一致）
+    // 6 个集合的安全规则定义（与线上实际配置一致）
+    // [v4.3.2 FR-A17] 对齐线上规则
     this.rules = {
       users: {
         read: 'doc._openid == auth.openid',
@@ -22,15 +28,18 @@ class RuleSimulator {
         delete: 'doc._openid == auth.openid'
       },
       families: {
-        read: 'auth != null',  // v4.2 调整：原 auth.openid in doc.memberOpenids 在 doc().get() 不生效
+        // [v4.3.2 FR-1] 当前仍为 auth != null，T0 收紧后改为 memberOpenids contains
+        read: 'auth != null',
         create: 'auth != null',
-        update: false,
+        // [v4.3.2 FR-A17] 对齐线上实际规则：仅成员可更新家庭
+        update: 'auth.openid in doc.memberOpenids',
         delete: false
       },
       babies: {
         read: "get('database.families.' + doc.familyId).memberOpenids contains auth.openid",
         create: 'auth != null',
         update: 'doc._openid == auth.openid',
+        // [v4.3.2 FR-A17] 对齐线上实际规则：禁止客户端直接删除 baby
         delete: false
       },
       records: {

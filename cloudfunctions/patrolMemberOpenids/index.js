@@ -1,50 +1,49 @@
 /**
- * patrolMemberOpenids 巡检云函数（v4.3.0 FR-12 / v4.3.1 FR-18）
+ * patrolMemberOpenids 巡检云函数
  *
- * 功能：
  * === 阶段 1（v4.3.0）families → users ===
  * - 遍历所有 families，核对 memberOpenids 与 members（通过 users._openid）的一致性
  * - 不一致时自动修复（dryRun=true 只报告）
  *
- * === 阶段 2（v4.3.1 FR-18）users → families 反向漂移 ===
+ * === 阶段 2（v4.3.1 FR-18 → v4.3.2 FR-A15）users → families 反向漂移 ===
  * - 遍历 users.familyId 非空的用户，校验对应 family 的 members 是否包含该 user
- * - 不一致时仅告警（不自动修复，避免误伤注销中间态）
+ * - [v4.3.2 FR-A15] 反向漂移自动修复（v4.3.1 只告警，v4.3.2 改为默认自修复）
+ *   - 规则 A：family.members 含 userId 但 users.familyId !== family._id → 修复 users.familyId
+ *   - 规则 B：family 不存在 → 清除 users.familyId（幽灵引用）
+ *   - 规则 C：family 存在但 members 不含 userId → 清除 users.familyId（过期引用）
+ *   - 安全保护：MAX_REPAIR_PER_RUN=100 + dryRun 开关 + joinedAt < 7天不修复
  *
- * - 巡检结果写入 operation_logs 集合供审计
- * - 支持断点续传（event.cursor.stage = 'stage1'|'stage2'，skip = number）
+ * [v4.3.2 FR-A16] 阶段 1 使用 Set 去重比较（修复 memberOpenids 含重复项时误报一致）
  *
- * 触发方式：
- * - 定时触发器（CloudBase 控制台配置，cron: 0 0 0 * * * * = 每天 0 点）
- * - 手动调用（建议 dryRun=true 先观察）
- *
- * 输入参数：
- *   { dryRun?: boolean = false, cursor?: { stage, skip } }
- *
- * 返回：
- *   { success: true, stats: { scanned, consistent, fixed, failed, reverseDrift, warnings },
- *     cursor: { stage, skip } | null }
+ * 触发方式：定时触发器 / 手动调用
+ * 输入参数：{ dryRun?: boolean = false, cursor?: { stage, skip } }
  */
 const cloud = require('wx-server-sdk');
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
 const BATCH_SIZE = 20;
 const USER_BATCH_SIZE = 50;
-const TIME_BUDGET_MS = 50000;  // 留 10s 给落盘等尾部操作
+const TIME_BUDGET_MS = 50000;
+
+// [v4.3.2 FR-A15] 安全阈值
+const MAX_REPAIR_PER_RUN = 100;
 
 exports.main = async (event = {}) => {
   const db = cloud.database();
   const _ = db.command;
-  const dryRun = !!event.dryRun;
+  const dryRun = event.dryRun !== false;  // 默认 dryRun=true（安全第一）
   const startedAt = Date.now();
   const budget = () => Date.now() - startedAt < TIME_BUDGET_MS;
 
   const stats = {
-    scanned: 0,       // stage 1 扫描的 family 数
+    scanned: 0,
     consistent: 0,
     fixed: 0,
     failed: 0,
-    userScanned: 0,   // stage 2 扫描的 user 数
-    reverseDrift: 0,  // stage 2 发现的反向漂移数
+    userScanned: 0,
+    reverseDriftFound: 0,   // [v4.3.2 FR-A15] 细化
+    reverseDriftFixed: 0,
+    reverseDriftSkipped: 0,
     warnings: []
   };
 
@@ -85,8 +84,12 @@ exports.main = async (event = {}) => {
         }
 
         const current = family.memberOpenids || [];
-        const consistent = expectedOpenids.length === current.length
-          && expectedOpenids.every(o => current.includes(o));
+
+        // [v4.3.2 FR-A16] Set 去重比较：修复 memberOpenids 含重复项时误报一致
+        const expectedSet = new Set(expectedOpenids);
+        const currentSet = new Set(current);
+        const consistent = expectedSet.size === currentSet.size
+          && [...expectedSet].every(o => currentSet.has(o));
 
         if (consistent) {
           stats.consistent++;
@@ -115,16 +118,14 @@ exports.main = async (event = {}) => {
       }
     }
 
-    // 阶段 1 完成 → 切到阶段 2
     if (!hasMore) {
       cursor = { stage: 'stage2', skip: 0 };
     } else {
-      // 时间耗尽但阶段 1 还没跑完 → 保留当前 cursor
       return finalize(db, stats, cursor, dryRun, startedAt);
     }
   }
 
-  // ===== 阶段 2（v4.3.1 FR-18）：users → families 反向漂移 =====
+  // ===== 阶段 2（v4.3.2 FR-A15）：users → families 反向漂移 + 自修复 =====
   if (cursor.stage === 'stage2') {
     let hasMoreUsers = true;
     while (budget() && hasMoreUsers) {
@@ -138,22 +139,70 @@ exports.main = async (event = {}) => {
 
       for (const user of batch.data) {
         stats.userScanned++;
-        if (!user.familyId) continue;  // 防御
+        if (!user.familyId) continue;
+
         try {
           const familyDoc = await db.collection('families').doc(user.familyId).get();
           const f = familyDoc.data;
-          if (!f || !Array.isArray(f.members) || !f.members.includes(user._id)) {
-            stats.reverseDrift++;
-            stats.warnings.push(
-              `user=${user._id} familyId=${user.familyId} not in family.members`
-            );
+
+          if (!f || !Array.isArray(f.members)) {
+            // 规则 B：家庭文档不存在或数据损坏 → 清除幽灵引用
+            stats.reverseDriftFound++;
+            if (stats.reverseDriftFixed < MAX_REPAIR_PER_RUN && !dryRun) {
+              await db.collection('users').doc(user._id).update({
+                data: { familyId: _.remove(), familyRole: _.remove(), updatedAt: new Date(), updatedAtTs: Date.now() }
+              });
+              stats.reverseDriftFixed++;
+            } else {
+              stats.reverseDriftSkipped++;
+              stats.warnings.push(`DRY_RUN user=${user._id} ghost familyId=${user.familyId}`);
+            }
+            continue;
+          }
+
+          if (!f.members.includes(user._id)) {
+            // 规则 C：family 存在但 members 不含 userId → 清除过期引用
+            stats.reverseDriftFound++;
+
+            // 安全保护：joinedAt < 7 天的用户可能正在退出中间态，跳过
+            const memberDetail = (f.memberDetails || []).find(m => m.userId === user._id);
+            if (memberDetail && memberDetail.joinedAt) {
+              const joinedAt = memberDetail.joinedAt instanceof Date
+                ? memberDetail.joinedAt.getTime()
+                : new Date(memberDetail.joinedAt).getTime();
+              if (Date.now() - joinedAt < 7 * 24 * 60 * 60 * 1000) {
+                stats.reverseDriftSkipped++;
+                stats.warnings.push(`SKIP user=${user._id} recently joined family=${user.familyId} (< 7d)`);
+                continue;
+              }
+            }
+
+            if (stats.reverseDriftFixed < MAX_REPAIR_PER_RUN && !dryRun) {
+              await db.collection('users').doc(user._id).update({
+                data: { familyId: _.remove(), familyRole: _.remove(), updatedAt: new Date(), updatedAtTs: Date.now() }
+              });
+              stats.reverseDriftFixed++;
+            } else {
+              stats.reverseDriftSkipped++;
+              stats.warnings.push(`SKIP user=${user._id} not in members of family=${user.familyId} (limit or dryRun)`);
+            }
+          } else {
+            // 规则 A 隐含：family.members 含 userId 且 users.familyId 匹配 → 一致，无需修复
           }
         } catch (e) {
-          // 家庭文档不存在 → 幽灵引用
-          stats.reverseDrift++;
-          stats.warnings.push(
-            `user=${user._id} familyId=${user.familyId} family not found`
-          );
+          // 家庭文档不存在 → 幽灵引用（规则 B）
+          stats.reverseDriftFound++;
+          if (stats.reverseDriftFixed < MAX_REPAIR_PER_RUN && !dryRun) {
+            await db.collection('users').doc(user._id).update({
+              data: { familyId: _.remove(), familyRole: _.remove(), updatedAt: new Date(), updatedAtTs: Date.now() }
+            }).catch((e2) => {
+              stats.warnings.push(`user=${user._id} fix failed: ${e2.message}`);
+            });
+            stats.reverseDriftFixed++;
+          } else {
+            stats.reverseDriftSkipped++;
+            stats.warnings.push(`SKIP user=${user._id} family not found: ${user.familyId}`);
+          }
         }
       }
 
@@ -165,7 +214,7 @@ exports.main = async (event = {}) => {
     }
 
     if (!hasMoreUsers) {
-      cursor = null;  // 完全结束
+      cursor = null;
     }
   }
 

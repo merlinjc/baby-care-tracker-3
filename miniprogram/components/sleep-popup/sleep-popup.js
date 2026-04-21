@@ -299,7 +299,7 @@ Component({
 
       try {
         const currentBaby = StorageUtil.getCurrentBaby();
-        const recordService = new RecordService();
+        const recordService = RecordService.getInstance();
 
         // 基于累计时长计算开始和结束时间（结束时间为当前时间）
         const now = new Date();

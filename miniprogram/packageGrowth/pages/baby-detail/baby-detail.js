@@ -46,7 +46,7 @@ Page({
    */
   async loadBaby(babyId) {
     try {
-      const babyService = new BabyService();
+      const babyService = BabyService.getInstance();
       const baby = await babyService.getBabyById(babyId);
 
       // [v4.3.1 Hotfix] null 守卫：宝宝不存在或无访问权限
@@ -145,7 +145,7 @@ Page({
    * 格式化年龄文本
    */
   formatAgeText(birthDate) {
-    const babyService = new BabyService();
+    const babyService = BabyService.getInstance();
     return babyService.formatAge(birthDate);
   },
 
@@ -172,7 +172,7 @@ Page({
       this.setData({ uploading: true });
 
       // 上传头像
-      const babyService = new BabyService();
+      const babyService = BabyService.getInstance();
       const avatarUrl = await babyService.uploadAvatar(this.data.baby._id, tempFilePath);
 
       // 更新页面数据
