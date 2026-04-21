@@ -171,7 +171,7 @@ FR-4 ~ FR-8 / FR-A9 ~ FR-A17 / P2 清单
 1. When 执行幽灵成员切换路径（`existingFamily` 存在且 `!== family._id`），the system shall 先执行"push 新家庭 members/memberOpenids + users.familyId 写新值"
 2. When 上一步成功，the system shall 再执行"旧家庭 pull members/memberOpenids"
 3. When 第一步失败，the system shall 直接返回错误，用户仍在旧家庭（无副作用）
-4. When 第二步失败，the system shall logger.partial 并返回 `{ success: true, warning: 'STALE_OLD_FAMILY_MEMBERSHIP' }`，由 patrol 后续清理（FR-A15 / FR-10 的 patrol 反向漂移）
+4. When 第二步失败，the system shall logger.partial 并返回 `{ success: true, warning: 'STALE_OLD_FAMILY_MEMBERSHIP' }`，由 patrol 后续清理（本迭代 FR-A15 反向漂移自修复，或 v4.3.1 FR-18 遗留的反向漂移告警）
 5. action 首行 `logger.start('joinFamily')` 使失败分支可被 patrol 扫到补偿
 
 **技术说明**：位置 `cloudfunctions/familyOperation/actions/joinFamily.js:65-115`。同时需同步 e2e m15/m21 模块覆盖该分支。
