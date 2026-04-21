@@ -1,6 +1,6 @@
 # Baby Care Tracker 开发规范
 
-> **版本**: v4.3.0 | **更新日期**: 2026-04-20
+> **版本**: v4.3.1 | **更新日期**: 2026-04-20
 
 ---
 
@@ -405,6 +405,45 @@ module.exports = async function (ctx, params) {
 - [ ] UI 按钮显隐是否使用 `PermissionGuard.check()` 非抛错版本？
 - [ ] 云函数 action 是否再次校验权限（不信任客户端）？
 - [ ] 删他人记录的场景是否使用 `PermissionGuard.requireCanDelete(record)`？
+- [ ] **v4.3.1**：自定义页面 CRUD（疫苗/里程碑等非 RecordService 路径）是否接入 PermissionGuard？
+- [ ] **v4.3.1**：批量删除场景是否按 `checkCanDelete(record)` 预分桶，避免云端失败后缓存闪烁？
+
+### 9.4 默认角色与最小权限原则（v4.3.1+）
+
+`PermissionUtil.getUserRole(userId, family)` 在以下情况返回 `'viewer'`（而非此前的 `'editor'`）：
+
+1. `userId` 或 `family` 为空
+2. `family.memberDetails` 中找不到该 `userId` 且 `family.creatorId !== userId`
+
+**为什么默认 viewer 而不是 editor**：
+
+- 用户被踢出家庭后，本地缓存 `familyInfo` 可能在未同步期间仍被读取（5 分钟刷新窗口）；默认 editor 会放行写操作，产生脏写
+- viewer 是最小权限，就算 UI 按钮未隐藏，服务层 `PermissionGuard.require('record.create')` 也会抛 `PermissionError`，请求不会发送到云端
+- v4.2 数据迁移已补齐全部 `memberDetails`，正常态下这个 fallback 分支不会触发；触发即意味着异常态
+
+**调用方约定**：
+
+- 服务层：依赖 `PermissionGuard.require(...)` 兜底，不要自己判断 role 是否等于 editor
+- 页面层：显示"需更多权限"提示时，可根据 `getCurrentRole() === 'viewer'` 给出差异化文案
+
+### 9.5 `family.creatorId` vs `isAdmin` 的选择（v4.3.1+）
+
+云函数 action 中判定"是否可执行管理员操作"，**一律使用 `isAdmin(userId, family)` 工具**（内部兼容 `memberDetails[].role === 'admin'` 与 `creatorId === userId`）：
+
+```javascript
+const { isAdmin } = require('../lib/auth');
+
+// ✅ 正确（兼容 transferAdmin 后的新 admin）
+if (!isAdmin(userId, family)) {
+  return errors.PERMISSION_DENIED('...');
+}
+
+// ❌ 错误（transferAdmin 后 creatorId 虽已同步更新，
+//       但若未来允许多 admin，此判定会漏放行其他 admin）
+if (family.creatorId !== userId) {
+  return errors.PERMISSION_DENIED('...');
+}
+```
 
 ---
 

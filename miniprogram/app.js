@@ -50,7 +50,8 @@ App({
    */
   async initUser() {
     try {
-      const authService = new AuthService();
+      // [v4.3.1 FR-16] 统一单例：从 new AuthService() 改为 getInstance()
+      const authService = AuthService.getInstance();
       
       // 获取或创建用户信息
       const userInfo = await authService.getUserInfo();
@@ -231,7 +232,7 @@ App({
   },
   
   globalData: {
-    version: 'v4.3.0',       // 当前版本号（Release 时同步更新）
+    version: 'v4.3.1',       // 当前版本号（Release 时同步更新）
     versionCodename: 'Milo',  // 当前版本代号
     userInfo: null,
     currentBaby: null,

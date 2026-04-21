@@ -3,14 +3,27 @@
  * v4.3.0 改动：
  * - 时间戳改用 Date（FR-13）
  * - 新增 updatedAtTs 双时间戳
+ * v4.3.1 改动（FR-10）：
+ * - 防止已在家庭中的用户绕过客户端重复创建，导致幽灵成员
+ * - 用户已属有效家庭 → 返回 ALREADY_IN_FAMILY；幽灵引用 → 允许创建（顺带修复）
  */
 const errors = require('../errors');
 const { generateInviteCode } = require('../lib/invite-code');
+const { getFamily } = require('../lib/family');
 
 module.exports = async (ctx, params) => {
   const { db, user, userId, openid } = ctx;
   const { name } = params;
   const creatorName = (user && user.nickname) || '';
+
+  // [v4.3.1 FR-10] 已在家庭中则拒绝（除非是幽灵引用）
+  if (user && user.familyId) {
+    const existing = await getFamily(db, user.familyId);
+    if (existing && Array.isArray(existing.members) && existing.members.includes(userId)) {
+      return errors.ALREADY_IN_FAMILY();
+    }
+    // 幽灵引用（family 已删 或 当前用户已不在 members 中）→ 允许继续创建
+  }
 
   const inviteCode = generateInviteCode();
   const now = new Date();

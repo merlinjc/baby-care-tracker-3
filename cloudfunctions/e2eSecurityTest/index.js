@@ -101,6 +101,8 @@ async function run(db, _, targetModule) {
     { id: 'm19', name: 'stateChange', fn: require('./modules/m19-stateChange') },
     // v4.3.0 专项：直接测试生产 actions/*.js（v43-prod/ 目录）
     { id: 'm20', name: 'v43Features', fn: require('./modules/m20-v43Features') },
+    // v4.3.1 专项：review 修复验收（FR-1/2/3/8/9/10）
+    { id: 'm21', name: 'v431Fixes', fn: require('./modules/m21-v431Fixes') },
   ];
 
   for (const mod of modules) {

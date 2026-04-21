@@ -44,8 +44,29 @@ function isMember(userId, family) {
   return !!(userId && family && Array.isArray(family.members) && family.members.includes(userId));
 }
 
+/**
+ * 获取用户在家庭中的角色（v4.3.1 Hotfix3）
+ * 与 miniprogram/utils/permission.js:getUserRole 保持一致
+ * - 优先从 memberDetails 读取
+ * - fallback: creatorId → 'admin'
+ * - 默认 'viewer'（最小权限原则，v4.3.1 FR-6）
+ * @param {string} userId users._id
+ * @param {Object} family 家庭文档
+ * @returns {'admin'|'editor'|'viewer'}
+ */
+function getUserRole(userId, family) {
+  if (!userId || !family) return 'viewer';
+  if (Array.isArray(family.memberDetails)) {
+    const m = family.memberDetails.find(x => x.userId === userId);
+    if (m && m.role) return m.role;
+  }
+  if (family.creatorId === userId) return 'admin';
+  return 'viewer';
+}
+
 module.exports = {
   getUserFromOpenid,
   isAdmin,
-  isMember
+  isMember,
+  getUserRole
 };

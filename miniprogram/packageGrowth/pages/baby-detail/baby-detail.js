@@ -41,12 +41,21 @@ Page({
 
   /**
    * 加载宝宝信息
+   *
+   * [v4.3.1 Hotfix] getBabyById 改 where 查询后，不存在或无权限时返回 null（不再抛错）
    */
   async loadBaby(babyId) {
     try {
       const babyService = new BabyService();
       const baby = await babyService.getBabyById(babyId);
-      
+
+      // [v4.3.1 Hotfix] null 守卫：宝宝不存在或无访问权限
+      if (!baby) {
+        wx.showToast({ title: '宝宝不存在或无权限查看', icon: 'none' });
+        setTimeout(() => wx.navigateBack(), 1000);
+        return;
+      }
+
       // [v4.1] 校验宝宝归属当前家庭（Review R1-2）
       const userInfo = StorageUtil.getUserInfo();
       if (baby.familyId && userInfo?.familyId && baby.familyId !== userInfo.familyId) {

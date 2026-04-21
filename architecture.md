@@ -1,6 +1,6 @@
 # Baby Care Tracker 项目架构文档
 
-> **版本**: v4.3.0 | **更新日期**: 2026-04-20
+> **版本**: v4.3.1 | **更新日期**: 2026-04-20
 
 ---
 
@@ -275,8 +275,13 @@ App.onLaunch()
 
 - **操作日志**：`familyOperation` 所有写操作通过 `OperationLogger` 落盘 `operation_logs` 集合（含 action、userId、startedAt、finishedAt、status、cursor、stats、error 等结构化字段），用于补偿重试与审计。
 - **持久化限流**：`joinFamily` 等关键 action 使用 `rate_limits` 集合做窗口限流（key 唯一索引 + windowStart 索引），取代 v4.2 的内存 Map，跨实例有效。
-- **巡检任务**：`patrolMemberOpenids` 云函数每天 0 点（cron `0 0 0 * * * *`）扫描 families，自动修复 `memberOpenids` 与 `members` 不一致，结果落入 `operation_logs`。
-- **权限纵深防御**：客户端 `PermissionGuard.require()` 作为第一道闸（即时反馈、无网络开销），服务端安全规则 + 云函数 action 内 `isAdmin`/`isMember` 校验作为第二道闸。
+- **巡检任务**：`patrolMemberOpenids` 云函数每天 0 点（cron `0 0 0 * * * *`）扫描 families，自动修复 `memberOpenids` 与 `members` 不一致，结果落入 `operation_logs`。**v4.3.1 起新增阶段 2** 反向漂移检查：遍历 `users.familyId` 非空用户，校验对应 family 的 members 是否包含该用户；不一致仅告警，不自动修复（避免误伤注销中间态）。
+- **权限纵深防御**：
+  - **第一道闸（v4.3.0+）**：客户端 `PermissionGuard.require()` 前置预检（即时反馈、无网络开销）
+  - **第二道闸（v4.3.1+）**：服务端云函数 action 内统一使用 `isAdmin(userId, family)` / `isMember(userId, family)` 工具，取代 `creatorId === userId` 硬比较（兼容 transferAdmin 后的多管理员场景）
+  - **第三道闸**：安全规则兜底
+- **权限矩阵严格实施（v4.3.1+）**：`createBaby` / `deleteBaby` / `dissolveFamily` / `updateMemberRole` 等 admin 专属 action 收紧为 `isAdmin` 判定，修复 v4.3.0 及之前"viewer 可创建/删除宝宝"的权限绕过问题。
+- **安全数据基线**：`createBaby` action 显式写入 `_openid = ctx.openid`，确保创建者能通过客户端直连安全规则 `doc._openid == auth.openid` 修改自己创建的宝宝。
 
 ---
 

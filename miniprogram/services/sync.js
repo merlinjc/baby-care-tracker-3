@@ -296,10 +296,13 @@ class SyncService {
         
       case 'update':
         // 更新记录
+        // [v4.3.1 FR-7] 补 updatedAtTs 双时间戳，与 RecordService.updateRecord 对齐，
+        // 修复 mergeRecords 按 updatedAtTs 比较失效（云端永远是旧值）
         await this.db.collection(collection).doc(recordId).update({
           data: {
             ...data,
-            updatedAt: this.db.serverDate()
+            updatedAt: this.db.serverDate(),
+            updatedAtTs: Date.now()
           }
         });
         break;

@@ -76,17 +76,22 @@ class PermissionUtil {
 
   /**
    * 获取用户在家庭中的角色
+   *
+   * [v4.3.1 FR-6] 安全加固：默认角色从 editor 改为 viewer（最小权限原则）
+   *
    * 查找逻辑：
-   * 1. 从 memberDetails 中查找
-   * 2. 如果是 creatorId 且无 memberDetails，返回 admin
-   * 3. 默认返回 editor（向后兼容）
-   * 
+   * 1. 从 memberDetails 中查找（主路径）
+   * 2. 如果是 creatorId 且无 memberDetails，返回 admin（兼容旧数据）
+   * 3. 默认返回 viewer（替代原 'editor'）—— 避免用户被踢出家庭后本地缓存
+   *    过期窗口内仍能写记录产生脏数据；v4.2 迁移已补齐 memberDetails，
+   *    此分支在正常态下不会触发
+   *
    * @param {string} userId - 用户 ID
    * @param {Object} family - 家庭信息对象
    * @returns {'admin'|'editor'|'viewer'} 用户角色
    */
   static getUserRole(userId, family) {
-    if (!userId || !family) return 'editor';
+    if (!userId || !family) return 'viewer';
 
     // 优先从 memberDetails 查找
     if (family.memberDetails && Array.isArray(family.memberDetails)) {
@@ -96,13 +101,15 @@ class PermissionUtil {
       }
     }
 
-    // fallback: 创建者默认 admin
+    // fallback: 创建者默认 admin（兼容无 memberDetails 的旧数据）
     if (family.creatorId === userId) {
       return 'admin';
     }
 
-    // 默认 editor（向后兼容无 memberDetails 的旧数据）
-    return 'editor';
+    // [v4.3.1 FR-6] 默认 viewer（最小权限），替代原 'editor'
+    // 能走到这里说明：memberDetails 中不含该用户 且 非 creatorId
+    // 正常态下不会触发；触发即意味着用户已不是合法成员（被踢 / 脏缓存）
+    return 'viewer';
   }
 
   /**
