@@ -323,10 +323,8 @@ Page({
       // 3. 清除本地存储（最重要，确保本地数据被清理）
       StorageUtil.clear();
 
-      // 4. 清除全局数据
-      getApp().globalData.userInfo = null;
-      getApp().globalData.familyInfo = null;
-      getApp().globalData.currentBaby = null;
+      // 4. [v4.3.2 FR-A13] 清除全局数据 + Service 单例
+      getApp().resetAllServices();
 
       wx.hideLoading();
       wx.showToast({

@@ -103,6 +103,8 @@ async function run(db, _, targetModule) {
     { id: 'm20', name: 'v43Features', fn: require('./modules/m20-v43Features') },
     // v4.3.1 专项：review 修复验收（FR-1/2/3/8/9/10）
     { id: 'm21', name: 'v431Fixes', fn: require('./modules/m21-v431Fixes') },
+    // v4.3.2 专项：cursor/patrol/工程质量加固验收（FR-4~8/A9~A18）
+    { id: 'm22', name: 'v432Fixes', fn: require('./modules/m22-v432Fixes') },
   ];
 
   for (const mod of modules) {

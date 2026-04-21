@@ -232,7 +232,7 @@ Page({
 
         // status === 'succeeded' 或兼容旧返回（无 status 字段）
         finalData = data;
-        familyDeleted = !!data.familyDeleted;
+        familyDeleted = !!data.familyDeleted || !!data.autoDissolved;
         break;
       }
 
@@ -252,6 +252,8 @@ Page({
 
       // 删除完成：清除本地缓存
       wx.clearStorageSync();
+      // [v4.3.2 FR-A13] 清除 Service 单例
+      getApp().resetAllServices();
 
       wx.hideLoading();
       wx.showToast({ title: '删除成功', icon: 'success' });

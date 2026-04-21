@@ -6,13 +6,15 @@
  * v4.3.1 改动（FR-9）：
  * - 权限判定改 isAdmin，兼容 transferAdmin 后的新 admin 解散家庭
  *   （原 creatorId === userId 不兼容"旧管理员转让后新管理员解散"场景）
- * v4.3.2 改动（FR-6 / FR-A12）：
+ * v4.3.2 改动（FR-6 / FR-A12 / T-3.21）：
  * - FR-6：限流扩面（5 次/分钟）
  * - FR-A12：logger 已有，补全 start/fail 标准化
+ * - T-3.21：核心流程复用 dissolveFamilyCore，消除重复代码
  */
 const errors = require('../errors');
 const { getFamily } = require('../lib/family');
 const { isAdmin } = require('../lib/auth');
+const { dissolveFamilyCore } = require('../lib/family-dissolve');
 
 module.exports = async (ctx, params) => {
   const { db, _, userId, openid, logger, rateLimiter } = ctx;
@@ -42,47 +44,13 @@ module.exports = async (ctx, params) => {
     memberCount: (family.members && family.members.length) || 0
   });
 
-  const now = new Date();
-  const nowTs = Date.now();
-
-  // 先删除家庭文档（其他成员读取时立即得到"不存在"）
+  // [v4.3.2 T-3.21] 核心流程复用 dissolveFamilyCore
   try {
-    await db.collection('families').doc(familyId).remove();
-    await logger.step('remove_family_doc', 'ok', { familyId });
+    const result = await dissolveFamilyCore(ctx, family, logger);
+    await logger.succeed(result);
+    return errors.ok(result);
   } catch (e) {
-    await logger.step('remove_family_doc', 'fail', { error: e.message });
+    await logger.fail({ reason: 'DISSOLVE_CORE_FAILED', error: e.message });
     throw e;
   }
-
-  // 批量清除成员的 familyId/familyRole
-  let membersCleared = 0;
-  let membersFailed = 0;
-  if (family.members && family.members.length > 0) {
-    for (const memberId of family.members) {
-      try {
-        await db.collection('users').doc(memberId).update({
-          data: {
-            familyId: _.remove(),
-            familyRole: _.remove(),
-            updatedAt: now,
-            updatedAtTs: nowTs
-          }
-        });
-        membersCleared++;
-        await logger.step(`clear_user_${memberId}`, 'ok');
-      } catch (err) {
-        membersFailed++;
-        await logger.step(`clear_user_${memberId}`, 'fail', { error: err.message });
-      }
-    }
-  }
-
-  const result = { dissolvedFamilyId: familyId, membersCleared, membersFailed };
-  if (membersFailed > 0) {
-    await logger.partial(`${membersFailed} users failed to clear`);
-  } else {
-    await logger.succeed(result);
-  }
-
-  return errors.ok(result);
 };

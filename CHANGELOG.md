@@ -16,6 +16,48 @@
 
 ---
 
+## [v4.3.2] Milo — 2026-04-21
+
+### Security
+
+- **FR-1 families.read 云函数化**：`getFamilyDetail` 改走云函数 + `directReadFamilyFallback` 开关（T-7→T+14 灰度后收紧规则）
+- **FR-2 records update/delete 云函数化**：admin 可跨归属操作他人记录（`updateRecord` / `deleteRecord` 云函数 + 客户端智能判定直连/云函数路径）
+- **FR-4 `PermissionGuard.checkCanDelete` 归属字段防御**：无 `_openid` / `createdBy` / `creatorId` 的记录一律拒绝删除
+- **FR-A4 record 单条删除归属校验**：editor 删除他人记录被拦截
+
+### Fixed
+
+- **FR-A1 growth-popup 实例方法修复**：`RecordService.getRecords` → `RecordService.getInstance().getRecords`
+- **FR-A2 4 个弹窗接入 swipe-close behavior**：feeding / sleep / diaper / temperature 弹窗下滑关闭
+- **FR-A3 family-join 加入后持久化完整 familyInfo**：新用户加入后立即可创建记录
+- **FR-A5 createRecord 错误边界隔离**：本地缓存失败不影响云端写入
+- **FR-A6 update/delete 网络抖动去重**：探测云端状态决定是否入队，避免重复操作
+- **FR-A7 sync 队列翻新**：离线 create→update→sync 后队列 tempId 替换为 realId
+- **FR-A8 joinFamily 顺序反转**：先 push 新家 → 更新 users → pull 旧家，减少中间态不一致
+
+### Changed
+
+- **FR-3 deleteBaby 自动解散**：删除最后一个宝宝时自动解散家庭（复用 `dissolveFamilyCore`）
+- **FR-5 createFamily 去冗余入参**：忽略客户端传入的 creatorId/creatorName/creatorOpenid，全部从 ctx 构造
+- **FR-7 updateUserInfo 补 updatedAtTs**：双时间戳与其他集合对齐
+- **FR-A14 单例规范**：全量 `new XxxService()` → `getInstance()`（23 处）
+- **FR-A13 logout 清缓存**：10 个 Service 加 `resetInstance()` + `app.resetAllServices()`（5 处调用点）
+- **FR-A12 全量 action 接入 logger**：createFamily / dissolveFamily / leaveFamily / removeMember / transferAdmin / refreshInviteCode
+
+### Added
+
+- **FR-6 限流扩面**：新增 refresh_invite / transfer_admin / dissolve_family / remove_member / update_role / leave 限流 key
+- **FR-A9 updateMemberRole 乐观锁重试**：冲突时重试 2 次 + 返回 BUSY 错误码
+- **FR-A10 transferAdmin isMember 交叉校验**：新管理员必须已是家庭成员
+- **FR-A11 refreshInviteCode 冲突检测**：循环 5 次生成唯一码 + 乐观锁更新
+- **FR-A15 patrol 反向漂移自修复**：3 规则（family 不存在→清 user / 7天内→修复 / 超期→告警）+ dryRun 模式
+- **FR-A16 patrol Set 去重**：比较 memberOpenids 时使用双向子集
+- **FR-A17 rule-simulator 对齐**：families.update = memberOpenids contains / babies.delete = false
+- **FR-A18 clearBabyData BABY_NOT_FOUND**：续传恢复时检查 baby 是否仍存在 + 自动解散
+- **E2E m22 模块**：13 条 v4.3.2 专项用例，全量 202/202 通过
+
+---
+
 ## [v4.3.1] Milo — 2026-04-20
 
 ### Changed
