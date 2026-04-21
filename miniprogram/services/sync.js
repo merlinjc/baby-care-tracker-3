@@ -298,23 +298,67 @@ class SyncService {
         // 更新记录
         // [v4.3.1 FR-7] 补 updatedAtTs 双时间戳，与 RecordService.updateRecord 对齐，
         // 修复 mergeRecords 按 updatedAtTs 比较失效（云端永远是旧值）
-        await this.db.collection(collection).doc(recordId).update({
-          data: {
-            ...data,
-            updatedAt: this.db.serverDate(),
-            updatedAtTs: Date.now()
-          }
-        });
+        // [v4.3.2 FR-2] 通过云函数路径执行，无论是否跨归属：
+        //   - 保证 admin 离线期间编辑他人记录的 update 在同步时被允许
+        //   - 云函数内有字段白名单与权限再校验，安全性更强
+        //   - 同步频率低（通常仅在离线→在线切换时），额外 RTT 可接受
+        if (collection === 'records') {
+          await this._callRecordCloudFn('updateRecord', {
+            recordId,
+            data: { ...data, updatedAtTs: Date.now() }
+          });
+        } else {
+          await this.db.collection(collection).doc(recordId).update({
+            data: {
+              ...data,
+              updatedAt: this.db.serverDate(),
+              updatedAtTs: Date.now()
+            }
+          });
+        }
         break;
         
       case 'delete':
         // 删除记录
-        await this.db.collection(collection).doc(recordId).remove();
+        // [v4.3.2 FR-2] 同上，通过云函数路径执行
+        if (collection === 'records') {
+          await this._callRecordCloudFn('deleteRecord', { recordId });
+        } else {
+          await this.db.collection(collection).doc(recordId).remove();
+        }
         break;
         
       default:
         throw new Error(`未知操作类型: ${type}`);
     }
+  }
+
+  /**
+   * [v4.3.2 FR-2] 通过云函数执行记录写操作（离线队列同步路径）
+   *
+   * 幂等处理：deleteRecord 返回 RECORD_NOT_FOUND 视为成功（目标已删）
+   * 错误传播：其他失败抛 Error，供调用方（syncOfflineQueue）按 MAX_RETRY_COUNT 重试/丢弃
+   *
+   * @private
+   * @param {'updateRecord'|'deleteRecord'} action
+   * @param {Object} params
+   */
+  async _callRecordCloudFn(action, params) {
+    const familyId = require('../utils/family-context').resolve();
+    const res = await wx.cloud.callFunction({
+      name: 'familyOperation',
+      data: { action, params: { ...params, familyId } }
+    });
+    const result = res && res.result;
+    if (result && result.success) return result.data;
+    const code = result && result.error && result.error.code;
+    // deleteRecord 幂等：目标已不存在视为成功
+    if (action === 'deleteRecord' && code === 'RECORD_NOT_FOUND') {
+      return { alreadyDeleted: true };
+    }
+    const err = new Error((result && result.error && result.error.message) || `${action} 失败`);
+    if (code) err.code = code;
+    throw err;
   }
 
   /**

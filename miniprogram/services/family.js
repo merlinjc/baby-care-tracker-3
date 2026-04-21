@@ -44,7 +44,11 @@ class FamilyService {
     });
     const result = res.result;
     if (!result.success) {
-      throw new Error(result.error?.message || `${action} 失败`);
+      // [v4.3.2 FR-1] 保留 error.code 到抛出的 Error 实例，便于调用方按业务码分支
+      const err = new Error((result.error && result.error.message) || `${action} 失败`);
+      if (result.error && result.error.code) err.code = result.error.code;
+      err.action = action;
+      throw err;
     }
     return result.data;
   }
@@ -134,23 +138,81 @@ class FamilyService {
    * @param {string} familyId 家庭 ID
    * @returns {Promise<Object|null>} 家庭详情，不存在时返回 null
    */
+  /**
+   * 获取家庭详情
+   *
+   * [v4.3.2 FR-1] 双路径读取（灰度期）
+   *   1. 优先走云函数 getFamilyDetail（安全规则收紧后的替代路径）
+   *   2. 云函数失败时按 feature flag 决定是否降级直连
+   *      - T-7 ~ T0：directReadFamilyFallback=true，失败自动降级（保障启动）
+   *      - T+7 稳定后：手工关闭 fallback，强制云函数路径
+   *      - T+14 下个版本：移除 fallback 代码
+   *
+   * 错误语义：
+   *   - FAMILY_NOT_FOUND → 返回 null
+   *   - PERMISSION_DENIED → 返回 null + warn（已被踢出场景）
+   *   - 其他云函数异常 → 按 fallback 开关决定降级 or 抛错
+   */
   async getFamilyDetail(familyId) {
+    if (!familyId) return null;
+
+    // 1. 优先走云函数
     try {
-      const familyRes = await this.familyCollection.doc(familyId).get();
-      return familyRes.data;
+      const data = await this._callFamilyOperation('getFamilyDetail', { familyId });
+      return data || null;
     } catch (error) {
-      // 文档不存在时返回 null，而不是抛出错误
-      if (error.errMsg && error.errMsg.includes('cannot find document')) {
-        console.warn('家庭文档不存在:', familyId);
+      // _callFamilyOperation 对 USER_NOT_FOUND/INVALID_ACTION 等会抛 error.code
+      const code = error && error.code;
+      if (code === 'FAMILY_NOT_FOUND') {
         return null;
       }
-      // ★ [v4.2] 权限拒绝时返回 null 并打印警告，避免阻塞启动流程
-      if (error.errCode === -502003 || (error.errMsg && error.errMsg.includes('Permission denied'))) {
-        console.warn('获取家庭详情权限不足（安全规则可能未生效或用户不在家庭成员中）:', familyId);
+      if (code === 'PERMISSION_DENIED') {
+        console.warn('[family.getFamilyDetail] PERMISSION_DENIED（可能已被踢出家庭）:', familyId);
         return null;
       }
-      console.error('获取家庭详情失败:', error);
-      throw error;
+
+      // 云函数调用层失败（网络 / 函数未部署 / 内部错）：按 fallback 开关决定
+      console.warn('[family.getFamilyDetail] 云函数失败:', error);
+      if (!this._allowDirectReadFallback()) {
+        // fallback 已关闭（T+7 之后）：直接向上抛
+        throw error;
+      }
+
+      // 灰度期降级：沿用老的直连读取
+      try {
+        const familyRes = await this.familyCollection.doc(familyId).get();
+        return familyRes.data || null;
+      } catch (directErr) {
+        if (directErr.errMsg && directErr.errMsg.includes('cannot find document')) {
+          console.warn('家庭文档不存在:', familyId);
+          return null;
+        }
+        // ★ [v4.2] 权限拒绝时返回 null 并打印警告，避免阻塞启动流程
+        //   [v4.3.2 FR-1] T0 收紧规则后，非成员直连必返回 -502003，降级不可用
+        if (directErr.errCode === -502003 || (directErr.errMsg && directErr.errMsg.includes('Permission denied'))) {
+          console.warn('获取家庭详情权限不足（安全规则可能未生效或用户不在家庭成员中）:', familyId);
+          return null;
+        }
+        console.error('获取家庭详情失败（云函数+直连均失败）:', directErr);
+        return null;
+      }
+    }
+  }
+
+  /**
+   * [v4.3.2 FR-1] fallback 开关：灰度期允许降级直连
+   * 通过 globalData.featureFlags.directReadFamilyFallback 控制
+   * 默认 true（未显式设置 false 即开启）
+   * @private
+   */
+  _allowDirectReadFallback() {
+    try {
+      const app = getApp();
+      const flag = app && app.globalData && app.globalData.featureFlags
+        && app.globalData.featureFlags.directReadFamilyFallback;
+      return flag !== false;
+    } catch (_) {
+      return true;
     }
   }
 

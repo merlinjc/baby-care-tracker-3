@@ -39,7 +39,12 @@ const actions = {
   clearBabyData: require('./actions/clearBabyData'),
   // v4.3.1 Hotfix：客户端直连受安全规则限制，改走云函数 admin SDK
   getBabyById: require('./actions/getBabyById'),
-  updateBaby: require('./actions/updateBaby')
+  updateBaby: require('./actions/updateBaby'),
+  // [v4.3.2 FR-1] families.read 收紧后的替代读路径
+  getFamilyDetail: require('./actions/getFamilyDetail'),
+  // [v4.3.2 FR-2] admin 跨归属 records 读写路径
+  updateRecord: require('./actions/updateRecord'),
+  deleteRecord: require('./actions/deleteRecord')
 };
 
 exports.main = async (event, context) => {

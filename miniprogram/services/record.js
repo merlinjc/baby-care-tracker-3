@@ -53,6 +53,92 @@ class RecordService {
   }
 
   /**
+   * [v4.3.2 FR-2] 从本地缓存定位一条记录（不触网）
+   * 用于写操作前判断归属，选择直连 or 云函数路径。
+   * 找不到返回 null（此时走云函数更安全）。
+   * @private
+   */
+  _getRecordFromCacheById(recordId) {
+    if (!recordId) return null;
+    try {
+      const familyInfo = StorageUtil.getFamilyInfo();
+      if (!familyInfo || !familyInfo.babies) return null;
+      for (const babyId of familyInfo.babies) {
+        const records = StorageUtil.get(this.getLocalCacheKey(babyId)) || [];
+        const hit = records.find(r => r && r._id === recordId);
+        if (hit) return hit;
+      }
+    } catch (_) { /* 静默 */ }
+    return null;
+  }
+
+  /**
+   * [v4.3.2 FR-2] 判定当前写操作是否需要走云函数
+   *
+   * 策略：
+   *   - 临时 temp_ 记录：本地尚未 push 云端，直连（其实走不到，调用方已过滤）
+   *   - 缓存找不到该记录：走云函数（保守，避免对未知归属记录误直连被规则拒）
+   *   - record._openid === 我的 _openid：走直连（99% 普通场景，保持原性能）
+   *   - record._openid !== 我的 _openid：跨归属，走云函数（admin 编辑他人记录）
+   *
+   * 注：在 T-7~T0 灰度期，老客户端未收紧规则时直连 admin 跨归属也能成功；
+   *     此智能判定即便误判直连（被规则拒）也会触发客户端 catch → FR-A6 抖动判定
+   *     → 云端真实状态探测 → 不会造成二次重复写入。
+   * @private
+   */
+  _shouldUseCloudFnForWrite(recordId) {
+    if (!recordId || recordId.startsWith('temp_')) return false;
+    const userInfo = StorageUtil.getUserInfo();
+    const myOpenid = userInfo && userInfo._openid;
+    const record = this._getRecordFromCacheById(recordId);
+    if (!record) return true;  // 保守：归属未知 → 云函数
+    const recOpenid = record._openid;
+    if (!myOpenid || !recOpenid) return true;  // 任一方缺 _openid → 云函数
+    return myOpenid !== recOpenid;
+  }
+
+  /**
+   * [v4.3.2 FR-2] 通过云函数更新记录（跨归属 admin 场景）
+   * @private
+   */
+  async _updateRecordViaCloudFn(recordId, data, nowTs) {
+    const familyId = FamilyContext.resolve();
+    const res = await wx.cloud.callFunction({
+      name: 'familyOperation',
+      data: { action: 'updateRecord', params: { recordId, familyId, data } }
+    });
+    const result = res && res.result;
+    if (!result || !result.success) {
+      const err = new Error((result && result.error && result.error.message) || '云函数更新失败');
+      if (result && result.error && result.error.code) err.code = result.error.code;
+      throw err;
+    }
+    // 云端成功：同步本地缓存
+    this.updateRecordInCache(recordId, { ...data, updatedAtTs: nowTs });
+    return result.data;
+  }
+
+  /**
+   * [v4.3.2 FR-2] 通过云函数删除记录（跨归属 admin 场景）
+   * 幂等处理：RECORD_NOT_FOUND 视为已删除成功
+   * @private
+   */
+  async _deleteRecordViaCloudFn(recordId) {
+    const familyId = FamilyContext.resolve();
+    const res = await wx.cloud.callFunction({
+      name: 'familyOperation',
+      data: { action: 'deleteRecord', params: { recordId, familyId } }
+    });
+    const result = res && res.result;
+    if (result && result.success) return result.data;
+    const code = result && result.error && result.error.code;
+    if (code === 'RECORD_NOT_FOUND') return { recordId, alreadyDeleted: true };
+    const err = new Error((result && result.error && result.error.message) || '云函数删除失败');
+    if (code) err.code = code;
+    throw err;
+  }
+
+  /**
    * [v4.3.2 FR-A6] 判定云端操作失败后是否需要入队重试
    *
    * 根因：旧 catch 分支不区分"未送达"和"已送达但响应丢失"，一律入队
@@ -552,6 +638,13 @@ class RecordService {
 
     try {
       if (this.networkUtil.checkOnline() && !recordId.startsWith('temp_')) {
+        // [v4.3.2 FR-2] 跨归属智能判定：admin 编辑他人记录时走云函数（字段白名单 + 归属校验）
+        // 自己的记录保持原有直连路径（99% 场景，保持性能）
+        if (this._shouldUseCloudFnForWrite(recordId)) {
+          await this._updateRecordViaCloudFn(recordId, data, nowTs);
+          return;
+        }
+
         // 在线且非离线记录：更新云端
         // [v4.3.1 FR-7] 补 updatedAtTs 双时间戳，修复 mergeRecords 按 updatedAtTs 比较失效
         await this.recordCollection.doc(recordId).update({
@@ -618,6 +711,11 @@ class RecordService {
       throw new Error('操作过于频繁，请稍后再试');
     }
 
+    // [v4.3.2 FR-2] 在缓存删除前探测归属（因为 deleteRecordFromCache 会清掉 _openid）
+    const useCloudFn = !recordId.startsWith('temp_')
+      && this.networkUtil.checkOnline()
+      && this._shouldUseCloudFnForWrite(recordId);
+
     try {
       // 从本地缓存删除
       this.deleteRecordFromCache(recordId);
@@ -626,8 +724,13 @@ class RecordService {
         // 离线记录：仅移除队列中的创建操作，无需云端删除
         this.removeFromOfflineQueue('create', recordId);
       } else if (this.networkUtil.checkOnline()) {
-        // 在线且非离线记录：删除云端，成功后无需加入离线队列
-        await this.recordCollection.doc(recordId).remove();
+        // [v4.3.2 FR-2] 跨归属智能判定：admin 删除他人记录走云函数
+        if (useCloudFn) {
+          await this._deleteRecordViaCloudFn(recordId);
+        } else {
+          // 在线且非离线记录：删除云端，成功后无需加入离线队列
+          await this.recordCollection.doc(recordId).remove();
+        }
       } else {
         // 离线状态且非临时记录：加入离线队列待后续同步
         StorageUtil.addToOfflineQueue({

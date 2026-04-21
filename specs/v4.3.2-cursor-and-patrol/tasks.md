@@ -175,24 +175,24 @@
 
 **T-7（部署 + 客户端发版，不收紧规则）**
 
-- [ ] **T-3.1** 新建 `cloudfunctions/familyOperation/actions/getFamilyDetail.js`
+- [x] **T-3.1** 新建 `cloudfunctions/familyOperation/actions/getFamilyDetail.js`
   - 入参：`{ familyId }`
   - 鉴权：`isMember(userId, family) || family.creatorId === userId`，失败 PERMISSION_DENIED
   - 返回：`errors.ok({ ...family })`，过滤 `_openid`
   - 错误码：FAMILY_NOT_FOUND / PERMISSION_DENIED / INTERNAL_ERROR
   - _对应 design：§4.1_
 
-- [ ] **T-3.2** `familyOperation/index.js` action 路由注册 `getFamilyDetail`
+- [x] **T-3.2** `familyOperation/index.js` action 路由注册 `getFamilyDetail`
 
-- [ ] **T-3.3** `services/family.js.getFamilyDetail` 改造
+- [x] **T-3.3** `services/family.js.getFamilyDetail` 改造
   - 主路径：`wx.cloud.callFunction('familyOperation', { action: 'getFamilyDetail', params: { familyId }})`
   - catch 分支保留 `_allowDirectReadFallback()` 判定
   - 辅助方法 `_allowDirectReadFallback()` 读 `getApp().globalData.featureFlags.directReadFamilyFallback`（默认 true）
   - FAMILY_NOT_FOUND / PERMISSION_DENIED 返回 null（不抛）
 
-- [ ] **T-3.4** `app.js` onLaunch 读取 featureFlags（从 version-config 集合或本地 hardcode `{ directReadFamilyFallback: true }`）
+- [x] **T-3.4** `app.js` onLaunch 读取 featureFlags（从 version-config 集合或本地 hardcode `{ directReadFamilyFallback: true }`）
 
-- [ ] **T-3.5** 部署云函数 + 发版客户端
+- [x] **T-3.5** 部署云函数 + 发版客户端
   - 云函数 MCP 部署
   - 客户端版本：`v4.3.2-m3-T-7`
   - 监控：operation_logs 中 getFamilyDetail 调用量 & 错误率 < 0.5%
@@ -214,51 +214,51 @@
 **T+7 → T+14（移除 fallback）**
 
 - [ ] **T-3.8** 观察 24h 无异常 → 关闭 directReadFamilyFallback（远程开关或下版本默认 false）
-- [ ] **T-3.9** 下一迭代（v4.3.3）移除 fallback 代码 — **列入 backlog，本迭代不做**
+- [x] **T-3.9** 下一迭代（v4.3.3）移除 fallback 代码 — **列入 backlog，本迭代不做**
 
 #### FR-2：records update/delete 云函数化（admin 跨归属）
 
-- [ ] **T-3.10** 新建 `cloudfunctions/familyOperation/actions/updateRecord.js`
+- [x] **T-3.10** 新建 `cloudfunctions/familyOperation/actions/updateRecord.js`
   - 入参：`{ recordId, familyId, data }`
   - 步骤：校验 record.familyId 匹配 → 校验 isMember → getUserRole 判定（viewer 拒，editor 仅自己）→ 白名单过滤 patch → `safePatch.updatedAt/updatedAtTs` → `update()`
   - ALLOWED_FIELDS：`['data', 'startTime', 'endTime', 'startTimeTs', 'endTimeTs', 'note', 'recordType']`
   - logger：start/succeed/fail
   - _对应 design：§4.2_
 
-- [ ] **T-3.11** 新建 `cloudfunctions/familyOperation/actions/deleteRecord.js`
+- [x] **T-3.11** 新建 `cloudfunctions/familyOperation/actions/deleteRecord.js`
   - 入参：`{ recordId, familyId }`
   - 步骤：校验 record.familyId → isMember → `isOwnRecord || role === 'admin'` → `remove()`
   - 边界：文档不存在 → 返回 RECORD_NOT_FOUND（客户端视为幂等成功）
   - logger：start/succeed/fail
 
-- [ ] **T-3.12** `familyOperation/errors.js` 新增 `RECORD_NOT_FOUND`
+- [x] **T-3.12** `familyOperation/errors.js` 新增 `RECORD_NOT_FOUND`
 
-- [ ] **T-3.13** `familyOperation/index.js` 注册 updateRecord / deleteRecord 路由
+- [x] **T-3.13** `familyOperation/index.js` 注册 updateRecord / deleteRecord 路由
 
-- [ ] **T-3.14** `services/record.js` 新增 `_shouldUseCloudFn(record)` 辅助
+- [x] **T-3.14** `services/record.js` 新增 `_shouldUseCloudFn(record)` 辅助
   - 判定：`myOpenid === recOpenid` → false（直连）；否则 true（云函数）
   - `_getRecordFromCache(recordId)` 辅助从本地缓存取 record
 
-- [ ] **T-3.15** `services/record.js.updateRecord` 入口判定
+- [x] **T-3.15** `services/record.js.updateRecord` 入口判定
   - `_shouldUseCloudFn(record)` 为 true → 走 `_updateRecordViaCloudFn`
   - 否则保持原直连路径
   - 云函数路径异常交由 FR-A6 `_shouldRequeueAfterFailure`
 
-- [ ] **T-3.16** `services/record.js.deleteRecord` 对称改造
+- [x] **T-3.16** `services/record.js.deleteRecord` 对称改造
 
-- [ ] **T-3.17** `services/sync.js.executeOperation` update/delete 分支同样智能判定
+- [x] **T-3.17** `services/sync.js.executeOperation` update/delete 分支同样智能判定
   - 取 record 缓存 → `_shouldUseCloudFn` → 分别走云函数或直连
 
-- [ ] **T-3.18** 部署云函数（updateRecord / deleteRecord）+ 发版客户端
+- [x] **T-3.18** 部署云函数（updateRecord / deleteRecord）+ 发版客户端
 
 #### FR-3：deleteBaby 自动解散
 
-- [ ] **T-3.19** 新建 `cloudfunctions/familyOperation/lib/family-dissolve.js`
+- [x] **T-3.19** 新建 `cloudfunctions/familyOperation/lib/family-dissolve.js`
   - 导出 `dissolveFamilyCore(ctx, family, logger)`
   - 逻辑：清所有 `family.members` 的 `users.familyId/familyRole` → `families.doc.remove()` → logger.step
   - _对应 design：§4.3_
 
-- [ ] **T-3.20** `actions/deleteBaby.js` phase='finalize' 末尾加自动解散判定
+- [x] **T-3.20** `actions/deleteBaby.js` phase='finalize' 末尾加自动解散判定
   - 重新 `db.collection('families').doc(familyId).get()` 拉最新
   - 条件：`(f.babies || []).length === 0 && (f.members || []).length === 1` → 调用 `dissolveFamilyCore`
   - 返回中增加 `autoDissolved: true/false`
@@ -266,16 +266,16 @@
 - [ ] **T-3.21** `actions/dissolveFamily.js` 重构复用 `dissolveFamilyCore`（消除重复代码）
   - 确认权限校验仍在 action 入口（isAdmin）
 
-- [ ] **T-3.22** 客户端对齐：`baby-detail.js` / `baby-list.js` / `baby-edit-popup` 删除成功回调
+- [x] **T-3.22** 客户端对齐：`baby-detail.js` / `baby-list.js` / `baby-edit-popup` 删除成功回调
   - `result.autoDissolved === true`：弹 Modal "家庭已自动解散" → `StorageUtil.clear()` → `getApp().resetAllServices()` → `wx.reLaunch('/pages/auth/auth')`
   - 否则正常 toast "已删除"
 
-- [ ] **T-3.23** 部署 deleteBaby + dissolveFamily 云函数 + 发版客户端
+- [x] **T-3.23** 部署 deleteBaby + dissolveFamily 云函数 + 发版客户端
 
 #### M3 收尾
 
-- [ ] **T-3.24** 全量 E2E 回归（m21 + 新建 m22 中 FR-1/2/3 相关用例预跑）
-- [ ] **T-3.25** M3 commit + 出包（v4.3.2-m3）
+- [x] **T-3.24** 全量 E2E 回归（m21 + 新建 m22 中 FR-1/2/3 相关用例预跑）
+- [x] **T-3.25** M3 commit + 出包（v4.3.2-m3）
 
 ---
 
