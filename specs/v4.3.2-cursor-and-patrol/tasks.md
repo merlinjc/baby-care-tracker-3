@@ -98,7 +98,7 @@
 
 #### FR-A5：createRecord 错误边界隔离
 
-- [ ] **T-2.1** `services/record.js.createRecord` try 结构重构
+- [x] **T-2.1** `services/record.js.createRecord` try 结构重构
   - `recordCollection.add()` 成功后，`saveToLocalCache(createdRecord)` 用独立 try/catch 包裹
   - 本地缓存失败：`console.error` + `_reportCacheFailure('create', res._id, err)`；不入队、不抛错
   - 外层 catch 仅处理 `add()` 失败的降级入队
@@ -108,7 +108,7 @@
 
 #### FR-A6：update/delete 网络抖动去重
 
-- [ ] **T-2.2** `services/record.js` 新增 `_shouldRequeueAfterFailure(recordId, op, expectedTs, error)` 辅助
+- [x] **T-2.2** `services/record.js` 新增 `_shouldRequeueAfterFailure(recordId, op, expectedTs, error)` 辅助
   - UNSENT_CODES 匹配 `REQUEST_FAIL / TIMEOUT / NETWORK_ERROR` → return true
   - 探测 `recordCollection.doc(recordId).get()`：
     - `op === 'delete'`：文档存在 return true（需入队），不存在 return false
@@ -117,20 +117,20 @@
   - 其他探测失败：return true（保底入队）
   - _对应 design：§3.2_
 
-- [ ] **T-2.3** `services/record.js.updateRecord` catch 分支改用 `_shouldRequeueAfterFailure` 判定
+- [x] **T-2.3** `services/record.js.updateRecord` catch 分支改用 `_shouldRequeueAfterFailure` 判定
   - `shouldRequeue=false` 时跳过入队，仅更新本地缓存
 
-- [ ] **T-2.4** `services/record.js.deleteRecord` catch 分支对称改造
+- [x] **T-2.4** `services/record.js.deleteRecord` catch 分支对称改造
   - 参考 T-2.3，op='delete'
 
-- [ ] **T-2.5** 验证三种场景
+- [x] **T-2.5** 验证三种场景（静态验证 — 代码注释覆盖三种分支；端到端验证靠 T-2.10 E2E）
   - 抖动响应丢失 + 云端已写 → 不重复入队 ✓
   - 真网络挂 + 未发送 → 入队 ✓
   - 探测本身失败 → 入队（保底一致性）✓
 
 #### FR-A7：sync 队列翻新
 
-- [ ] **T-2.6** `services/sync.js.updateRecordId` 末尾追加队列翻新
+- [x] **T-2.6** `services/sync.js.updateRecordId` 末尾追加队列翻新
   - `StorageUtil.getOfflineQueue()` → 遍历 → 将 `op.recordId === tempId` 替换为 `realId`
   - 变更后 `StorageUtil.set('offline_queue', newQueue)`
   - 打 log `[sync] 翻新队列：tempId=... → realId=...`
@@ -139,7 +139,7 @@
 
 #### FR-A8：joinFamily 顺序反转
 
-- [ ] **T-2.7** `cloudfunctions/familyOperation/actions/joinFamily.js` 顺序反转
+- [x] **T-2.7** `cloudfunctions/familyOperation/actions/joinFamily.js` 顺序反转
   - 入口首行 `await logger.start('joinFamily', { inviteCode, userId })`
   - 反转为：5. 先 push 新家 → 6. 更新 users.familyId → 7. pull 旧家
   - 步骤 5 失败：`logger.fail` + 返回 `INTERNAL_ERROR`（无副作用，用户仍在旧家）
@@ -148,19 +148,22 @@
   - 正常路径：`logger.succeed`
   - _对应 design：§3.4_
 
-- [ ] **T-2.8** `services/family.js.joinFamily` 客户端侧识别 warning 字段
+- [x] **T-2.8** `services/family.js.joinFamily` 客户端侧识别 warning 字段
   - 有 warning 时仍返回 success，额外 console.warn 记录
   - （无需 UI 变化，patrol 会后续补偿）
 
 #### M2 收尾
 
 - [ ] **T-2.9** 云函数部署：`familyOperation`（joinFamily 改动）
-  - 用 MCP `manageFunctions(action='updateCode')` 部署
+  - 用 MCP `manageFunctions(action='updateFunctionCode')` 部署（需 CloudBase 登录授权）
   - 冒烟：调用 joinFamily 新账号加入有效家庭 → 正常路径 succeed
+  - 冒烟：伪造 STALE_USER_POINTER / STALE_OLD_FAMILY_MEMBERSHIP 分支走到（可选）
 
 - [ ] **T-2.10** e2e m15/m21 回归确认 joinFamily 无破坏
 
-- [ ] **T-2.11** M2 commit + 独立出包（v4.3.2-m2）
+- [ ] **T-2.11** M2 commit + 独立出包（v4.3.2-m2，临时标识）
+  - 代码 commit 已完成：d428258（feat(v4.3.2-M2): Phase 2 服务层/云函数原子性）
+  - 出包在微信开发者工具操作
 
 ---
 
