@@ -40,6 +40,15 @@ module.exports = {
     error: { code: 'INVALID_ACTION', message: `未知操作: ${action}` }
   }),
   BUSY: makeError('BUSY', '操作并发冲突，请重试'),
+  // [v4.3.2 FR-2] 记录不存在（updateRecord / deleteRecord 专用）
+  RECORD_NOT_FOUND: makeError('RECORD_NOT_FOUND', '记录不存在或已被删除'),
+  // [v4.3.2 FR-A18] 宝宝不存在（clearBabyData 续传时发现目标已删）
+  BABY_NOT_FOUND: makeError('BABY_NOT_FOUND', '宝宝不存在或已被删除'),
+  // [v4.3.2] 参数校验失败（替代部分原用 INVALID_ACTION 的场景）
+  INVALID_PARAMS: (msg) => ({
+    success: false,
+    error: { code: 'INVALID_PARAMS', message: msg || '参数无效' }
+  }),
   INTERNAL_ERROR: (err) => ({
     success: false,
     error: {

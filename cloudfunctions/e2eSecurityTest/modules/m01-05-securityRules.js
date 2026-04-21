@@ -115,11 +115,11 @@ module.exports = async function(runner, db, _) {
     return { pass: allowed === true, actual: { allowed } };
   });
 
-  // F-06: Alice update families → 拒绝 (update=false)
-  await runner.test('F-06', 'Alice update families → 拒绝(update=false)', async () => {
+  // F-06: Alice update families → 允许（[v4.3.2 FR-A17] 规则改为 memberOpenids contains，Alice 是成员）
+  await runner.test('F-06', 'Alice update families → 允许(memberOpenids contains)', async () => {
     const doc = (await db.collection('families').doc(FAMILIES.family_a._id).get()).data;
     const { allowed } = await sim.evaluate('families', 'update', { openid: USERS.alice._openid }, doc);
-    return { pass: allowed === false, actual: { allowed } };
+    return { pass: allowed === true, actual: { allowed } };
   });
 
   // F-07: Alice delete families → 拒绝 (delete=false)
