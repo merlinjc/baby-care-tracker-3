@@ -1,12 +1,19 @@
 /**
  * 体温记录弹窗组件
  * 支持体温测量记录，发烧分级预警
+ *
+ * [v4.3.2 FR-A2] 接入 swipe-close behavior
+ * WXML 已绑定 bindtouchstart/move/end 但 JS 未实现 → 触发微信
+ * "Component method not found" warning，下滑关闭手势失效。
  */
 
 const RecordService = require('../../services/record');
 const StorageUtil = require('../../utils/storage');
+const swipeCloseBehavior = require('../../behaviors/swipe-close');
 
 Component({
+  behaviors: [swipeCloseBehavior],
+
   properties: {
     show: {
       type: Boolean,
@@ -32,8 +39,7 @@ Component({
   },
 
   data: {
-    popupTranslateY: 0, // 弹窗滑动偏移量
-    touchStartY: 0, // 触摸起始Y坐标
+    // [v4.3.2 FR-A2] popupTranslateY 由 swipe-close behavior 提供；touchStartY 改为实例属性 _touchStartY
     temperature: '', // 体温值
     method: '', // armpit | ear | forehead | rectal
     methods: [

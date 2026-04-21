@@ -1,12 +1,20 @@
 /**
  * 喂养记录弹窗组件
  * 支持母乳/配方奶/辅食记录，计时器功能
+ *
+ * [v4.3.2 FR-A2] 接入 swipe-close behavior
+ * WXML 已绑定 bindtouchstart/move/end 但 JS 未实现 → 触发微信
+ * "Component method not found" warning，下滑关闭手势失效。
+ * 严格复用 baby-edit-popup 的 v4.3.1 修复模式。
  */
 
 const RecordService = require('../../services/record');
 const StorageUtil = require('../../utils/storage');
+const swipeCloseBehavior = require('../../behaviors/swipe-close');
 
 Component({
+  behaviors: [swipeCloseBehavior],
+
   properties: {
     show: {
       type: Boolean,
@@ -32,8 +40,7 @@ Component({
   },
 
   data: {
-    popupTranslateY: 0, // 弹窗滑动偏移量
-    touchStartY: 0, // 触摸起始Y坐标
+    // [v4.3.2 FR-A2] popupTranslateY 由 swipe-close behavior 提供；touchStartY 改为实例属性 _touchStartY
     recentAmounts: [], // v4.0: 常用量
     feedingType: 'breast', // breast | formula | solid
     feedingTypes: [

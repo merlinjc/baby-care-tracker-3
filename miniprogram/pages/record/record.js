@@ -757,10 +757,28 @@ Page({
 
   /**
    * 删除记录
+   *
+   * [v4.3.2 FR-A4] 单条删除加归属校验
+   * 根因：batchDelete（行 1015）已用 PermissionGuard.checkCanDelete 过滤，
+   * 但 action sheet 单条"删除"入口完全未校验 → editor 能对他人记录点击删除
+   * → 本地缓存已删但云端被安全规则拒 → 刷新后记录"复活"的数据不一致。
+   * 修复：入口先做 checkCanDelete 拦截，与 batchDelete 对齐。
+   * admin 跨归属删除能力由 Phase 2 FR-2 云函数化后开放，Phase 1 期间 admin/editor 行为一致。
    */
   async deleteRecord() {
     const { selectedRecord } = this.data;
-    
+
+    // [v4.3.2 FR-A4] 前置归属校验
+    if (!selectedRecord) {
+      this.setData({ showActionSheet: false });
+      return;
+    }
+    if (!PermissionGuard.checkCanDelete(selectedRecord)) {
+      this.setData({ showActionSheet: false });
+      wx.showToast({ title: '无权删除他人记录', icon: 'none' });
+      return;
+    }
+
     const res = await wx.showModal({
       title: '确认删除',
       content: '删除后无法恢复，确定要删除这条记录吗？',
