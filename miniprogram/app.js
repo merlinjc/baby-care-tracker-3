@@ -32,8 +32,13 @@ App({
     // 初始化同步服务（不依赖 initUser）
     this.initSync();
 
-    // 延迟清理孤立缓存（不阻塞启动）
-    setTimeout(() => this.cleanOrphanedCache(), 5000);
+    // [v4.3.0 FR-6] 孤立缓存清理改为等待 initUser 完成后再执行
+    // 避免 setTimeout 固定 5s 过早触发时 familyInfo 尚未就绪，误删正在使用的宝宝缓存
+    this.globalData.initPromise
+      .then(() => this.cleanOrphanedCache())
+      .catch((err) => {
+        console.warn('[cleanOrphanedCache] 跳过（initUser 未完成）:', err);
+      });
 
     // 初始化主题管理器
     ThemeManager.init();
@@ -226,7 +231,7 @@ App({
   },
   
   globalData: {
-    version: 'v4.2.1',       // 当前版本号（Release 时同步更新）
+    version: 'v4.3.0',       // 当前版本号（Release 时同步更新）
     versionCodename: 'Milo',  // 当前版本代号
     userInfo: null,
     currentBaby: null,

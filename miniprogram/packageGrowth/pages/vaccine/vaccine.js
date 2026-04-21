@@ -9,6 +9,7 @@ const { getVaccinePlans } = require('../../config/vaccine-plans');
 const { fetchAll } = require('../../../utils/db-helper');
 const ThemeManager = require('../../../utils/theme');
 const shareBehavior = require('../../../behaviors/share-behavior');
+const FamilyContext = require('../../../utils/family-context');
 
 Page({
   ...shareBehavior,
@@ -119,7 +120,7 @@ Page({
       // 获取已接种记录（使用 fetchAll 突破 20 条限制，修复 P0 数据截断）
       // ★ [v4.2 FR-10] 查询附加 familyId，匹配安全规则
       const records = await fetchAll(
-        db.collection('vaccine_records').where({ babyId: baby._id, familyId: baby.familyId || '' })
+        db.collection('vaccine_records').where({ babyId: baby._id, familyId: FamilyContext.resolveForBaby(baby) })
       );
 
       // 合并计划和记录

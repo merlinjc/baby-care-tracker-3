@@ -6,6 +6,8 @@
 const StorageUtil = require('../utils/storage');
 const NetworkUtil = require('../utils/network');
 const DeduplicationUtil = require('../utils/deduplication');
+const FamilyContext = require('../utils/family-context');
+const { PermissionGuard } = require('./permission-guard');
 const { parseTimestamp } = require('../utils/date');
 
 // 单例模式
@@ -17,8 +19,9 @@ class RecordService {
     
     this.db = wx.cloud.database();
     this.recordCollection = this.db.collection('records');
-    this.networkUtil = NetworkUtil;
-    this.deduplicationUtil = DeduplicationUtil;
+    // [v4.3.0 FR-2] 单例模式统一：改走 getInstance()
+    this.networkUtil = NetworkUtil.getInstance();
+    this.deduplicationUtil = DeduplicationUtil.getInstance();
     this._todayStatsCache = null; // getTodayStats 15s 缓存
     
     instance = this;
@@ -128,6 +131,9 @@ class RecordService {
    * @returns {Promise<Object>} 创建的记录
    */
   async createRecord(recordData) {
+    // [v4.3.0 FR-14] 前置权限预检：Viewer 直接抛 PermissionError，不发起网络请求
+    PermissionGuard.require('record.create');
+
     // 去重检查 - 使用稳定的键，不包含时间戳
     const dedupeKey = `create_${recordData.babyId}_${recordData.recordType}`;
     if (!this.deduplicationUtil.check(dedupeKey, 3000)) {
@@ -150,7 +156,7 @@ class RecordService {
         // 在线：直接写入云端
         const cloudRecord = {
           babyId: recordData.babyId,
-          familyId: familyInfo?._id || userInfo?.familyId || '',  // ★ [v4.2 FR-10] 安全规则需要 familyId
+          familyId: FamilyContext.resolve(),  // ★ [v4.2 FR-10] 安全规则需要 familyId
           recordType: recordData.recordType,
           startTime: this.db.serverDate(), // 使用服务器时间
           startTimeTs: nowTs, // 同时保存数值时间戳，用于可靠读取
@@ -218,7 +224,7 @@ class RecordService {
         const offlineRecord = {
           _id: tempId,
           babyId: recordData.babyId,
-          familyId: familyInfo?._id || userInfo?.familyId || '',  // ★ [v4.2 FR-10] 安全规则需要 familyId
+          familyId: FamilyContext.resolve(),  // ★ [v4.2 FR-10] 安全规则需要 familyId
           recordType: recordData.recordType,
           startTime: now,
           startTimeTs: nowTs,
@@ -250,16 +256,25 @@ class RecordService {
           collection: 'records',
           data: {
             babyId: recordData.babyId,
-            familyId: familyInfo?._id || userInfo?.familyId || '',  // ★ [v4.2 FR-10] 安全规则需要 familyId
+            familyId: FamilyContext.resolve(),  // ★ [v4.2 FR-10] 安全规则需要 familyId
             recordType: recordData.recordType,
             startTime: now,
             startTimeTs: nowTs,
             data: recordData.data,
             note: recordData.note || '',
-            // 创建者信息
+            // [v4.3.0 FR-4] 创建者信息（新对象格式，补齐避免同步后头像昵称丢失）
+            createdBy: {
+              userId: userInfo?._id || '',
+              nickName: familyMember?.nickName || familyMember?.name || userInfo?.nickName || '',
+              avatar: familyMember?.avatarUrl || userInfo?.avatarUrl || ''
+            },
+            // 创建者信息（旧扁平格式保留兼容）
             creatorId: userInfo?._id || null,
             createdByName: familyMember?.nickName || userInfo?.nickName || null,
-            createdByAvatar: familyMember?.avatarUrl || userInfo?.avatarUrl || null
+            createdByAvatar: familyMember?.avatarUrl || userInfo?.avatarUrl || null,
+            // [v4.3.0 FR-4] 时间戳（离线 data 也带上，供 sync 时规整使用）
+            createdAtTs: nowTs,
+            updatedAtTs: nowTs
           },
           tempId
         });
@@ -280,7 +295,7 @@ class RecordService {
       const offlineRecord = {
         _id: tempId,
         babyId: recordData.babyId,
-        familyId: cachedFamilyInfo?._id || cachedUserInfo?.familyId || '',  // ★ [v4.2 FR-10] 安全规则需要 familyId
+        familyId: FamilyContext.resolve(),  // ★ [v4.2 FR-10] 安全规则需要 familyId
         recordType: recordData.recordType,
         startTime: now,
         startTimeTs: nowTs,
@@ -303,16 +318,25 @@ class RecordService {
         collection: 'records',
         data: {
           babyId: recordData.babyId,
-          familyId: cachedFamilyInfo?._id || cachedUserInfo?.familyId || '',  // ★ [v4.2 FR-10] 安全规则需要 familyId
+          familyId: FamilyContext.resolve(),  // ★ [v4.2 FR-10] 安全规则需要 familyId
           recordType: recordData.recordType,
           startTime: now,
           startTimeTs: nowTs,
           data: recordData.data,
           note: recordData.note || '',
-          // 创建者信息
+          // [v4.3.0 FR-4] 创建者信息（新对象格式，补齐避免同步后头像昵称丢失）
+          createdBy: {
+            userId: cachedUserInfo?._id || '',
+            nickName: cachedFamilyMember?.nickName || cachedFamilyMember?.name || cachedUserInfo?.nickName || '',
+            avatar: cachedFamilyMember?.avatarUrl || cachedUserInfo?.avatarUrl || ''
+          },
+          // 创建者信息（旧扁平格式保留兼容）
           creatorId: cachedUserInfo?._id || null,
           createdByName: cachedFamilyMember?.nickName || cachedUserInfo?.nickName || null,
-          createdByAvatar: cachedFamilyMember?.avatarUrl || cachedUserInfo?.avatarUrl || null
+          createdByAvatar: cachedFamilyMember?.avatarUrl || cachedUserInfo?.avatarUrl || null,
+          // [v4.3.0 FR-4] 时间戳
+          createdAtTs: nowTs,
+          updatedAtTs: nowTs
         },
         tempId
       });
@@ -363,9 +387,8 @@ class RecordService {
         return localRecords;
       }
 
-      // ★ [v4.2 FR-10] 查询附加 familyId，匹配安全规则
-      const userInfo = StorageUtil.getUserInfo();
-      const familyId = userInfo?.familyId || '';
+      // [v4.3.0 FR-15] 查询附加 familyId，匹配安全规则；统一通过 FamilyContext 获取
+      const familyId = FamilyContext.resolve();
 
       // 在线：从云端获取
       let query = this.recordCollection
@@ -472,6 +495,11 @@ class RecordService {
    * @param {string} recordId 记录 ID
    */
   async deleteRecord(recordId) {
+    // [v4.3.0 FR-14] 前置权限预检：Viewer 直接抛 PermissionError
+    // 注：record.delete.own 为 editor+admin 允许；admin 可删他人由云端安全规则保证
+    // 如需严格校验归属（editor 删他人应被拒），调用方可在调用前查出 record 再用 PermissionGuard.requireCanDelete(record)
+    PermissionGuard.require('record.delete.own');
+
     // 去重检查 - 使用稳定的键，不包含时间戳
     const dedupeKey = `delete_${recordId}`;
     if (!this.deduplicationUtil.check(dedupeKey, 3000)) {
@@ -649,6 +677,9 @@ class RecordService {
     }
     
     StorageUtil.set(key, records);
+
+    // [v4.3.0 FR-6] 新增/更新记录后立即失效今日统计缓存
+    this._todayStatsCache = null;
   }
 
   /**
@@ -797,32 +828,70 @@ class RecordService {
       const filtered = records.filter(r => r._id !== recordId);
       StorageUtil.set(key, filtered);
     });
+
+    // [v4.3.0 FR-6] 删除记录后立即失效今日统计缓存
+    this._todayStatsCache = null;
   }
 
   /**
-   * 合并云端和本地记录（去重）
+   * 合并云端和本地记录（去重 + 保留本地较新版本）
+   *
+   * [v4.3.0 FR-6] 合并策略修正：
+   * - 云端不存在、本地独有（含 _offline=true）→ 保留本地
+   * - _id 同时存在于云端和本地：按 updatedAtTs 比较
+   *   * 本地较新（离线 update 未同步）→ 保留本地
+   *   * 云端较新（他人修改）→ 用云端覆盖
+   *   * 无法比较（缺字段）→ 云端优先（旧行为兜底）
+   * - 本地 _offline=true 的强制保留本地（未同步到云端的离线修改）
+   *
    * @param {Array} cloudRecords 云端记录
    * @param {Array} localRecords 本地记录
    * @returns {Array} 合并后的记录
    */
   mergeRecords(cloudRecords, localRecords) {
-    const cloudIdSet = new Set(cloudRecords.map(r => r._id));
-    const merged = [...cloudRecords];
-    
-    // 仅添加云端不存在的本地离线记录（_offline 且 ID 不在云端结果中）
-    localRecords.forEach(localRecord => {
-      if (!cloudIdSet.has(localRecord._id)) {
-        merged.push(localRecord);
+    const cloudMap = new Map();
+    cloudRecords.forEach(r => cloudMap.set(r._id, r));
+
+    const merged = [];
+    const localMap = new Map();
+    localRecords.forEach(r => localMap.set(r._id, r));
+
+    // 遍历云端记录，与本地同 _id 比较
+    cloudRecords.forEach(cloudRec => {
+      const local = localMap.get(cloudRec._id);
+      if (!local) {
+        merged.push(cloudRec);
+        return;
+      }
+      // 离线标记强制本地优先
+      if (local._offline === true) {
+        merged.push(local);
+        return;
+      }
+      // 按 updatedAtTs 比较（缺失则退回云端优先）
+      const cloudTs = cloudRec.updatedAtTs || 0;
+      const localTs = local.updatedAtTs || 0;
+      if (localTs > cloudTs) {
+        merged.push(local);
+      } else {
+        merged.push(cloudRec);
       }
     });
 
-    // 按时间排序 —— 优先使用 startTimeTs，与 getFromLocalCache 保持一致
+    // 添加云端没有的本地记录（主要是 _offline 的 temp_ 记录）
+    localRecords.forEach(localRec => {
+      if (!cloudMap.has(localRec._id)) {
+        merged.push(localRec);
+      }
+    });
+
+    // 按时间降序（优先使用 startTimeTs）
     merged.sort((a, b) => {
       const tsA = a.startTimeTs || (a.startTime ? new Date(a.startTime).getTime() : 0);
       const tsB = b.startTimeTs || (b.startTime ? new Date(b.startTime).getTime() : 0);
       return tsB - tsA;
     });
-    
+
     return merged;
   }
 

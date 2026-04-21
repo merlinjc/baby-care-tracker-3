@@ -45,7 +45,12 @@ Page({
 
   async onLoad() {
     this._lastShowTime = 0;
-    
+
+    // [v4.3.0 hotfix] 服务实例必须在任何 await 之前初始化
+    // 小程序生命周期：onLoad 的 await 等待期间 onShow 会先触发，
+    // 若 familyService 放在 await 之后赋值，onShow 的 loadFamilyInfo 会拿到 undefined
+    this.familyService = FamilyService.getInstance();
+
     // [v4.1] 登录守卫
     const app = getApp();
     const check = await app.ensureUserReady();
@@ -59,12 +64,14 @@ Page({
       // ★ [v4.1 FR-6] ensureUserReady 已保证 _id 存在，不再 fallback openid
       currentUserId: userInfo?._id || ''
     });
-    this.familyService = new FamilyService();
     this.loadFamilyInfo();
   },
 
   onShow() {
     this._applyTheme();
+    // [v4.3.0 hotfix] 防御：若 onShow 早于 onLoad 完成触发（async 生命周期竞态），跳过本次刷新
+    // onLoad 内部尾部已经会调用 loadFamilyInfo，数据一定会被加载
+    if (!this.familyService) return;
     // 30s 节流：避免频繁切换重复加载
     const now = Date.now();
     if (this._lastShowTime && now - this._lastShowTime < 30000) return;
@@ -77,35 +84,28 @@ Page({
    */
   async loadFamilyInfo() {
     try {
-      const db = wx.cloud.database();
       let familyInfo = StorageUtil.getFamilyInfo();
-      
+
       if (!familyInfo || !familyInfo._id) {
         this.setData({ loading: false });
         return;
       }
 
-      // 从数据库获取最新的家庭信息
-      let familyRes;
-      try {
-        familyRes = await db.collection('families').doc(familyInfo._id).get();
-      } catch (docError) {
-        // 家庭文档不存在，清理本地数据
-        if (docError.errMsg && docError.errMsg.includes('cannot find document')) {
-          console.warn('家庭文档不存在，清理本地数据');
-          StorageUtil.remove('family_info');
-          this.setData({ 
-            familyInfo: null, 
-            members: [],
-            inviteCode: '',
-            loading: false 
-          });
-          return;
-        }
-        throw docError;
+      // ★ [v4.2.2 FR-8] 统一通过服务层获取（内部已处理 cannot find document 和权限拒绝降级）
+      const fresh = await this.familyService.getFamilyDetail(familyInfo._id);
+      if (!fresh) {
+        console.warn('家庭文档不存在或无权访问，清理本地数据');
+        StorageUtil.remove('family_info');
+        this.setData({
+          familyInfo: null,
+          members: [],
+          inviteCode: '',
+          loading: false
+        });
+        return;
       }
-      
-      familyInfo = familyRes.data;
+
+      familyInfo = fresh;
       const userId = this.data.currentUserId;
       
       // 获取当前用户角色
@@ -396,43 +396,94 @@ Page({
 
   /**
    * 退出家庭
+   *
+   * [v4.3.0 hotfix] 增强流程：
+   * 1. 前置预判：点击时先基于本地 familyInfo 判断是否唯一管理员
+   *    - 是 + 有其他成员 → 直接弹转让选择弹窗（跳过"确认退出"二次弹窗，避免两次交互）
+   *    - 否（普通成员 / 最后一人 / 有其他 admin）→ 正常"确认退出"流程
+   * 2. 双重防御：即便 UI 预判被绕过，服务端仍会返回 status='need_transfer' 兜底
+   * 3. 统一使用 v4.3.0 FR-5 的 status 状态机（兼容 legacy 字段）
    */
   leaveFamily() {
+    const userInfo = StorageUtil.getUserInfo();
+    const { familyInfo } = this.data;
+
+    if (!userInfo || !userInfo._id || !familyInfo || !familyInfo._id) {
+      wx.showToast({ title: '未找到家庭信息', icon: 'none' });
+      return;
+    }
+
+    // 前置预判：是否唯一管理员 + 有其他成员
+    const isAdmin = PermissionUtil.isAdmin(userInfo._id, familyInfo);
+    const hasOtherAdmin = PermissionUtil.hasOtherAdmin(familyInfo, userInfo._id);
+    const otherMembers = (familyInfo.memberDetails || []).filter(m => m.userId !== userInfo._id);
+    const needTransferLocal = isAdmin && !hasOtherAdmin && otherMembers.length > 0;
+
+    if (needTransferLocal) {
+      // 唯一管理员 + 有其他成员 → 直接进入转让流程
+      wx.showModal({
+        title: '需先转让管理员',
+        content: '您是当前家庭的唯一管理员，退出前请先将管理员权限转让给其他成员。',
+        confirmText: '去转让',
+        cancelText: '取消',
+        confirmColor: ThemeManager.getConfirmColor('primary'),
+        success: (modalRes) => {
+          if (modalRes.confirm) {
+            this.setData({
+              showTransferModal: true,
+              transferCandidates: otherMembers,
+              selectedTransferId: ''
+            });
+          }
+        }
+      });
+      return;
+    }
+
+    // 普通成员 / 最后一人 / 有其他 admin：常规确认流程
+    const isLastMember = (familyInfo.members || []).length <= 1;
+    const confirmContent = isLastMember
+      ? '您是家庭中最后一名成员，退出将解散家庭，所有家庭数据不可恢复。确定退出吗？'
+      : '确定要退出当前家庭吗？退出后数据将无法访问。';
+
     wx.showModal({
       title: '退出家庭',
-      content: '确定要退出当前家庭吗？退出后数据将无法访问。',
+      content: confirmContent,
       confirmColor: ThemeManager.getConfirmColor('warn'),
       success: async (res) => {
-        if (res.confirm) {
-          wx.showLoading({ title: '退出中...', mask: true });
-          try {
-            const userInfo = StorageUtil.getUserInfo();
-            // ★ [v4.1 FR-6] 统一使用 _id
-            if (userInfo && userInfo._id && this.data.familyInfo && this.data.familyInfo._id) {
-              const userId = userInfo._id;
-              const result = await this.familyService.leaveFamily(this.data.familyInfo._id, userId);
-              
-              // 需要先转让管理员
-              if (result && result.needTransfer) {
-                wx.hideLoading();
-                this.setData({
-                  showTransferModal: true,
-                  transferCandidates: result.otherMembers || [],
-                  selectedTransferId: ''
-                });
-                return;
-              }
-            }
-            
-            // 清理本地存储并返回
-            StorageUtil.clear();
+        if (!res.confirm) return;
+
+        wx.showLoading({ title: '退出中...', mask: true });
+        try {
+          const result = await this.familyService.leaveFamily(familyInfo._id, userInfo._id);
+
+          // v4.3.0 FR-5 新契约：使用 status 状态机判断
+          if (result.status === 'need_transfer') {
+            // 兜底：服务端检测到仍需转让（本地 familyInfo 可能已过期）
             wx.hideLoading();
-            wx.reLaunch({ url: '/pages/auth/auth' });
-          } catch (error) {
-            wx.hideLoading();
-            console.error('退出失败:', error);
-            wx.showToast({ title: error.message || '退出失败', icon: 'none' });
+            this.setData({
+              showTransferModal: true,
+              transferCandidates: result.otherMembers || [],
+              selectedTransferId: ''
+            });
+            return;
           }
+
+          // status: 'ok' | 'dissolved' | 'family_not_found' | 'not_member' 均视为退出成功
+          StorageUtil.clear();
+          wx.hideLoading();
+
+          if (result.status === 'dissolved') {
+            wx.showToast({ title: '家庭已解散', icon: 'success' });
+          }
+
+          setTimeout(() => {
+            wx.reLaunch({ url: '/pages/auth/auth' });
+          }, result.status === 'dissolved' ? 800 : 0);
+        } catch (error) {
+          wx.hideLoading();
+          console.error('退出失败:', error);
+          wx.showToast({ title: error.message || '退出失败', icon: 'none' });
         }
       }
     });

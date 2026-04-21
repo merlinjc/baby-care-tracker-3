@@ -99,6 +99,8 @@ async function run(db, _, targetModule) {
     { id: 'm01_05', name: 'securityRules', fn: require('./modules/m01-05-securityRules') },
     { id: 'm18', name: 'crossFamily', fn: require('./modules/m18-crossFamily') },
     { id: 'm19', name: 'stateChange', fn: require('./modules/m19-stateChange') },
+    // v4.3.0 专项：直接测试生产 actions/*.js（v43-prod/ 目录）
+    { id: 'm20', name: 'v43Features', fn: require('./modules/m20-v43Features') },
   ];
 
   for (const mod of modules) {

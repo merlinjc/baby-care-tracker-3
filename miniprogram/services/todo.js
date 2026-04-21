@@ -8,6 +8,7 @@
 
 const { calculateAgeMonths } = require('../utils/date');
 const { fetchAll } = require('../utils/db-helper');
+const FamilyContext = require('../utils/family-context');
 
 // 单例实例
 let instance = null;
@@ -118,7 +119,9 @@ class TodoService {
       ]);
 
       return {
-        total: vaccineResult.count + milestoneResult.count + vaccineResult.overdue,
+        // 修复：vaccineResult.count 已包含逾期疫苗，不应重复累加 overdue，
+        // 否则首页"查看全部 N 项"会显示被放大后的错误数字
+        total: vaccineResult.count + milestoneResult.count,
         vaccine: vaccineResult.count,
         milestone: milestoneResult.count,
         overdue: vaccineResult.overdue,
@@ -138,7 +141,7 @@ class TodoService {
   async _computeVaccineStats(baby, ageMonths) {
     // ★ [v4.2 FR-10] 查询附加 familyId，匹配安全规则
     const vaccineRecords = await fetchAll(
-      this.db.collection('vaccine_records').where({ babyId: baby._id, familyId: baby.familyId || '' })
+      this.db.collection('vaccine_records').where({ babyId: baby._id, familyId: FamilyContext.resolveForBaby(baby) })
     );
     
     const vaccinePlans = this._getVaccinePlans(baby.birthDate);
@@ -199,7 +202,7 @@ class TodoService {
   async _computeMilestoneStats(baby, ageMonths) {
     // ★ [v4.2 FR-10] 查询附加 familyId，匹配安全规则
     const milestoneRecords = await fetchAll(
-      this.db.collection('milestone_records').where({ babyId: baby._id, familyId: baby.familyId || '' })
+      this.db.collection('milestone_records').where({ babyId: baby._id, familyId: FamilyContext.resolveForBaby(baby) })
     );
     
     const milestoneDefs = this._getMilestoneDefinitions();
@@ -372,5 +375,6 @@ class TodoService {
   }
 }
 
-// 导出单例
-module.exports = new TodoService();
+// 导出类（v4.3.0 FR-2：与其他服务单例模式统一）
+// 调用方：TodoService.getInstance().xxx()
+module.exports = TodoService;

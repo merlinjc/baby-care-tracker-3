@@ -92,8 +92,7 @@ miniprogram/
 
 | 方法 | 参数 | 返回值 | 说明 |
 |------|------|--------|------|
-| `getOpenId()` | — | `Promise<string>` | 通过云函数获取 openid |
-| `getUserInfo()` | — | `Promise<User>` | 获取或自动创建用户记录 |
+| `getUserInfo()` | — | `Promise<User>` | 获取或自动创建用户记录（依赖 PRIVATE ACL 注入 `_openid`） |
 | `updateUserInfo(userId, data)` | userId: string, data: Object | `Promise<void>` | 更新用户信息 |
 | `deleteUser(userId)` | userId: string | `Promise<void>` | 删除用户 |
 
@@ -497,7 +496,8 @@ wx.cloud.init({
 ```javascript
 // services/ai.js
 this.ai = wx.cloud.extend.AI;
-this.model = this.ai.createModel('hunyuan-exp');
+// createModel 接收 provider 名；具体模型名在调用时指定
+this.model = this.ai.createModel('hunyuan');
 // 实际调用使用: 'hunyuan-2.0-instruct-20251111'
 ```
 

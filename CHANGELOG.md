@@ -16,6 +16,114 @@
 
 ---
 
+## [v4.3.0] Milo — 2026-04-20
+
+### Added
+
+**客户端基础设施**：
+- `miniprogram/utils/family-context.js`：新建 `FamilyContext` 工具类（7 个静态方法 `resolve` / `resolveForBaby` / `getUserId` / `getCurrentRole` / `getCurrentBabyId` / `getFamily` / `getCurrentMemberDetail`），统一 familyId 单一来源，解决 v4.2 三源漂移问题（FR-1/FR-15）
+- `miniprogram/services/permission-guard.js`：新建 `PermissionGuard` 权限预检器（`require` / `requireCanDelete` / `check` / `checkCanDelete` + `PermissionError` 类），服务层写方法第一道闸（FR-3/FR-14）
+
+**云函数模块化（`cloudfunctions/familyOperation/`）**：
+- `errors.js`：15 个统一错误码注册表 + `ok()` 构造器（FR-8）
+- `lib/auth.js`：`getUserFromOpenid` / `isAdmin` / `isMember` 工具
+- `lib/family.js`：`getFamily` / `clearUserFamily` 工具
+- `lib/db-helper.js`：`getAllDocs` / `chunkedDelete`（并发 10 批量删除）
+- `lib/logger.js`：`OperationLogger`（落盘 `operation_logs` 集合）
+- `lib/rate-limit.js`：`RateLimiter`（持久化限流，写 `rate_limits` 集合）
+- `lib/invite-code.js`：邀请码生成器
+- `actions/` 目录：13 个 action 各自独立文件，替代 1000 行单文件 switch
+
+**云函数新增**：
+- `cloudfunctions/patrolMemberOpenids/`：每日 0 点巡检 memberOpenids 一致性云函数（含 dryRun 参数、断点续传 cursor、操作日志落盘）（FR-12）
+
+**云端资源**：
+- CloudBase NoSQL 集合 `operation_logs`（action+startedAt 复合索引 + status 索引 + PRIVATE ACL）
+- CloudBase NoSQL 集合 `rate_limits`（key 唯一索引 + windowStart 索引 + PRIVATE ACL）
+- 定时触发器 `patrolMemberOpenids.dailyPatrol`（cron `0 0 0 * * * *`）
+
+**文档**：
+- `data-model.md` §2.7 `operation_logs` 集合 + §2.8 `rate_limits` 集合
+- `coding-conventions.md` §8.4 云函数结构规范（actions/ + lib/ 目录约定 + action 签名 + 接入检查清单）
+- `coding-conventions.md` §9 权限体系重写为客户端 PermissionGuard + 服务端纵深防御双重校验
+- `service-api.md` 新增 FamilyContext / PermissionGuard 工具表
+- `specs/v4.3.0-stability-and-observability/` 四件套 spec 文档（requirements / design / tasks / plan）
+
+### Changed
+
+**客户端稳定性**：
+- `miniprogram/services/todo.js` / `utils/deduplication.js` / `utils/network.js`：单例模式统一，导出类，新增 `getInstance()` 静态方法（FR-2）
+- `miniprogram/services/record.js` + 6 个页面/组件：全部 `baby.familyId || ''` / `userInfo.familyId || ''` / `familyInfo?._id || userInfo?.familyId` 替换为 `FamilyContext.resolve()` / `resolveForBaby()`（FR-15）
+- `miniprogram/services/record.js`：`saveToLocalCache` / `deleteRecordFromCache` 补充 `_todayStatsCache` 失效；`mergeRecords` 按 `updatedAtTs` 比较，保留本地较新或 `_offline=true` 的版本（FR-6）
+- `miniprogram/services/record.js`：`createRecord` / `updateRecord` / `deleteRecord` 第一行接入 `PermissionGuard.require(...)`（FR-14）
+- `miniprogram/services/sync.js`：新增 `_normalizeTimestamps` 私有方法，离线队列 `create` 时字符串 → Date 规整，`createdAt`/`updatedAt` 改用 `serverDate` 获取权威时间（FR-4）
+- `miniprogram/services/family.js`：`leaveFamily` 重构为使用通用 `_callFamilyOperation`，返回 `status` 状态机 + legacy 兼容字段（FR-5）
+- `miniprogram/app.js`：`cleanOrphanedCache` 从 `setTimeout(5000)` 改为 `initPromise.then()`，避免慢网络下误删（FR-6）
+
+**云函数架构**：
+- `cloudfunctions/familyOperation/index.js`：从 1000 行巨型 switch 重构为 72 行 dispatch 入口（净削减 706 行）（FR-7）
+- `cloudfunctions/familyOperation` 所有写操作接入 `OperationLogger`，写入 `operation_logs` 集合（FR-9）
+- `clearBabyData` action 实现断点续传（phase state + cursor，`chunkedDelete` 并发 10），彻底解决大数据超时问题（FR-10）
+- `joinFamily` 限流从内存 Map 迁移到 `rate_limits` 集合（跨实例有效，冷启动不重置）（FR-11）
+- 云函数写操作时间戳统一使用 Date 对象 + 双时间戳 `updatedAtTs`，与客户端对齐（FR-13）
+- `leaveFamily` 云函数返回 `data.status` 状态机（`ok` / `dissolved` / `need_transfer` / `family_not_found` / `not_member`），`success=false` 仅用于 `need_transfer` 业务分支（FR-5）
+
+**文档**：
+- `architecture.md` §2 云函数清单 7 → 8；§3 分层架构补充 PermissionGuard / FamilyContext；§6.5 新增第三层可观测性与巡检小节
+
+### Fixed
+
+- `cloudfunctions/familyOperation/lib/auth.js`：`getUserFromOpenid` 加入空 openid 防御（MCP/后台直接调用云函数时不再抛 "查询参数对象值不能均为 undefined"）
+- v4.2 遗留：离线队列 `create` 未带 `createdBy` 对象导致同步后其他家庭成员看到"未知用户"的问题（FR-4）
+- v4.2 遗留：`records.familyId` 三源漂移导致的"写入成功但列表里没有"的短时数据不可见问题（FR-15）
+- v4.2 遗留：`_todayStatsCache` 删除记录后未失效，15s 窗口内首页显示过时数据（FR-6）
+- v4.2 遗留：`mergeRecords` 简单合并导致离线 `update` 未同步时被云端旧版本覆盖（FR-6）
+- `miniprogram/services/todo.js` `_compute()`：`total` 错误地 `+ overdue` 导致逾期疫苗被重复计数（首页实际 2 项疫苗待办却显示"查看全部 4 项"），修正为 `total = vaccine + milestone`；`overdue` 仅作 `vaccine` 的子集用于展示，不再计入总数
+
+### Security
+
+- `RecordService` CRUD 接入前置 `PermissionGuard.require()`，Viewer 直接抛 `PermissionError`，不发起网络请求（纵深防御第一道闸）
+- `familyOperation` 每个写 action 内部再次调用 `isAdmin` / `isMember` 校验，不信任客户端（纵深防御第二道闸）
+
+### Migration Notes
+
+**升级部署顺序**（强制）：
+1. 云端资源先行：创建 `operation_logs` / `rate_limits` 集合 + 索引 + PRIVATE ACL（已通过 MCP 完成）
+2. 云函数部署：`familyOperation` 代码更新 + `patrolMemberOpenids` 新建（已通过 MCP 完成）
+3. 定时触发器：`patrolMemberOpenids.dailyPatrol` 配置（已通过 MCP 完成）
+4. 客户端小程序发布（需你手动上传审核）
+
+**调用方迁移**：
+- `leaveFamily` legacy 字段（`needTransfer` / `familyNotFound` / `notMember` / `familyDissolved`）保留，建议新代码改用 `result.status` 分支判断
+
+---
+
+## [v4.2.2] Milo — 2026-04-20
+
+### Added
+- `coding-conventions.md` 新增 §8 数据库操作约束（三条铁律 / 查询附 familyId 模板 / 调用 familyOperation 模板 / 违规检查清单）
+- `service-api.md` 服务方法追加 `[cloud]` / `[direct]` 路径标签，新增 `_callFamilyOperation` 适配器契约说明和 `leaveFamily` 特殊契约章节
+- `data-model.md` 新增 §5 安全规则配置章节（6 集合 ACL 表 + 跨用户写说明 + 客户端查询约束）
+- 新建 `specs/v4.2.2-docs-alignment-and-hotfix/` 三份 spec 文档（requirements / design / tasks）
+
+### Changed
+- `architecture.md` 升级到 v4.2.2：§2 云函数清单从 1 个扩展为 7 个；§3 分层架构新增"云函数网关层"；§6.5 安全模型重写为云函数网关 + 安全规则双层防护；§7 追加跨用户写成本说明
+- `data-model.md` 升级到 v4.2.2：`families` 表新增 `memberOpenids` / `_openidsMigratedAt`，`creatorId` / `members` / `memberDetails[].userId` 说明更正为 `users._id`（v4.1 后统一）；`records` / `vaccine_records` / `milestone_records` 三集合新增 `familyId` / `_familyIdMigratedAt`
+- `service-api.md` 升级到 v4.2.2：`FamilyService` 13 个方法全部加 `[cloud]` / `[direct]` 标签；`BabyService` 补充完整方法表
+- `coding-conventions.md` 升级到 v4.2.2：原 §8 权限体系调整为 §9，补充服务端/客户端双重校验说明
+- `miniprogram/pages/auth/auth.js` 单例规范化：10 处 `new AuthService()` / `new FamilyService()` 改为 `XxxService.getInstance()`
+- `miniprogram/packageSocial/pages/family/family.js loadFamilyInfo` 改走服务层 `familyService.getFamilyDetail()`，删除页面层裸 `db.collection` 调用
+- `miniprogram/services/ai.js` `createModel('hunyuan-exp')` 修正为 `createModel('hunyuan')`，消除 provider 名与实际调用模型名 `hunyuan-2.0-instruct-20251111` 的歧义
+
+### Fixed
+- `specs/v4.2-cloud-function-gateway/` 三份 spec 状态字段从"待确认"回溯为 "✅ 已完成（2026-04-17）"
+- `specs/v4.2-e2e-security-tests/` 三份 spec 状态字段与 26 个 tasks checkbox 回溯为已完成
+
+### Removed
+- `miniprogram/services/auth.js` 的 `getOpenId()` 方法（全项目零调用方，`cloudfunctions/getOpenId` 云函数仍保留用于 `traceUser` 依赖）
+
+---
+
 ## [v4.2.1] Milo — 2026-04-17
 
 ### Added

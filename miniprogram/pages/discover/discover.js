@@ -5,7 +5,7 @@
 
 const { ICONS } = require('../../utils/icon-config');
 const StorageUtil = require('../../utils/storage');
-const todoService = require('../../services/todo');
+const todoService = require('../../services/todo').getInstance();
 const ThemeManager = require('../../utils/theme');
 const shareBehavior = require('../../behaviors/share-behavior');
 

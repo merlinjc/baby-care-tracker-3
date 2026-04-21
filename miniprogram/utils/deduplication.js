@@ -133,7 +133,13 @@ class DeduplicationUtil {
   }
 }
 
-// 单例模式
-const deduplicationUtil = new DeduplicationUtil();
+// 单例模式（v4.3.0 FR-2：与其他 util 单例模式统一）
+// 调用方：DeduplicationUtil.getInstance().check(...)
+let instance = null;
 
-module.exports = deduplicationUtil;
+DeduplicationUtil.getInstance = function () {
+  if (!instance) instance = new DeduplicationUtil();
+  return instance;
+};
+
+module.exports = DeduplicationUtil;

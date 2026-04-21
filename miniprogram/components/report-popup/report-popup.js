@@ -11,6 +11,7 @@
 
 const RecordService = require('../../services/record');
 const StorageUtil = require('../../utils/storage');
+const FamilyContext = require('../../utils/family-context');
 const ShareCanvasService = require('../../services/share-canvas');
 const { parseTimestamp } = require('../../utils/date');
 const ReportHelper = require('../../services/reportDataHelper');
@@ -363,7 +364,7 @@ Component({
         const baby = this.data.babyInfo;
         
         // ★ [v4.2 FR-10] 查询附加 familyId，匹配安全规则
-        const familyId = baby.familyId || '';
+        const familyId = FamilyContext.resolveForBaby(baby);
         
         const [growthResult, vaccineResult, milestoneResult, todoStats] = 
           await Promise.all([
@@ -388,7 +389,7 @@ Component({
               .catch(() => ({ data: [] })),
             
             // 待办统计（含疫苗+里程碑）
-            require('../../services/todo').getTodoStats(baby)
+            require('../../services/todo').getInstance().getTodoStats(baby)
               .catch(() => null),
           ]);
         
