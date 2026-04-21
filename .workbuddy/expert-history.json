@@ -22,7 +22,18 @@
         "usedAt": 1776067446038,
         "industryId": "all"
       }
+    ],
+    "8906e8c3904e4b1891849cdc340ff9f9": [
+      {
+        "expertId": "WechatOfficialAccountExpert",
+        "name": "Dax",
+        "profession": "微信公众号运营专家",
+        "avatarUrl": "https://acc-1258344699.cos.accelerate.myqcloud.com/workbuddy/experts/avatars/03-Marketing/WechatOfficialAccountExpert/WechatOfficialAccountExpert.png",
+        "promptUrl": "https://acc-1258344699.cos.accelerate.myqcloud.com/workbuddy/experts/experts/03-Marketing/WechatOfficialAccountExpert/WechatOfficialAccountExpert_zh.md",
+        "usedAt": 1776654032305,
+        "industryId": "all"
+      }
     ]
   },
-  "lastUpdated": 1776072725251
+  "lastUpdated": 1776654663203
 }

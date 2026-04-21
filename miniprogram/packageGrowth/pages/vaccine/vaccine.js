@@ -9,6 +9,8 @@ const { getVaccinePlans } = require('../../config/vaccine-plans');
 const { fetchAll } = require('../../../utils/db-helper');
 const ThemeManager = require('../../../utils/theme');
 const shareBehavior = require('../../../behaviors/share-behavior');
+const FamilyContext = require('../../../utils/family-context');
+const { PermissionGuard, PermissionError } = require('../../../services/permission-guard');
 
 Page({
   ...shareBehavior,
@@ -119,7 +121,7 @@ Page({
       // 获取已接种记录（使用 fetchAll 突破 20 条限制，修复 P0 数据截断）
       // ★ [v4.2 FR-10] 查询附加 familyId，匹配安全规则
       const records = await fetchAll(
-        db.collection('vaccine_records').where({ babyId: baby._id, familyId: baby.familyId || '' })
+        db.collection('vaccine_records').where({ babyId: baby._id, familyId: FamilyContext.resolveForBaby(baby) })
       );
 
       // 合并计划和记录
@@ -305,19 +307,29 @@ Page({
     if (!res.confirm) return;
     
     try {
+      // [v4.3.1 FR-12] 前置权限预检
+      PermissionGuard.require('record.create');
+
       wx.showLoading({ title: '保存中...' });
-      
+
       const db = wx.cloud.database();
       const baby = this.data.baby;
-      
+      const now = new Date();
+      const nowTs = Date.now();
+
       await db.collection('vaccine_records').add({
         data: {
           babyId: baby._id,
-          familyId: baby.familyId,
+          // [v4.3.1 FR-12] 统一 FamilyContext，不再用 baby.familyId
+          familyId: FamilyContext.resolveForBaby(baby),
           name: vaccine.name,
           dose: vaccine.dose,
-          vaccinatedDate: new Date(),
-          createdAt: new Date()
+          vaccinatedDate: now,
+          // [v4.3.1 FR-12] 补齐双时间戳
+          createdAt: now,
+          createdAtTs: nowTs,
+          updatedAt: now,
+          updatedAtTs: nowTs
         }
       });
       
@@ -328,6 +340,11 @@ Page({
       
     } catch (error) {
       wx.hideLoading();
+      // [v4.3.1 FR-12] 友好展示权限错误
+      if (error instanceof PermissionError || error.code === 'PERMISSION_DENIED') {
+        wx.showToast({ title: error.message || '仅查看权限', icon: 'none' });
+        return;
+      }
       console.error('保存接种记录失败:', error);
       wx.showToast({ title: '保存失败', icon: 'none' });
     }
@@ -412,10 +429,15 @@ Page({
     );
     
     try {
+      // [v4.3.1 FR-12] 前置权限预检（update/add 均需 record.edit）
+      PermissionGuard.require(selectedVaccine.status === 'done' ? 'record.edit' : 'record.create');
+
       wx.showLoading({ title: '保存中...' });
-      
+
       const db = wx.cloud.database();
-      
+      const now = new Date();
+      const nowTs = Date.now();
+
       if (selectedVaccine.status === 'done' && selectedVaccine.record) {
         // 更新记录
         await db.collection('vaccine_records')
@@ -423,7 +445,9 @@ Page({
           .update({
             data: {
               vaccinatedDate,
-              updatedAt: new Date()
+              // [v4.3.1 FR-12] 补齐双时间戳
+              updatedAt: now,
+              updatedAtTs: nowTs
             }
           });
       } else {
@@ -431,11 +455,15 @@ Page({
         await db.collection('vaccine_records').add({
           data: {
             babyId: baby._id,
-            familyId: baby.familyId,
+            // [v4.3.1 FR-12] 统一 FamilyContext
+            familyId: FamilyContext.resolveForBaby(baby),
             name: selectedVaccine.name,
             dose: selectedVaccine.dose,
             vaccinatedDate,
-            createdAt: new Date()
+            createdAt: now,
+            createdAtTs: nowTs,
+            updatedAt: now,
+            updatedAtTs: nowTs
           }
         });
       }
@@ -448,6 +476,10 @@ Page({
       
     } catch (error) {
       wx.hideLoading();
+      if (error instanceof PermissionError || error.code === 'PERMISSION_DENIED') {
+        wx.showToast({ title: error.message || '仅查看权限', icon: 'none' });
+        return;
+      }
       console.error('保存接种记录失败:', error);
       wx.showToast({ title: '保存失败', icon: 'none' });
     }
@@ -468,8 +500,11 @@ Page({
     if (!res.confirm) return;
     
     try {
+      // [v4.3.1 FR-12] 前置权限预检；考虑归属使用 requireCanDelete
+      PermissionGuard.requireCanDelete(selectedVaccine.record || {});
+
       wx.showLoading({ title: '删除中...' });
-      
+
       const db = wx.cloud.database();
       await db.collection('vaccine_records')
         .doc(selectedVaccine.record._id)
@@ -483,6 +518,10 @@ Page({
       
     } catch (error) {
       wx.hideLoading();
+      if (error instanceof PermissionError || error.code === 'PERMISSION_DENIED') {
+        wx.showToast({ title: error.message || '无权限删除', icon: 'none' });
+        return;
+      }
       console.error('删除接种记录失败:', error);
       wx.showToast({ title: '删除失败', icon: 'none' });
     }

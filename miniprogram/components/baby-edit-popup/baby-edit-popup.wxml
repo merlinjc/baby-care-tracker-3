@@ -87,7 +87,7 @@
 
       <!-- 提交按钮 -->
       <button 
-        class="submit-btn {{loading ? 'loading' : ''}}"
+        class="submit-btn {{loading ? 'loading is-disabled' : ''}}"
         bindtap="submit"
         disabled="{{loading}}"
       >

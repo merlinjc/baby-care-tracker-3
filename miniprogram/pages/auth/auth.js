@@ -6,6 +6,7 @@
 const AuthService = require('../../services/auth');
 const FamilyService = require('../../services/family');
 const StorageUtil = require('../../utils/storage');
+const FamilyContext = require('../../utils/family-context');
 const ThemeManager = require('../../utils/theme');
 
 // 身份关系映射（完整版）
@@ -51,6 +52,10 @@ Page({
   },
 
   async onLoad(options) {
+    // [v4.2.2 FR-9] 单例初始化（闭包单例，new 与 getInstance 结果等价，但规范约定用 getInstance）
+    this.authService = AuthService.getInstance();
+    this.familyService = FamilyService.getInstance();
+
     // 检查是否有邀请码参数（通过分享链接进入）
     if (options.inviteCode) {
       this.setData({ 
@@ -71,7 +76,7 @@ Page({
     this.setData({ loading: true, loadingText: '加载中...' });
 
     try {
-      const authService = new AuthService();
+      const authService = AuthService.getInstance();
       // 获取用户信息（会查询数据库判断是否已存在）
       const userInfo = await authService.getUserInfo();
 
@@ -87,11 +92,45 @@ Page({
           return;
         }
 
-        // 无邀请码，正常自动登录
-        if (userInfo.familyId) {
-          await this.loadFamilyInfo(userInfo.familyId);
+        // [v4.3.0 hotfix] 退出家庭后的用户：userInfo 存在但无 familyId
+        // 不能跳 home（home 会 reLaunch 回 auth 造成死循环），应停留在 auth 第 3 步
+        // 让用户重新选择"创建家庭"或"加入家庭"
+        if (!userInfo.familyId) {
+          this.setData({
+            avatarUrl: userInfo.avatar || '',
+            nickname: userInfo.nickname || '',
+            selectedRelation: userInfo.relation || '',
+            currentStep: 3,
+            loading: false,
+            isAutoLoggingIn: false
+          });
+          return;
         }
+
+        // 正常自动登录（已注册 + 已有家庭）
+        await this.loadFamilyInfo(userInfo.familyId);
         await this.loadCurrentBaby();
+
+        // [v4.3.0 hotfix] 再次校验：loadFamilyInfo 可能因家庭解散/被踢出清理了 familyInfo
+        // 此时同步清理本地 userInfo.familyId，并停留在 auth 第 3 步
+        const freshFamily = StorageUtil.getFamilyInfo();
+        if (!freshFamily) {
+          const cleaned = { ...userInfo };
+          delete cleaned.familyId;
+          delete cleaned.familyRole;
+          StorageUtil.saveUserInfo(cleaned);
+          getApp().globalData.userInfo = cleaned;
+          this.setData({
+            avatarUrl: cleaned.avatar || '',
+            nickname: cleaned.nickname || '',
+            selectedRelation: cleaned.relation || '',
+            currentStep: 3,
+            loading: false,
+            isAutoLoggingIn: false
+          });
+          return;
+        }
+
         wx.switchTab({ url: '/pages/home/home' });
         return;
       }
@@ -132,9 +171,8 @@ Page({
    */
   async loadFamilyInfo(familyId) {
     try {
-      const FamilyService = require('../../services/family');
-      const familyService = new FamilyService();
-      const familyInfo = await familyService.getFamilyDetail(familyId);
+      // [v4.2.2 FR-9] 使用 onLoad 中初始化的单例，避免重复 require + new
+      const familyInfo = await this.familyService.getFamilyDetail(familyId);
       
       if (familyInfo) {
         StorageUtil.saveFamilyInfo(familyInfo);
@@ -161,18 +199,16 @@ Page({
    */
   async loadCurrentBaby() {
     try {
+      // [v4.3.0 FR-15] 统一通过 FamilyContext 获取 familyId
+      // [v4.2.2 FR-8] 虽仍走裸 DB 读，但查询附加 familyId 符合安全规则
+      const familyId = FamilyContext.resolve();
+
+      // 无 familyId（未加入家庭 / 刚退出家庭）→ 静默 return，不打印警告
+      if (!familyId) return;
+
       const db = wx.cloud.database();
-      const userInfo = StorageUtil.getUserInfo();
-      
-      // BUG-6: 检查 userInfo 和 familyId 是否存在
-      if (!userInfo || !userInfo.familyId) {
-        console.warn('loadCurrentBaby: userInfo 或 familyId 不存在');
-        return;
-      }
-      
-      // 查询用户关联的宝宝
       const res = await db.collection('babies').where({
-        familyId: userInfo.familyId
+        familyId
       }).get();
 
       if (res.data && res.data.length > 0) {
@@ -245,7 +281,7 @@ Page({
     this.setData({ loading: true, loadingText: '保存中...' });
 
     try {
-      const authService = new AuthService();
+      const authService = AuthService.getInstance();
       let userInfo = StorageUtil.getUserInfo();
 
       // 防御性检查：确保用户信息存在
@@ -303,12 +339,12 @@ Page({
     this.setData({ loading: true, loadingText: '创建中...' });
 
     try {
-      const familyService = new FamilyService();
+      const familyService = FamilyService.getInstance();
       let userInfo = StorageUtil.getUserInfo();
 
       // 防御性检查：确保用户信息存在
       if (!userInfo || !userInfo._id) {
-        const authService = new AuthService();
+        const authService = AuthService.getInstance();
         userInfo = await authService.getUserInfo();
         StorageUtil.saveUserInfo(userInfo);
         getApp().globalData.userInfo = userInfo;
@@ -331,11 +367,13 @@ Page({
         
         try {
           const leaveResult = await familyService.leaveFamily(userInfo.familyId, userInfo._id);
-          if (!leaveResult.success && leaveResult.needTransfer) {
+          // [v4.3.1 FR-15] 统一 status 状态机判断
+          if (leaveResult.status === 'need_transfer') {
             wx.showToast({ title: '请先转让管理权限', icon: 'none' });
             this.setData({ loading: false });
             return;
           }
+          // status: 'ok' | 'dissolved' | 'family_not_found' | 'not_member' → 允许继续
           // 清理本地家庭数据
           const updatedUser = { ...userInfo };
           delete updatedUser.familyId;
@@ -358,7 +396,7 @@ Page({
       });
 
       // 更新用户信息，关联家庭
-      const authService = new AuthService();
+      const authService = AuthService.getInstance();
       await authService.updateUserInfo(userInfo._id, {
         familyId: family._id,
         familyRole: 'admin'
@@ -488,12 +526,12 @@ Page({
     this.setData({ joiningFamily: true });
 
     try {
-      const familyService = new FamilyService();
+      const familyService = FamilyService.getInstance();
       let userInfo = StorageUtil.getUserInfo();
 
       // 防御性检查：确保用户信息存在
       if (!userInfo || !userInfo._id) {
-        const authService = new AuthService();
+        const authService = AuthService.getInstance();
         userInfo = await authService.getUserInfo();
         StorageUtil.saveUserInfo(userInfo);
         getApp().globalData.userInfo = userInfo;
@@ -511,7 +549,7 @@ Page({
         const familyInfo = await familyService.getFamilyDetail(result.familyId);
 
         // 更新用户信息
-        const authService = new AuthService();
+        const authService = AuthService.getInstance();
         await authService.updateUserInfo(userInfo._id, {
           familyId: result.familyId,
           familyRole: 'editor'
@@ -584,7 +622,7 @@ Page({
    * @param {Object} userInfo - 当前用户信息
    */
   async _handleInviteCodeForExistingUser(userInfo) {
-    const familyService = new FamilyService();
+    const familyService = FamilyService.getInstance();
     
     try {
       const validation = await familyService.validateInviteCode(this.data.inviteCode);
@@ -623,7 +661,8 @@ Page({
         if (hasExistingFamily) {
           try {
             const leaveResult = await familyService.leaveFamily(userInfo.familyId, userInfo._id);
-            if (!leaveResult.success && leaveResult.needTransfer) {
+            // [v4.3.0 FR-5] 使用 status 状态机判断（legacy needTransfer 同步兼容）
+            if (leaveResult.status === 'need_transfer') {
               // 唯一管理员不能直接退出
               wx.showModal({
                 title: '无法加入',

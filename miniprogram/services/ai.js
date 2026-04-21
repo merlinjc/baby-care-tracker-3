@@ -9,7 +9,9 @@ class AIService {
   constructor() {
     if (instance) return instance;
     this.ai = wx.cloud.extend.AI;
-    this.model = this.ai.createModel('hunyuan-exp');
+    // createModel 接收 provider 名；具体模型名（如 hunyuan-2.0-instruct-20251111）
+    // 在 generateText / streamText 调用时通过 data.model 指定。
+    this.model = this.ai.createModel('hunyuan');
     instance = this;
   }
 

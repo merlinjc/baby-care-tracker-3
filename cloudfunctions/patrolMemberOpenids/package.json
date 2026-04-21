@@ -1,0 +1,9 @@
+{
+  "name": "patrolMemberOpenids",
+  "version": "1.0.0",
+  "description": "v4.3.0 FR-12 每日巡检 families.memberOpenids 与 members 一致性",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

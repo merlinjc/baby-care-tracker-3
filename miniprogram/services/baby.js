@@ -102,13 +102,35 @@ class BabyService {
 
   /**
    * 获取宝宝详情
+   *
+   * [v4.3.1 Hotfix] 改走云函数 admin SDK，不再客户端直连：
+   * - 根因：babies.read 安全规则要求 auth.openid 在 families[doc.familyId].memberOpenids 中
+   *   当真实 memberOpenids 未同步（v4.2 迁移漏洞 / removeMember 旧 bug / patrol 未跑）时，
+   *   客户端 doc().get() 和 where({_id}).get() 都会被拒绝（-502003）
+   * - 云函数内用 admin SDK 读取，业务层校验 baby.familyId === user.familyId 且用户是 family 成员
+   *
    * @param {string} babyId 宝宝 ID
-   * @returns {Promise<Object>} 宝宝信息
+   * @returns {Promise<Object|null>} 宝宝信息（不存在或无权限时返回 null）
    */
   async getBabyById(babyId) {
     try {
-      const res = await this.babyCollection.doc(babyId).get();
-      return res.data;
+      const res = await wx.cloud.callFunction({
+        name: 'familyOperation',
+        data: {
+          action: 'getBabyById',
+          params: { babyId }
+        }
+      });
+      const result = res.result;
+      if (!result.success) {
+        // 权限错误（PERMISSION_DENIED）→ 返回 null，让调用方处理
+        if (result.error && result.error.code === 'PERMISSION_DENIED') {
+          console.warn('[BabyService] getBabyById 权限拒绝:', result.error.message);
+          return null;
+        }
+        throw new Error(result.error?.message || '获取宝宝详情失败');
+      }
+      return result.data?.baby || null;
     } catch (error) {
       console.error('获取宝宝详情失败:', error);
       throw error;
@@ -117,17 +139,40 @@ class BabyService {
 
   /**
    * 更新宝宝信息
+   *
+   * [v4.3.1 Hotfix3] 改走云函数 `familyOperation/updateBaby`：
+   * - 原客户端直连受 `doc._openid == auth.openid` 限制，非创建者 + 存量宝宝均失败
+   * - 云函数 admin SDK 绕过规则，业务层校验：
+   *   * 必须是家庭成员
+   *   * 必须 admin 或 editor（viewer 不能改）
+   *   * baby.familyId === user.familyId
+   * - 允许字段白名单：name / gender / birthDate / avatar
+   *
    * @param {string} babyId 宝宝 ID
-   * @param {Object} data 更新数据
+   * @param {Object} data 更新数据（name / gender / birthDate / avatar）
    */
   async updateBaby(babyId, data) {
     try {
-      await this.babyCollection.doc(babyId).update({
+      // birthDate 如为 Date 对象，序列化为 ISO 字符串（云函数会归一为 Date）
+      const payload = { ...data };
+      if (payload.birthDate instanceof Date) {
+        payload.birthDate = payload.birthDate.toISOString();
+      }
+
+      const res = await wx.cloud.callFunction({
+        name: 'familyOperation',
         data: {
-          ...data,
-          updatedAt: this.db.serverDate()
+          action: 'updateBaby',
+          params: { babyId, data: payload }
         }
       });
+      const result = res.result;
+      if (!result.success) {
+        const err = new Error(result.error?.message || '更新宝宝信息失败');
+        err.code = result.error?.code || 'UNKNOWN';
+        throw err;
+      }
+      return result.data;
     } catch (error) {
       console.error('更新宝宝信息失败:', error);
       throw error;

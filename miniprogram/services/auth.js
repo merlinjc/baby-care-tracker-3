@@ -1,6 +1,13 @@
 /**
  * 用户认证服务
- * 微信小程序天然免登录，通过云函数获取 openid
+ *
+ * 机制说明（v4.2+）：
+ * - 微信小程序天然免登录：`wx.cloud.init({ traceUser: true })` 自动关联 openid。
+ * - `users` 集合 ACL = PRIVATE：`where({})` 查询会被安全规则自动注入 `_openid` 过滤，
+ *   新建 `add({ data })` 时 `_openid` 由 CloudBase 后端自动注入（PRIVATE ACL 写入约束）。
+ * - 跨用户写入统一通过 `familyOperation` 云函数，服务端 `getWXContext().OPENID`
+ *   作为不可伪造的身份源头（详见 `coding-conventions.md` §8）。
+ * - `cloudfunctions/getOpenId` 保留用于 `traceUser` 依赖，客户端不再显式调用。
  */
 
 let instance = null;
@@ -16,22 +23,6 @@ class AuthService {
   static getInstance() {
     if (!instance) instance = new AuthService();
     return instance;
-  }
-
-  /**
-   * 获取用户 openid
-   * 通过云函数获取，无需用户授权
-   */
-  async getOpenId() {
-    try {
-      const res = await wx.cloud.callFunction({
-        name: 'getOpenId'
-      });
-      return res.result.openid;
-    } catch (error) {
-      console.error('获取 openid 失败:', error);
-      throw error;
-    }
   }
 
   /**

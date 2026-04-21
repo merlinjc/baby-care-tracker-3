@@ -1,12 +1,20 @@
 /**
  * 编辑宝宝信息弹窗组件
  * 支持修改头像、姓名、出生日期
+ *
+ * [v4.3.1 Hotfix]
+ * - 接入 swipe-close behavior（WXML 绑定了 onTouchStart/Move/End 但组件未引入 behavior → warning）
+ * - submit 开头加 baby null 守卫（组件 baby 属性默认为 null，父页加载失败时 submit 会 NPE）
+ * - observer 严格校验 baby：baby 为空时自动关闭弹窗，避免无效编辑
  */
 
 const BabyService = require('../../services/baby');
 const StorageUtil = require('../../utils/storage');
+const swipeCloseBehavior = require('../../behaviors/swipe-close');
 
 Component({
+  behaviors: [swipeCloseBehavior],
+
   properties: {
     show: {
       type: Boolean,
@@ -31,13 +39,16 @@ Component({
           birthDate: this.formatBirthDate(baby.birthDate) || '',
           avatar: baby.avatar || ''
         });
+      } else if (show && !baby) {
+        // [v4.3.1 Hotfix] 弹窗被打开但宝宝数据为空：提示并关闭
+        wx.showToast({ title: '宝宝信息未就绪', icon: 'none' });
+        this.triggerEvent('close');
       }
     }
   },
 
   data: {
-    popupTranslateY: 0,
-    touchStartY: 0,
+    // popupTranslateY 由 swipe-close behavior 提供
     name: '',
     birthDate: '',
     currentDate: '',
@@ -108,6 +119,12 @@ Component({
     async onChooseAvatar() {
       if (this.data.uploading) return;
 
+      // [v4.3.1 Hotfix] baby null 守卫
+      if (!this.data.baby || !this.data.baby._id) {
+        wx.showToast({ title: '宝宝信息未就绪', icon: 'none' });
+        return;
+      }
+
       try {
         const res = await wx.chooseMedia({
           count: 1,
@@ -167,6 +184,13 @@ Component({
      */
     async submit() {
       const { name, birthDate, avatar, baby } = this.data;
+
+      // [v4.3.1 Hotfix] baby null 守卫：父页加载失败时 this.data.baby 可能为 null
+      if (!baby || !baby._id) {
+        wx.showToast({ title: '宝宝信息未就绪', icon: 'none' });
+        this.triggerEvent('close');
+        return;
+      }
 
       // 验证表单
       if (!name.trim()) {
@@ -234,8 +258,12 @@ Component({
         this.triggerEvent('close');
       } catch (error) {
         console.error('更新宝宝信息失败:', error);
+        // [v4.3.1 Hotfix] 权限错误友好展示
+        const message = error.code === 'PERMISSION_DENIED'
+          ? (error.message || '无权限修改')
+          : '修改失败';
         wx.showToast({
-          title: '修改失败',
+          title: message,
           icon: 'none'
         });
         this.setData({ loading: false });

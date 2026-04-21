@@ -11,7 +11,7 @@
 | 属性 | 值 |
 |------|-----|
 | **产品名称** | Baby Care Tracker（宝宝成长记录） |
-| **产品版本** | v4.2.1 Milo |
+| **产品版本** | v4.3.1 Milo |
 | **项目类型** | 微信小程序（原生开发） |
 | **AppID** | `wx1f1bc8e6ff2be61d` |
 | **CloudBase 环境** | `neo3-7gtg0bdtc9fcc672` |
@@ -442,6 +442,10 @@ node scripts/supplement-missing-icons.js
 
 | 版本 | 代号 | 日期 | 主要变更 |
 |------|------|------|---------|
+| v4.3.1 | Milo | 2026-04-20 | v4.3.0 全量 review 发现的 22 项修复：createBaby 写 _openid、权限收紧 isAdmin、deleteBaby 级联删、updatedAtTs 双时间戳补齐、batchDelete 归属校验、默认角色 viewer、反向漂移巡检等 |
+| v4.3.0 | Milo | 2026-04-20 | 稳定性加固（FamilyContext/PermissionGuard/离线队列完整性）+ 云函数模块化（actions/ + lib/）+ 可观测性（operation_logs/rate_limits/patrolMemberOpenids 每日巡检） |
+| v4.2.2 | Milo | 2026-04-20 | 文档对齐 v4.2 实际架构 + 4 项低风险代码热修复 + v4.2 spec 状态回溯 |
+| v4.2.1 | Milo | 2026-04-17 | E2E 安全测试套件（163 用例，15 模块） |
 | v4.2.0 | Milo | 2026-04-17 | 云函数网关（13 action 服务端鉴权）、安全规则治理、familyId 数据迁移 |
 | v4.1.0 | Milo | 2026-04-15 | AI 能力屏蔽、分享认证加固、全页面登录守卫、Family 安全修复 |
 | v4.0.1 | Milo | 2026-04-13 | 配方奶快捷用量调整 [10-210ml] |

@@ -6,6 +6,7 @@
 const RecordService = require('../../services/record');
 const StorageUtil = require('../../utils/storage');
 const PermissionUtil = require('../../utils/permission');
+const { PermissionGuard } = require('../../services/permission-guard');
 const { debounce } = require('../../utils/debounce');
 const ThemeManager = require('../../utils/theme');
 
@@ -986,31 +987,71 @@ Page({
 
   /**
    * 批量删除
+   *
+   * [v4.3.1 FR-13] 归属校验：
+   * - editor 只能删自己创建的记录，对他人记录跳过（不等云端拒绝再回滚缓存，避免 UI 闪烁）
+   * - admin 全删，行为无变化
+   * - 全部被跳过时提示用户，不发起任何云端调用
    */
   async batchDelete() {
-    const { selectedRecords } = this.data;
-    
+    const { selectedRecords, records } = this.data;
+
     if (selectedRecords.length === 0) return;
-    
+
+    // 按 _id 建立索引（records 结构可能含当前筛选结果的全部记录）
+    const recordMap = new Map();
+    (records || []).forEach(r => recordMap.set(r._id, r));
+
+    // 按归属分桶
+    const deletable = [];
+    const skipped = [];
+    selectedRecords.forEach(id => {
+      const rec = recordMap.get(id);
+      if (!rec) {
+        // 列表中找不到记录（如被其他人删了）→ 跳过
+        skipped.push(id);
+        return;
+      }
+      if (PermissionGuard.checkCanDelete(rec)) {
+        deletable.push(id);
+      } else {
+        skipped.push(id);
+      }
+    });
+
+    if (deletable.length === 0) {
+      wx.showToast({ title: '选中记录均无权限删除', icon: 'none' });
+      return;
+    }
+
+    const confirmContent = skipped.length > 0
+      ? `将删除 ${deletable.length} 条，其中 ${skipped.length} 条他人记录已跳过。确定继续吗？`
+      : `确定删除选中的 ${deletable.length} 条记录吗？删除后无法恢复。`;
+
     const res = await wx.showModal({
       title: '确认删除',
-      content: `确定删除选中的 ${selectedRecords.length} 条记录吗？删除后无法恢复。`,
+      content: confirmContent,
       confirmColor: ThemeManager.getConfirmColor('neutral')
     });
-    
+
     if (!res.confirm) return;
-    
+
     wx.showLoading({ title: '删除中...' });
-    
+
     try {
       const recordService = this._recordService;
-      
+
       // 使用 batchExecute 限制并发（避免云 DB 限流）
-      await batchExecute(selectedRecords, id => recordService.deleteRecord(id));
-      
+      await batchExecute(deletable, id => recordService.deleteRecord(id));
+
       wx.hideLoading();
-      wx.showToast({ title: '删除成功', icon: 'success' });
-      
+      wx.showToast({
+        title: skipped.length > 0
+          ? `已删 ${deletable.length}，跳过 ${skipped.length}`
+          : '删除成功',
+        icon: 'success'
+      });
+
       // 退出管理模式并刷新
       this.setData({ manageMode: false, selectedRecords: [] });
       this.loadData(true);

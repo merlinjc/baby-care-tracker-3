@@ -9,6 +9,8 @@ const { MILESTONE_DEFINITIONS } = require('../../config/milestone-defs');
 const { fetchAll } = require('../../../utils/db-helper');
 const ThemeManager = require('../../../utils/theme');
 const shareBehavior = require('../../../behaviors/share-behavior');
+const FamilyContext = require('../../../utils/family-context');
+const { PermissionGuard, PermissionError } = require('../../../services/permission-guard');
 
 Page({
   ...shareBehavior,
@@ -111,7 +113,7 @@ Page({
       // 使用 fetchAll 突破 20 条限制，修复 P0 数据截断
       // ★ [v4.2 FR-10] 查询附加 familyId，匹配安全规则
       const records = await fetchAll(
-        db.collection('milestone_records').where({ babyId: baby._id, familyId: baby.familyId || '' })
+        db.collection('milestone_records').where({ babyId: baby._id, familyId: FamilyContext.resolveForBaby(baby) })
       );
 
       const milestones = this.mergeMilestones(definitions, records);
@@ -383,8 +385,11 @@ Page({
       if (!res.confirm) return;
       
       try {
+        // [v4.3.1 FR-12] 前置权限预检（取消达成 = delete）
+        PermissionGuard.requireCanDelete(milestone.achievedRecord || {});
+
         wx.showLoading({ title: '处理中...' });
-        
+
         const db = wx.cloud.database();
         await db.collection('milestone_records')
           .doc(milestone.achievedRecord._id)
@@ -398,6 +403,10 @@ Page({
         
       } catch (error) {
         wx.hideLoading();
+        if (error instanceof PermissionError || error.code === 'PERMISSION_DENIED') {
+          wx.showToast({ title: error.message || '无权限取消', icon: 'none' });
+          return;
+        }
         wx.showToast({ title: '操作失败', icon: 'none' });
       }
     } else {
@@ -411,19 +420,29 @@ Page({
       if (!res.confirm) return;
       
       try {
+        // [v4.3.1 FR-12] 前置权限预检
+        PermissionGuard.require('record.create');
+
         wx.showLoading({ title: '保存中...' });
-        
+
         const db = wx.cloud.database();
         const baby = this.data.baby;
-        
+        const now = new Date();
+        const nowTs = Date.now();
+
         await db.collection('milestone_records').add({
           data: {
             babyId: baby._id,
-            familyId: baby.familyId,
+            // [v4.3.1 FR-12] 统一 FamilyContext
+            familyId: FamilyContext.resolveForBaby(baby),
             name: milestone.name,
             category: milestone.categoryName,
-            achievedDate: new Date(),
-            createdAt: new Date()
+            achievedDate: now,
+            // [v4.3.1 FR-12] 补齐双时间戳
+            createdAt: now,
+            createdAtTs: nowTs,
+            updatedAt: now,
+            updatedAtTs: nowTs
           }
         });
         
@@ -435,6 +454,10 @@ Page({
         
       } catch (error) {
         wx.hideLoading();
+        if (error instanceof PermissionError || error.code === 'PERMISSION_DENIED') {
+          wx.showToast({ title: error.message || '仅查看权限', icon: 'none' });
+          return;
+        }
         wx.showToast({ title: '标记失败', icon: 'none' });
       }
     }

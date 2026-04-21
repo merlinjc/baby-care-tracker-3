@@ -162,6 +162,8 @@ Page({
    * 清除云端所有数据
    * ★ [v4.2 FR-14] 改为通过云函数 familyOperation/clearBabyData 执行，
    * 使用 admin SDK 可删除包括其他成员创建的记录
+   * ★ [v4.3.1 FR-4] 循环处理 in_progress 状态：clearBabyData v4.3.0 改为断点续传，
+   *    单次最多删 500 条 × 3 集合 + 15s 时间预算，大数据量时返回 in_progress + cursor
    */
   async clearAllCloudData() {
     const currentBaby = StorageUtil.getCurrentBaby();
@@ -191,24 +193,64 @@ Page({
 
     if (!confirm2.confirm) return;
 
-    wx.showLoading({ title: '删除中...', mask: true });
+    wx.showLoading({ title: '清除中...', mask: true });
 
     try {
       const babyId = currentBaby._id;
       const familyId = currentBaby.familyId;
 
-      const callRes = await wx.cloud.callFunction({
-        name: 'familyOperation',
-        data: {
-          action: 'clearBabyData',
-          params: { babyId, familyId }
+      // [v4.3.1 FR-4] 循环处理断点续传
+      const MAX_ITERATIONS = 20;  // 安全上限，理论最多 10000 条/集合足够
+      let cursor = null;
+      let progress = { records: 0, vaccine: 0, milestone: 0 };
+      let familyDeleted = false;
+      let finalData = null;
+
+      for (let i = 0; i < MAX_ITERATIONS; i++) {
+        const callRes = await wx.cloud.callFunction({
+          name: 'familyOperation',
+          data: {
+            action: 'clearBabyData',
+            params: { babyId, familyId, cursor }
+          }
+        });
+
+        const result = callRes.result;
+        if (!result.success) throw new Error(result.error?.message || '删除失败');
+
+        const data = result.data || {};
+
+        if (data.status === 'in_progress') {
+          cursor = data.cursor;
+          progress = data.progress || progress;
+          wx.showLoading({
+            title: `清除中... ${progress.records || 0} 条`,
+            mask: true
+          });
+          continue;
         }
-      });
 
-      const result = callRes.result;
-      if (!result.success) throw new Error(result.error?.message || '删除失败');
+        // status === 'succeeded' 或兼容旧返回（无 status 字段）
+        finalData = data;
+        familyDeleted = !!data.familyDeleted;
+        break;
+      }
 
-      // 清除本地缓存
+      if (!finalData) {
+        // 超过迭代上限仍未完成：保留 cursor 到本地，提示用户稍后重试
+        wx.setStorageSync('_pending_clear_baby', {
+          babyId, familyId, cursor, savedAt: Date.now()
+        });
+        wx.hideLoading();
+        wx.showModal({
+          title: '数据较多',
+          content: `已清除 ${progress.records || 0} 条记录，剩余部分稍后继续。`,
+          showCancel: false
+        });
+        return;
+      }
+
+      // 删除完成：清除本地缓存
       wx.clearStorageSync();
 
       wx.hideLoading();
@@ -216,7 +258,7 @@ Page({
 
       // 根据云函数返回判断跳转目标
       setTimeout(() => {
-        if (result.data && result.data.familyDeleted) {
+        if (familyDeleted) {
           wx.reLaunch({ url: '/pages/auth/auth' });
         } else {
           wx.reLaunch({ url: '/pages/baby-create/baby-create' });
@@ -226,7 +268,7 @@ Page({
     } catch (error) {
       wx.hideLoading();
       console.error('清除云端数据失败:', error);
-      wx.showToast({ title: '删除失败', icon: 'none' });
+      wx.showToast({ title: error.message || '删除失败', icon: 'none' });
     }
   },
 

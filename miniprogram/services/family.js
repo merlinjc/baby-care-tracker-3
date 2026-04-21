@@ -244,31 +244,38 @@ class FamilyService {
    * @param {string} userId 用户 ID（v4.2: 云函数内自动识别，此参数忽略）
    * @returns {Promise<Object>} 退出结果
    */
+  /**
+   * 用户主动退出家庭
+   *
+   * [v4.3.0 FR-5] 契约重构：
+   * 统一使用 `_callFamilyOperation`；返回 `data.status` 状态机：
+   *   - 'ok'              → 正常退出
+   *   - 'dissolved'       → 最后一人退出，家庭已解散
+   *   - 'need_transfer'   → 唯一管理员需先转让
+   *   - 'family_not_found' / 'not_member' → 幂等
+   *
+   * 为兼容未升级的调用方，返回值同时保留 legacy 字段：
+   *   { success, status, otherMembers?, message,
+   *     familyNotFound?, notMember?, familyDissolved?, needTransfer? }
+   *
+   * @param {string} familyId 家庭 ID
+   * @param {string} userId 用户 ID（v4.2: 云函数内自动识别，此参数忽略）
+   * @returns {Promise<Object>} 结构化结果
+   */
   async leaveFamily(familyId, userId) {
     try {
-      const res = await wx.cloud.callFunction({
-        name: 'familyOperation',
-        data: { action: 'leaveFamily', params: { familyId } }
-      });
-      const result = res.result;
-      // leaveFamily 在 needTransfer 时 success=false 但 data 中包含信息
-      if (!result.success && result.data?.needTransfer) {
-        return {
-          success: false,
-          needTransfer: true,
-          otherMembers: result.data.otherMembers || [],
-          message: result.data.message
-        };
-      }
-      if (!result.success) {
-        throw new Error(result.error?.message || '退出家庭失败');
-      }
+      const data = await this._callFamilyOperation('leaveFamily', { familyId });
+      // 新契约：所有业务分支都在 data.status 中；legacy 字段由云函数返回过渡期保留
       return {
-        success: true,
-        familyNotFound: result.data?.familyNotFound || false,
-        notMember: result.data?.notMember || false,
-        familyDissolved: result.data?.familyDissolved || false,
-        message: result.data?.message || '已退出家庭'
+        success: data.status !== 'need_transfer',
+        status: data.status,
+        otherMembers: data.otherMembers || [],
+        message: data.message,
+        // legacy 兼容（推荐调用方迁移到 status）
+        needTransfer: data.status === 'need_transfer' || !!data.needTransfer,
+        familyNotFound: data.status === 'family_not_found' || !!data.familyNotFound,
+        notMember: data.status === 'not_member' || !!data.notMember,
+        familyDissolved: data.status === 'dissolved' || !!data.familyDissolved
       };
     } catch (error) {
       console.error('退出家庭失败:', error);
