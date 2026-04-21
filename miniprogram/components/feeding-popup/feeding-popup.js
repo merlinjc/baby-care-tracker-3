@@ -300,7 +300,7 @@ Component({
 
       try {
         const currentBaby = StorageUtil.getCurrentBaby();
-        const recordService = new RecordService();
+        const recordService = RecordService.getInstance();
 
         const recordData = {
           babyId: currentBaby._id,

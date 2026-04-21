@@ -33,6 +33,9 @@ class TodoService {
     return instance;
   }
 
+  /** [v4.3.2 FR-A13] 重置单例（用于退出登录/家庭解散后清理） */
+  static resetInstance() { instance = null; }
+
   /**
    * 获取待办统计（带 30s 缓存）
    * @param {Object} baby - 宝宝对象，需包含 _id 和 birthDate

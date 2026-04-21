@@ -159,13 +159,13 @@ Component({
     async getRecordsForExport(exportRange, selectedRecords) {
       // 如果有选中的记录，直接返回选中的
       if (selectedRecords && selectedRecords.length > 0) {
-        const recordService = new RecordService();
+        const recordService = RecordService.getInstance();
         // 这里需要根据 selectedRecords IDs 获取完整记录
         // 简化处理：假设页面已经传入了完整的记录
         return this.properties.records || [];
       }
       
-      const recordService = new RecordService();
+      const recordService = RecordService.getInstance();
       const babyId = this.data.babyId;
       
       let startDate, endDate;

@@ -274,7 +274,7 @@ Component({
       wx.showLoading({ title: '生成报告中...' });
       
       try {
-        const recordService = new RecordService();
+        const recordService = RecordService.getInstance();
         const { currentPeriod, babyId } = this.data;
         
         // 计算时间范围

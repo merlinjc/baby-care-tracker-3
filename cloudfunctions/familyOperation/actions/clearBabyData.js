@@ -9,6 +9,8 @@
  * [v4.3.0 FR-9] 接入 OperationLogger 补偿日志
  * [v4.3.0 FR-13] 时间戳改用 Date
  * [v4.3.1 FR-11] 所有查询附加 familyId（安全规则约束 + 防止跨家庭误删）
+ * [v4.3.2 FR-A18] 续传恢复时检查 baby 是否仍存在（BABY_NOT_FOUND），
+ *   防止并发 deleteBaby + clearBabyData 场景下操作已不存在的 baby
  */
 const errors = require('../errors');
 const { getFamily } = require('../lib/family');
@@ -28,6 +30,21 @@ module.exports = async (ctx, params) => {
 
   if (!isAdmin(userId, family)) {
     return errors.PERMISSION_DENIED('只有管理员才能清除数据');
+  }
+
+  // [v4.3.2 FR-A18] 续传恢复时检查 baby 是否仍存在
+  if (cursor) {
+    const babyDoc = await db.collection('babies').doc(babyId).get().catch(() => null);
+    if (!babyDoc || !babyDoc.data) {
+      // baby 已被并发删除（如 deleteBaby 已完成），视为成功
+      await logger.start({ babyId, familyId, resumedFromCursor: true });
+      await logger.succeed({ status: 'succeeded', babyAlreadyDeleted: true });
+      return errors.ok({
+        status: 'succeeded',
+        babyAlreadyDeleted: true,
+        message: '宝宝数据已被其他操作清除'
+      });
+    }
   }
 
   const startedAt = Date.now();
@@ -124,7 +141,12 @@ module.exports = async (ctx, params) => {
     await db.collection('babies').doc(babyId).remove();
     await logger.step('remove_baby', 'ok', { babyId });
   } catch (e) {
-    await logger.step('remove_baby', 'fail', { error: e.message });
+    // [v4.3.2 FR-A18] baby 已不存在时幂等处理
+    if (e.errCode === -1 || (e.message && e.message.includes('cannot find document'))) {
+      await logger.step('remove_baby', 'skip', { reason: 'already_deleted', babyId });
+    } else {
+      await logger.step('remove_baby', 'fail', { error: e.message });
+    }
   }
 
   try {
@@ -136,38 +158,27 @@ module.exports = async (ctx, params) => {
     await logger.step('pull_family_baby', 'fail', { error: e.message });
   }
 
-  // 如果家庭没有更多宝宝 → 解散家庭
-  let familyDeleted = false;
-  const remaining = await db.collection('babies').where({ familyId }).count();
-  if ((remaining.total || 0) === 0) {
-    try {
-      await db.collection('families').doc(familyId).remove();
-      familyDeleted = true;
-      await logger.step('remove_family_when_empty', 'ok');
-    } catch (e) {
-      await logger.step('remove_family_when_empty', 'fail', { error: e.message });
-    }
-
-    for (const memberId of (family.members || [])) {
-      try {
-        await db.collection('users').doc(memberId).update({
-          data: {
-            familyId: _.remove(),
-            familyRole: _.remove(),
-            updatedAt: now,
-            updatedAtTs: nowTs
-          }
-        });
-        await logger.step(`clear_user_${memberId}`, 'ok');
-      } catch (e) {
-        await logger.step(`clear_user_${memberId}`, 'fail', { error: e.message });
+  // [v4.3.2 FR-3] 自动解散判断：与 deleteBaby 一致
+  let autoDissolved = false;
+  try {
+    const freshRes = await db.collection('families').doc(familyId).get();
+    const freshFamily = freshRes && freshRes.data;
+    if (freshFamily) {
+      const remainingBabies = (freshFamily.babies || []).length;
+      const memberCount = (freshFamily.members || []).length;
+      if (remainingBabies === 0 && memberCount <= 1) {
+        const { dissolveFamilyCore } = require('../lib/family-dissolve');
+        await dissolveFamilyCore(ctx, freshFamily, logger);
+        autoDissolved = true;
       }
     }
+  } catch (e) {
+    await logger.step('auto_dissolve_check_failed', 'warn', { error: e.message });
   }
 
   const finalResult = Object.assign({
     status: 'succeeded',
-    familyDeleted
+    autoDissolved
   }, state.totalCleared);
 
   await logger.succeed(finalResult);

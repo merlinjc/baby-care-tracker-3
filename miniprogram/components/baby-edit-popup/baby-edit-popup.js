@@ -139,7 +139,7 @@ Component({
         this.setData({ uploading: true });
 
         // 上传头像
-        const babyService = new BabyService();
+        const babyService = BabyService.getInstance();
         const avatarUrl = await babyService.uploadAvatar(this.data.baby._id, tempFilePath);
 
         // 更新页面数据
@@ -212,7 +212,7 @@ Component({
       this.setData({ loading: true });
 
       try {
-        const babyService = new BabyService();
+        const babyService = BabyService.getInstance();
         
         // 准备更新数据
         const updateData = {

@@ -61,7 +61,7 @@ Page({
     this.setData({ creatingFamily: true, loading: true });
     
     try {
-      const familyService = new FamilyService();
+      const familyService = FamilyService.getInstance();
       const userInfo = StorageUtil.getUserInfo();
       
       if (!userInfo) {
@@ -85,7 +85,7 @@ Page({
       });
 
       // 更新用户信息，关联家庭
-      const authService = new AuthService();
+      const authService = AuthService.getInstance();
       await authService.updateUserInfo(userInfo._id, {
         familyId: family._id,
         familyRole: 'admin'
@@ -173,7 +173,7 @@ Page({
     this.setData({ loading: true });
 
     try {
-      const babyService = new BabyService();
+      const babyService = BabyService.getInstance();
       
       const baby = await babyService.createBaby(
         familyId,
