@@ -81,11 +81,20 @@ class FamilyService {
       const data = await this._callFamilyOperation('joinFamily', {
         inviteCode, userName, relation
       });
-      return {
+      // [v4.3.2 FR-A8] 透传 data.warning（STALE_USER_POINTER / STALE_OLD_FAMILY_MEMBERSHIP）
+      // 云函数顺序反转后，中途失败可能返回 success=true 但附带 warning 标记，
+      // 业务上视为加入成功（云端已落库），由 patrol 巡检后续补偿。
+      const result = {
         success: true,
         familyId: data.familyId,
         familyName: data.familyName
       };
+      if (data && data.warning) {
+        result.warning = data.warning;
+        if (data.oldFamilyId) result.oldFamilyId = data.oldFamilyId;
+        console.warn('[family.joinByInviteCode] 加入成功但带 warning:', data.warning);
+      }
+      return result;
     } catch (error) {
       console.error('加入家庭失败:', error);
       throw error;

@@ -35,6 +35,84 @@ class RecordService {
   }
 
   /**
+   * [v4.3.2 FR-A5] 本地缓存写入失败上报
+   * 云端 add()/update() 已成功后，本地缓存写入异常时调用。
+   * 仅做 best-effort 上报，不影响业务返回值。
+   * @private
+   */
+  _reportCacheFailure(action, recordId, err) {
+    try {
+      if (typeof wx !== 'undefined' && typeof wx.reportAnalytics === 'function') {
+        wx.reportAnalytics('record_cache_failure', {
+          action,
+          recordId: String(recordId || ''),
+          errorCode: String(err?.errCode || err?.code || 'UNKNOWN')
+        });
+      }
+    } catch (_) { /* 静默：上报失败不传播 */ }
+  }
+
+  /**
+   * [v4.3.2 FR-A6] 判定云端操作失败后是否需要入队重试
+   *
+   * 根因：旧 catch 分支不区分"未送达"和"已送达但响应丢失"，一律入队
+   * → 已送达的 update/delete 被重复执行（抖动双写、mergeRecords 误判）
+   *
+   * 判定规则：
+   *   - 明确的未送达错误（REQUEST_FAIL/TIMEOUT/NETWORK_ERROR）：必须入队（true）
+   *   - 其他错误：探测云端真实状态
+   *       - delete + 云端文档不存在 → 已删成功，跳过入队（false）
+   *       - delete + 云端文档存在 → 未生效，入队（true）
+   *       - update + 云端 updatedAtTs >= expectedTs → 已生效，跳过入队（false）
+   *       - update + 云端 updatedAtTs < expectedTs → 未生效，入队（true）
+   *   - 探测本身失败（非 NOT_FOUND 类）→ 保底入队（true）
+   *   - 探测 NOT_FOUND → 对 update 无意义（false，目标已不存在）
+   *
+   * @private
+   * @param {string} recordId
+   * @param {'update'|'delete'} op
+   * @param {number} expectedTs 期望云端 updatedAtTs 至少达到的值（update 用）
+   * @param {Error} error 原始失败错误
+   * @returns {Promise<boolean>} 是否需要入队
+   */
+  async _shouldRequeueAfterFailure(recordId, op, expectedTs, error) {
+    // 1. 未送达错误模式：必入队
+    const errMsg = String(error?.errMsg || error?.message || '');
+    const UNSENT_PATTERNS = /REQUEST_FAIL|TIMEOUT|NETWORK_ERROR|request:fail|time[ _-]?out/i;
+    if (UNSENT_PATTERNS.test(errMsg)) return true;
+
+    // 2. 探测云端真实状态
+    try {
+      const res = await this.recordCollection.doc(recordId).get();
+      const doc = res && res.data;
+      if (op === 'delete') {
+        // 文档存在 = 未删成功 → 入队；不存在 = 已删 → 跳过
+        return !!doc;
+      }
+      if (op === 'update') {
+        // 云端 updatedAtTs 已 >= expectedTs 表示本次 update 已生效
+        const serverTs = doc && doc.updatedAtTs;
+        return !(serverTs && serverTs >= expectedTs);
+      }
+    } catch (probeErr) {
+      // 探测失败：识别 NOT_FOUND vs 其他
+      const probeMsg = String(probeErr?.errMsg || probeErr?.message || '');
+      const NOT_FOUND = probeErr?.errCode === -1
+        || /not exist|cannot find document|document does not exist/i.test(probeMsg);
+      if (NOT_FOUND) {
+        // 文档已不存在：
+        //   delete 视为已成功（false）
+        //   update 目标没了，入队也无意义（false）
+        return false;
+      }
+      // 其他探测失败（含网络二次失败）→ 保底入队
+      return true;
+    }
+    // 兜底：入队
+    return true;
+  }
+
+  /**
    * 处理云端返回的记录，转换时间格式
    * @param {Object} record 云端记录
    * @returns {Object} 处理后的记录
@@ -214,8 +292,17 @@ class RecordService {
           updatedAtTs: nowTs
         };
 
-        // 同步到本地缓存
-        this.saveToLocalCache(createdRecord);
+        // [v4.3.2 FR-A5] 云端成功后，本地缓存异常单独处理：不入队、不抛错
+        // 根因：旧代码把 saveToLocalCache 放在外层 try 内 → 本地缓存失败时
+        //       外层 catch 把"已落云端的记录"重复加入离线队列 → 下次同步产生
+        //       第二条云端文档（双写 bug）
+        // 修复：云端 add() 成功后即作为"不可逆成功"标记；本地缓存仅做 best-effort
+        try {
+          this.saveToLocalCache(createdRecord);
+        } catch (cacheErr) {
+          console.error('[record.create] 本地缓存写入失败（云端已成功，不重复入队）:', cacheErr);
+          this._reportCacheFailure('create', res._id, cacheErr);
+        }
 
         return createdRecord;
       } else {
@@ -460,11 +547,13 @@ class RecordService {
       throw new Error('操作过于频繁，请稍后再试');
     }
 
+    // [v4.3.2 FR-A6] nowTs 提前生成，用于 try 成功路径 + catch 探测对比
+    const nowTs = Date.now();
+
     try {
       if (this.networkUtil.checkOnline() && !recordId.startsWith('temp_')) {
         // 在线且非离线记录：更新云端
         // [v4.3.1 FR-7] 补 updatedAtTs 双时间戳，修复 mergeRecords 按 updatedAtTs 比较失效
-        const nowTs = Date.now();
         await this.recordCollection.doc(recordId).update({
           data: {
             ...data,
@@ -478,7 +567,6 @@ class RecordService {
       } else {
         // 离线或离线记录：更新本地并加入队列
         // [v4.3.1 FR-7] 离线分支也补 updatedAtTs，同步时由 sync._normalizeTimestamps 校正 updatedAt
-        const nowTs = Date.now();
         this.updateRecordInCache(recordId, { ...data, updatedAtTs: nowTs });
 
         StorageUtil.addToOfflineQueue({
@@ -490,15 +578,27 @@ class RecordService {
       }
     } catch (error) {
       console.error('更新记录失败:', error);
-      // 降级到本地
-      const nowTs = Date.now();
+
+      // [v4.3.2 FR-A6] 网络抖动识别：先探测云端真实状态，再决定是否入队
+      // 根因：旧代码一律入队 → 云端已生效但响应丢包的 update 被重复执行
+      // → mergeRecords 按 updatedAtTs 比较时误判本地 > 云端 → 回传覆盖其他设备的最新修改
+      const shouldRequeue = await this._shouldRequeueAfterFailure(
+        recordId, 'update', nowTs, error
+      );
+
+      // 本地缓存无论如何都要更新（保证当前设备 UI 一致）
       this.updateRecordInCache(recordId, { ...data, updatedAtTs: nowTs });
-      StorageUtil.addToOfflineQueue({
-        type: 'update',
-        collection: 'records',
-        recordId,
-        data: { ...data, updatedAtTs: nowTs }
-      });
+
+      if (shouldRequeue) {
+        StorageUtil.addToOfflineQueue({
+          type: 'update',
+          collection: 'records',
+          recordId,
+          data: { ...data, updatedAtTs: nowTs }
+        });
+      } else {
+        console.log('[record.update] 探测显示云端已生效，跳过离线队列（避免重复写入）');
+      }
     }
   }
 
@@ -538,13 +638,24 @@ class RecordService {
       }
     } catch (error) {
       console.error('删除记录失败:', error);
-      // 云端删除失败，降级加入离线队列
+
+      // [v4.3.2 FR-A6] 网络抖动识别：先探测云端真实状态，再决定是否入队
+      // 根因：旧代码云端删除失败一律入队重试 → 云端已删但响应丢包的 remove 被
+      // 重复执行 → 在已不存在的文档上再次 .remove() → catch 再次入队 → 死循环。
+      // 修复：探测云端文档是否已不存在，若已删则跳过入队。
       if (!recordId.startsWith('temp_')) {
-        StorageUtil.addToOfflineQueue({
-          type: 'delete',
-          collection: 'records',
-          recordId
-        });
+        const shouldRequeue = await this._shouldRequeueAfterFailure(
+          recordId, 'delete', 0, error
+        );
+        if (shouldRequeue) {
+          StorageUtil.addToOfflineQueue({
+            type: 'delete',
+            collection: 'records',
+            recordId
+          });
+        } else {
+          console.log('[record.delete] 探测显示云端已删除，跳过离线队列（避免循环重试）');
+        }
       }
     }
   }

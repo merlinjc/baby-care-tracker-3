@@ -346,26 +346,60 @@ class SyncService {
 
   /**
    * 更新记录 ID（离线记录同步后）
+   *
+   * [v4.3.2 FR-A7] 同步翻新离线队列中残留的 update/delete 操作
+   * 根因：离线 create → update → update → online sync 场景下：
+   *   1. syncCreate 成功后 tempId 翻新为 realId（仅本地缓存）
+   *   2. 队列里还有 { type:'update'|'delete', recordId: 'temp_xxx' } 残留
+   *   3. 后续 executeOperation 用旧 tempId 调 doc('temp_xxx').update()
+   *      → 云端 INVALID_DOC_ID → 重试 3 次后丢弃
+   *   4. 用户离线期间做的所有编辑/删除永久丢失
+   * 修复：翻新本地缓存的同时，同步翻新队列里所有同 tempId 的操作。
+   *
+   * 并发安全：syncOfflineQueue 持 syncInProgress=true 防重入；当前循环的
+   * queue 是方法开头快照，翻新在 Storage 层写入，下次循环自然读到最新。
+   *
    * @param {string} tempId 临时 ID
    * @param {string} realId 真实 ID
    */
   updateRecordId(tempId, realId) {
-    // 遍历所有宝宝的缓存，找到临时记录并更新
+    // 1. 原逻辑：翻新本地 records 缓存
     const familyInfo = StorageUtil.getFamilyInfo();
     
-    if (!familyInfo || !familyInfo.babies) return;
+    if (familyInfo && familyInfo.babies) {
+      familyInfo.babies.forEach(babyId => {
+        const key = `records_${babyId}`;
+        const records = StorageUtil.get(key) || [];
+        const index = records.findIndex(r => r._id === tempId);
+        
+        if (index >= 0) {
+          records[index]._id = realId;
+          records[index]._offline = false;
+          StorageUtil.set(key, records);
+        }
+      });
+    }
 
-    familyInfo.babies.forEach(babyId => {
-      const key = `records_${babyId}`;
-      const records = StorageUtil.get(key) || [];
-      const index = records.findIndex(r => r._id === tempId);
-      
-      if (index >= 0) {
-        records[index]._id = realId;
-        records[index]._offline = false;
-        StorageUtil.set(key, records);
+    // 2. [v4.3.2 FR-A7] 同步翻新离线队列中残留的 update/delete 操作
+    try {
+      const queue = StorageUtil.getOfflineQueue();
+      let mutated = false;
+      const newQueue = queue.map(op => {
+        if (op && op.recordId === tempId) {
+          mutated = true;
+          return Object.assign({}, op, { recordId: realId });
+        }
+        return op;
+      });
+      if (mutated) {
+        StorageUtil.set('offline_queue', newQueue);
+        console.log(`[sync] 翻新队列：tempId=${tempId} → realId=${realId}`);
       }
-    });
+    } catch (e) {
+      // 翻新失败不影响主流程（本地缓存已翻新，队列残留项会因 INVALID_DOC_ID
+      // 最终被 MAX_RETRY_COUNT 丢弃；只是丢用户编辑，与原行为一致）
+      console.warn('[sync.updateRecordId] 翻新队列失败:', e);
+    }
   }
 
   /**
