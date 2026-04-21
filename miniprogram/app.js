@@ -232,7 +232,7 @@ App({
   },
   
   globalData: {
-    version: 'v4.3.1',       // 当前版本号（Release 时同步更新）
+    version: 'v4.3.2',       // 当前版本号（Release 时同步更新）
     versionCodename: 'Milo',  // 当前版本代号
     userInfo: null,
     currentBaby: null,

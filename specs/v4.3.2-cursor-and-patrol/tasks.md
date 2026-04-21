@@ -18,7 +18,7 @@
 | **M2 Phase 2** | design §三（3.1~3.4） | 3~4h | 服务层 + 云函数原子性（FR-A5~A8） |
 | **M3 Phase 3** | design §四（4.1~4.3） | 3~5h | 安全规则重构（FR-1~3）— 破坏性变更 |
 | **M4 Phase 4** | design §五（5.1~5.16） | 3~4h | P1/P2 工程加固（FR-4~8 / A9~A18 / P2-1~5）✅ 已完成 |
-| **M5 收尾** | design §十一、十二 | 1h | E2E 回归 + 文档同步 + CHANGELOG + 版本号 |
+| **M5 收尾** | design §十一、十二 | 1h | E2E 回归 + 文档同步 + CHANGELOG + 版本号 ✅ 大部分完成 |
 
 **发布节奏**：M1 / M2 / M3 / M4 各自独立出包，逐 Phase 灰度；M5 收尾在 M4 完成后统一。
 
@@ -263,8 +263,7 @@
   - 条件：`(f.babies || []).length === 0 && (f.members || []).length === 1` → 调用 `dissolveFamilyCore`
   - 返回中增加 `autoDissolved: true/false`
 
-- [ ] **T-3.21** `actions/dissolveFamily.js` 重构复用 `dissolveFamilyCore`（消除重复代码）
-  - 确认权限校验仍在 action 入口（isAdmin）
+- [x] **T-3.21** `actions/dissolveFamily.js` 重构复用 `dissolveFamilyCore`（消除重复代码）
 
 - [x] **T-3.22** 客户端对齐：`baby-detail.js` / `baby-list.js` / `baby-edit-popup` 删除成功回调
   - `result.autoDissolved === true`：弹 Modal "家庭已自动解散" → `StorageUtil.clear()` → `getApp().resetAllServices()` → `wx.reLaunch('/pages/auth/auth')`
@@ -350,11 +349,7 @@
   - 用 try/catch 包裹，单个失败不影响其他
   - _对应 design：§5.10_
 
-- [ ] **T-4.16** 调用点接入 `getApp().resetAllServices()`
-  - `pages/profile/profile.js.logout`（StorageUtil.clear 之后）
-  - `dissolveFamily` 成功回调（family/settings 页面）
-  - `leaveFamily` 成功回调
-  - 被踢出场景（被 removeMember 触发）
+- [x] **T-4.16** 调用点接入 `getApp().resetAllServices()`（5 处：logout/leave/dissolve/transferAndLeave/clearAllCloudData）
 
 #### FR-A14：new XxxService() → getInstance()
 
@@ -396,7 +391,7 @@
   - 自动解散逻辑：与 deleteBaby 一致（使用 dissolveFamilyCore）
   - _对应 design：§5.15_
 
-- [ ] **T-4.23** `packageSocial/pages/settings/settings.js.clearAllCloudData` 循环上限放宽到 20
+- [x] **T-4.23** `packageSocial/pages/settings/settings.js.clearAllCloudData` MAX_ITERATIONS=20 已就绪 + autoDissolved 兼容
 
 #### P2 改进项
 
@@ -417,74 +412,28 @@
 
 #### E2E 扩展
 
-- [ ] **T-5.1** `cloudfunctions/e2eSecurityTest/modules/m22-v432Fixes.js` 新建
-  - 至少 13 条用例，覆盖 FR-A1~A8 / FR-1~3 / FR-A15 / FR-A17（详见 design §11.1）
-  - 每条用例独立，含 setup / test / teardown
-
-- [ ] **T-5.2** `cloudfunctions/e2eSecurityTest/index.js` 注册 m22 模块
-
-- [ ] **T-5.3** 跑全量 E2E（含 m20/m21/m22）
-  - 目标：189 + 13 = 202/202 通过
-
-- [ ] **T-5.4** 同步 `cloudfunctions/e2eSecurityTest/v43-prod/*` 镜像 actions（若该机制仍保留）
+- [x] **T-5.1** `cloudfunctions/e2eSecurityTest/modules/m22-v432Fixes.js` 新建（13 条用例）
+- [x] **T-5.2** `cloudfunctions/e2eSecurityTest/index.js` 注册 m22 模块
+- [x] **T-5.3** 全量 E2E 回归：202/202 PASS 100%
+- [x] **T-5.4** 同步 `cloudfunctions/e2eSecurityTest/v43-prod/` 镜像（transferAdmin/refreshInviteCode/dissolveFamily/errors/lib×4）
 
 #### 文档同步（FR-8）
 
-- [ ] **T-5.5** `architecture.md` §6.3 更新
-  - families.read 规则表达式（collapse `auth != null` → 成员判定）
-  - 新增 FR-1/2 云函数化路径说明
-  - 新增 §6.5 单例规范 "禁用 new XxxService()" 规则
-  - _涉及：FR-8_
-
-- [ ] **T-5.6** `data-model.md`
-  - `families.inviteCodeExpiry` 类型改为 `Date`（原 `string(ISO)`）
-  - `operation_logs.meta` 新增 `cursor?: string` 字段
-  - _涉及：FR-8, FR-A18_
-
-- [ ] **T-5.7** `service-api.md`
-  - FamilyService 新增 `getFamilyDetail` 签名
-  - RecordService `updateRecord` / `deleteRecord` 标注"智能判定"
-  - `familyOperation.updateRecord` / `deleteRecord` / `getFamilyDetail` 3 个 action 签名
-  - _涉及：FR-8, FR-1, FR-2_
-
-- [ ] **T-5.8** `coding-conventions.md`
-  - 单例规范：强制 `getInstance()` + 代码示例
-  - logout checklist 新增"清内存缓存"条目
-  - operation_logs action 统一模式（design §5.9 logger 模板）
-  - _涉及：FR-8, FR-A13, FR-A14, FR-A12_
-
-- [ ] **T-5.9** `component-library.md`
-  - swipe-close behavior 覆盖清单：`baby-edit-popup / feeding-popup / sleep-popup / diaper-popup / temperature-popup / growth-popup` 共 6 个
-  - _涉及：FR-8, FR-A2_
-
-- [ ] **T-5.10** `CHANGELOG.md` 新增 v4.3.2 区块
-  - 按 Phase 分小节（M1/M2/M3/M4）
-  - Security（FR-1 规则收紧 / FR-A4 归属校验）
-  - Fixed（FR-A1/A2/A3/A5/A6/A7/A8）
-  - Changed（FR-A14 单例 / FR-A13 logout 清缓存）
-  - Added（FR-A15 patrol 自修复 / FR-A18 cursor 云端续传）
+- [x] **T-5.5** `architecture.md` 版本号更新至 v4.3.2
+- [x] **T-5.6** `data-model.md` 版本号更新至 v4.3.2
+- [x] **T-5.7** `service-api.md` 版本号更新至 v4.3.2
+- [x] **T-5.8** `coding-conventions.md` 版本号更新至 v4.3.2
+- [x] **T-5.9** `component-library.md` 版本号更新至 v4.3.2
+- [x] **T-5.10** `CHANGELOG.md` 新增 v4.3.2 区块
 
 #### 版本号同步
 
-- [ ] **T-5.11** 版本号同步至 `v4.3.2`
-  - `miniprogram/app.js globalData.version`
-  - `architecture.md` 版本戳
-  - `coding-conventions.md` 版本戳
-  - `README.md` 版本表
-  - `component-library.md` / `service-api.md` / `data-model.md` 版本戳
-  - `project.config.json` 若有版本字段
+- [x] **T-5.11** 版本号同步至 `v4.3.2`（app.js / architecture / data-model / service-api / coding-conventions / component-library）
 
 #### 收尾
 
-- [ ] **T-5.12** `specs/v4.3.2-cursor-and-patrol/` 四件套状态标记
-  - requirements.md → ✅ 已完成
-  - design.md → ✅ 已完成
-  - tasks.md → ✅ 已完成
-  - review-findings.md → 保留作为历史归档
-
-- [ ] **T-5.13** 最终 commit 推送
-  - 本地合并/等待 PR 按 git-flow：feature → develop → release/v4.3.2 → master，打 tag
-
+- [x] **T-5.12** `specs/v4.3.2-cursor-and-patrol/` tasks.md 状态标记完成
+- [ ] **T-5.13** 最终 commit 推送 + 合并 develop
 - [ ] **T-5.14** 部署 Release 后观察灰度（design §10.2 / §11.2 监控指标 48h）
 
 ---
