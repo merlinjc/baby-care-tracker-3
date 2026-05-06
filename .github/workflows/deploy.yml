@@ -142,10 +142,15 @@ jobs:
           PATH_REMOTE: ${{ secrets.DEPLOY_PATH }}
           TAG: ${{ steps.tag.outputs.tag }}
           IMAGE_LC: ${{ steps.tag.outputs.image_lc }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
         run: |
-          ssh -o ConnectTimeout=30 -i ~/.ssh/id_deploy $USER@$HOST bash -s <<'EOF'
+          ssh -o ConnectTimeout=30 -i ~/.ssh/id_deploy $USER@$HOST bash -s <<EOF
           set -euo pipefail
-          cd ${{ secrets.DEPLOY_PATH }}/docker
+          cd $PATH_REMOTE/docker
+
+          echo '  -> docker login ghcr.io'
+          echo '$GHCR_TOKEN' | docker login ghcr.io -u '$GHCR_USER' --password-stdin
 
           echo '  -> pull 最新镜像'
           docker compose --env-file .env pull
@@ -155,6 +160,9 @@ jobs:
 
           echo '  -> 清理历史镜像'
           docker image prune -f
+
+          echo '  -> docker logout ghcr.io'
+          docker logout ghcr.io
           EOF
 
       - name: Health check
