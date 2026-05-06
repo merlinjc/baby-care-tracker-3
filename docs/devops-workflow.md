@@ -565,6 +565,18 @@ docker exec baby-care-server sh -c 'apk add --no-cache sqlite >/dev/null 2>&1; s
 ```
 之后重新构建并发布镜像（新 Dockerfile 已带 fallback），即可彻底闭环。
 
+**Q11：注册/登录返回 `GET /api/auth/register 404`？**
+A：你大概率是通过 `http://IP/`（HTTP + IP 直连）访问的 SPA。流程是：
+1. 浏览器加载页面 → axios 用相对路径 `/api/auth/register` 发 POST；
+2. 浏览器拼接 `http://IP/api/auth/register`；
+3. nginx 80 端口把它跳到 `https://www.neo3.cn`；
+4. 历史上 **301/302 会把 POST 转 GET 跟随**（且原 body 丢失）；
+5. GET 命中 Express 路由没有 GET，返回 404。
+
+修复：
+- **正确做法**：用 `https://www.neo3.cn/...` 访问（域名 + HTTPS）；
+- **服务端防御**：`docker/nginx.conf` 中 `/api/` 路径已改用 `308 Permanent Redirect` 而非 301，浏览器会保留 method/body 跟随。如果是从静态资源/页面跳转，仍用 301（更友好的缓存语义）。
+
 ---
 
 ## 14. 安全清单
