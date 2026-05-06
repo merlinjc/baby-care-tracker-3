@@ -61,27 +61,9 @@
 
 ### 阶段五：P2 增值（M5）
 
-- [ ] **T-5.1** 彩蛋检测引擎
-  - 新建 `client/src/lib/easter-egg.ts`：`detectAll(ctx) → [{type, priority, payload}]`
-  - 实现 8 类彩蛋检测逻辑（30/100/365/first_record/month/streak/holiday/insight）
-  - localStorage key 命名与小程序一致
-  - 验收：单元测试 8 类触发条件 + 优先级裁决
-  - _涉及：FR-G2_
-
-- [ ] **T-5.2** 彩蛋 3 个组件
-  - 新建 `client/src/components/easter-egg-popup.tsx`（半屏 Dialog，支持 30/100/365 三种 type）
-  - 新建 `client/src/components/easter-egg-toast.tsx`（轻量 Toast，2s 自动消失）
-  - 新建 `client/src/components/easter-egg-banner.tsx`（月龄/节日提示条）
-  - HomePage useEffect 500ms 延迟触发 detectAll → 路由分发
-  - 验收：满 30/100 天触发对应弹窗；首次记录触发 Toast
-  - _依赖：T-5.1 | 涉及：FR-G2_
-
-- [ ] **T-5.3** 分享图 V1（4 卡片）
-  - 新建 `client/src/lib/share-canvas.ts`（离屏 Canvas 绘制，限制 DPR=2）
-  - 新建 `client/src/components/share-report-dialog.tsx`（生成预览 / 保存 / 分享）
-  - 集成到记录页或 BabyPage 的「生成报告」入口
-  - 验收：生成 750x 动态高度 jpeg ≤ 500KB；移动端 navigator.share 调起；桌面端 a download 下载
-  - _涉及：FR-G3_
+- [x] **T-5.1** ✅ 彩蛋检测引擎 detectAll（8 类彩蛋 + 优先级排序 + localStorage 标记）
+- [x] **T-5.2** ✅ EasterEggDisplay 三态渲染（popup / toast / banner）+ HomePage 集成
+- [x] **T-5.3** ✅ share-canvas V1（4 卡片简版 + DPR≤2 + jpeg + navigator.share 降级）
 
 ### 阶段六：测试与文档同步（M6）
 

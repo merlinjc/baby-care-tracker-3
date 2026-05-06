@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { Baby, Moon, Droplets, Thermometer, Plus, Sparkles, Clock, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -22,8 +22,10 @@ import { StatusCapsule } from '@/components/status-capsule'
 import { TodaySummary } from '@/components/today-summary'
 import { InsightSection } from '@/components/insight-section'
 import { HomeSkeleton } from '@/components/home-skeleton'
+import { EasterEggDisplay } from '@/components/easter-egg-display'
 import { toast } from '@/components/ui/toast'
 import { buildFallbackInsight, isInsightEmpty } from '@/lib/insight-fallback'
+import { detectAll, type EggResult } from '@/lib/easter-egg'
 import { ApiError } from '@/lib/api-error'
 import type { TodayStats, RecordType, CareRecord, DailyInsight } from '@/types'
 
@@ -130,6 +132,38 @@ export function HomePage() {
     fetchDailyInsight()
   }, [fetchDailyInsight])
 
+  // FR-G2：彩蛋检测
+  const [eggResults, setEggResults] = useState<EggResult[]>([])
+
+  const birthDayCount = useMemo(() => {
+    if (!currentBaby?.birthDate) return 0
+    const birth = new Date(currentBaby.birthDate)
+    birth.setHours(0, 0, 0, 0)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    return Math.floor((today.getTime() - birth.getTime()) / (24 * 60 * 60 * 1000)) + 1
+  }, [currentBaby?.birthDate])
+
+  useEffect(() => {
+    if (!currentBaby || birthDayCount === 0) return
+    // 延迟 500ms 触发，避开主渲染
+    const t = setTimeout(() => {
+      const detected = detectAll({
+        babyId: currentBaby.id,
+        babyName: currentBaby.name,
+        birthDayCount,
+        todayStats: stats,
+        recentRecords: todayRecords,
+      })
+      setEggResults(detected)
+    }, 500)
+    return () => clearTimeout(t)
+  }, [currentBaby, birthDayCount, stats, todayRecords])
+
+  const handleEggConsume = (storageKey: string) => {
+    setEggResults((prev) => prev.filter((e) => e.storageKey !== storageKey))
+  }
+
   // ========== 操作 ==========
   const refreshAll = () => {
     if (!currentBaby) return
@@ -209,6 +243,9 @@ export function HomePage() {
 
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-6 animate-fade-in-up">
+      {/* FR-G2：彩蛋（banner 在顶部，popup/toast 全局渲染） */}
+      <EasterEggDisplay results={eggResults} onConsume={handleEggConsume} />
+
       {/* Greeting + 多宝切换 */}
       <div className="flex items-start justify-between gap-3 pt-2">
         <div className="flex-1 min-w-0">
