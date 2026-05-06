@@ -71,6 +71,34 @@ export function FeedingDialog({ open, onClose, onSubmit }: FeedingDialogProps) {
               placeholder="输入量"
               className="input-base"
             />
+            {/* FR-A6：配方奶快捷用量 8 按钮 [10, 30, 60, 90, 120, 150, 180, 210] */}
+            {feedingType === 'formula' && (
+              <div className="grid grid-cols-4 gap-2 mt-2">
+                {[10, 30, 60, 90, 120, 150, 180, 210].map((q) => (
+                  <button
+                    type="button"
+                    key={q}
+                    onClick={() => setAmount(String(Number(amount || 0) + q))}
+                    className="rounded-lg py-1.5 text-xs font-medium transition-colors"
+                    style={{
+                      backgroundColor: 'var(--bg-elevated)',
+                      color: 'var(--text-secondary)',
+                      border: '1px solid var(--border-light)',
+                    }}
+                  >
+                    +{q}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setAmount('')}
+                  className="col-span-4 mt-1 rounded-lg py-1 text-xs"
+                  style={{ color: 'var(--text-hint)' }}
+                >
+                  清空
+                </button>
+              </div>
+            )}
           </div>
         )}
 

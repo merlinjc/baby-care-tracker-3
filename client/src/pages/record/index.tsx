@@ -1,10 +1,12 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
-import { Baby, Moon, Droplets, Thermometer, Ruler, Plus, Trash2, Pencil, Calendar, Lock } from 'lucide-react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import { Baby, Moon, Droplets, Thermometer, Ruler, Plus, Trash2, Pencil, Calendar, Lock, ClipboardList } from 'lucide-react'
 import { useBabyStore } from '@/stores/baby-store'
 import { usePermission } from '@/hooks/use-permission'
 import { useDialog } from '@/hooks/use-dialog'
 import { recordService } from '@/services/record'
 import { getRecordSummary } from '@/lib/record'
+import { buildTodaySummaryText } from '@/lib/today-summary'
+import { PageHeader } from '@/components/page-header'
 import { FeedingDialog } from '@/components/feeding-dialog'
 import { SleepDialog } from '@/components/sleep-dialog'
 import { DiaperDialog } from '@/components/diaper-dialog'
@@ -171,6 +173,31 @@ export function RecordPage() {
     return groups
   })()
 
+  // FR-D1.AC2：今日速览副标题（仅当筛选范围包含今日时显示动态文案）
+  const pageSubtitle = useMemo(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const todayStartTs = today.getTime()
+    const tomorrowStartTs = todayStartTs + 24 * 60 * 60 * 1000
+    const startTs = startDate ? new Date(startDate).getTime() : 0
+    const endTs = endDate ? new Date(endDate).getTime() : Number.MAX_SAFE_INTEGER
+    const rangeIncludesToday = startTs <= tomorrowStartTs - 1 && endTs >= todayStartTs
+
+    const todayRecords = records.filter((r) => {
+      const ts = new Date(r.startTime).getTime()
+      return ts >= todayStartTs && ts < tomorrowStartTs
+    })
+    const latestTemp = todayRecords
+      .filter((r) => r.recordType === 'temperature' && r.temperatureData)
+      .map((r) => r.temperatureData!.temperature)[0]
+
+    return buildTodaySummaryText({
+      rangeIncludesToday,
+      todayRecords,
+      latestTemperature: latestTemp ?? null,
+    })
+  }, [records, startDate, endDate])
+
   if (!currentBaby) {
     return (
       <div className="empty-state min-h-[50vh]">
@@ -182,28 +209,34 @@ export function RecordPage() {
 
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="heading-lg text-[var(--text-primary)]">记录</h1>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowDateFilter(!showDateFilter)}
-            className={`chip ${showDateFilter ? 'chip--active' : 'chip--inactive'}`}
-            style={showDateFilter ? { backgroundColor: 'var(--primary)' } : undefined}
-          >
-            <Calendar className="h-3.5 w-3.5" />
-            筛选
-          </button>
-          {canEdit && (
+      {/* FR-D1：page-header + 今日速览副标题 */}
+      <PageHeader
+        title="记录"
+        icon={<ClipboardList className="h-6 w-6" />}
+        accentColor="var(--primary)"
+        subtitle={pageSubtitle}
+        action={
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => openDialogForType(activeType === 'all' ? 'feeding' : activeType)}
-              className="btn-primary text-[var(--text-xs)] px-3 py-1.5"
+              onClick={() => setShowDateFilter(!showDateFilter)}
+              className={`chip ${showDateFilter ? 'chip--active' : 'chip--inactive'}`}
+              style={showDateFilter ? { backgroundColor: 'var(--primary)' } : undefined}
             >
-              <Plus className="h-3.5 w-3.5" />
-              添加
+              <Calendar className="h-3.5 w-3.5" />
+              筛选
             </button>
-          )}
-        </div>
-      </div>
+            {canEdit && (
+              <button
+                onClick={() => openDialogForType(activeType === 'all' ? 'feeding' : activeType)}
+                className="btn-primary text-[var(--text-xs)] px-3 py-1.5"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                添加
+              </button>
+            )}
+          </div>
+        }
+      />
 
       {/* Date Filter */}
       {showDateFilter && (

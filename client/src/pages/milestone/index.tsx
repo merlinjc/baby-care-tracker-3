@@ -4,7 +4,8 @@ import { ChevronLeft, Trophy, Plus, X, Star, AlertTriangle, Check, Trash2, ListC
 import { useBabyStore } from '@/stores/baby-store'
 import { milestoneService } from '@/services/baby-extra'
 import { MILESTONE_DEFINITIONS, getCategoryKey, getCategoryLabel } from '@/lib/milestone-defs'
-import type { MilestoneRecord, MilestoneItem, Baby } from '@/types'
+import type { MilestoneItem } from '@/lib/milestone-defs'
+import type { MilestoneRecord, Baby } from '@/types'
 
 type CategoryFilter = 'all' | string
 

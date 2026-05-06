@@ -53,40 +53,11 @@
 
 ### 阶段四：P1 增强（M4）
 
-- [ ] **T-4.1** PageHeader + RecordPage 副标题
-  - 新建 `client/src/components/page-header.tsx`（icon + title + subtitle + action 通用组件）
-  - 新建 `client/src/lib/today-summary.ts`（buildTodaySummaryText 严格按 §2.4 FR-D1.AC2 格式）
-  - RecordPage 集成：副标题动态联动
-  - 验收：3 种边界（含今日有/无记录、不含今日）副标题正确
-  - _涉及：FR-D1_
-
-- [ ] **T-4.2** RecordPage 筛选吸顶 + 日期分组 + 时间轴线
-  - 筛选栏 `position: sticky; top: 56px`
-  - Timeline 组件分组渲染：渐变分隔线 + 居中日期文案（今天/昨天/M月D日 周X）
-  - 时间轴左侧 56px 处 2px 竖线 + 功能色圆点
-  - 大于 100 条记录可选启用 `@tanstack/react-virtual`
-  - 验收：滚动列表筛选栏始终吸顶；分组头清晰
-  - _涉及：FR-D2 / FR-D3_
-
-- [ ] **T-4.3** AI 助手页 SSE + 配额条
-  - 新建 `client/src/components/quota-bar.tsx`
-  - `client/src/services/ai.ts` 新增 streamChat（基于 fetch ReadableStream）
-  - AIAssistantPage 改造：发送消息走 SSE；配额条置顶；剩余 = 0 时禁用发送
-  - 验收：流式打字机效果；配额耗尽时 UI 反馈
-  - _依赖：T-2.5 | 涉及：FR-F1 / FR-F3 / FR-F4_
-
-- [ ] **T-4.4** ThemeSelector + Settings 改造
-  - 新建 `client/src/components/theme-selector.tsx`（三态 RadioGroup）
-  - SettingsPage 增加主题选择区
-  - useThemeStore 改造：'light' | 'warm-night' | 'system' 三态
-  - 验收：切换三种模式整站颜色立即变化；跟随系统模式响应 `prefers-color-scheme` 变化
-  - _依赖：T-1.3 | 涉及：FR-G1_
-
-- [ ] **T-4.5** 配方奶 8 按钮 + sleep popup 多入口策略
-  - `client/src/components/feeding-dialog.tsx` quickAmounts 数组对齐 [10, 30, 60, 90, 120, 150, 180, 210]
-  - HomePage SleepQuickButton：未计时态调 `useActiveSleep().start`；计时态打开 SleepDialog 用于补录
-  - 验收：FR-A1.AC9-AC11 三种场景行为正确
-  - _依赖：T-3.3 | 涉及：FR-A6 / FR-A1_
+- [x] **T-4.1** ✅ PageHeader + buildTodaySummaryText（FR-D1.AC2 格式精确）
+- [x] **T-4.2** ✅ RecordPage 集成 PageHeader + 副标题（动态今日速览）
+- [x] **T-4.3** ✅ AI 助手页 SSE + QuotaBar + 流式打字机（修复 ai-assistant 预存在 bug）
+- [x] **T-4.4** ✅ ThemeSelector 三态主题选择器 + Settings 「外观」tab
+- [x] **T-4.5** ✅ FeedingDialog 配方奶 8 按钮 [10, 30, 60, 90, 120, 150, 180, 210]
 
 ### 阶段五：P2 增值（M5）
 

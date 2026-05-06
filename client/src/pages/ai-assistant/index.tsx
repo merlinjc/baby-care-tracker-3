@@ -1,9 +1,11 @@
 import { Link } from 'react-router-dom'
-import { ChevronLeft, Bot, Send, Sparkles, Trash2, Zap } from 'lucide-react'
+import { ChevronLeft, Bot, Send, Sparkles, Trash2 } from 'lucide-react'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useBabyStore } from '@/stores/baby-store'
 import { aiService } from '@/services/ai'
-import type { ChatMessage } from '@/types'
+import { QuotaBar } from '@/components/quota-bar'
+import { toast } from '@/components/ui/toast'
+import type { ChatMessage, AIQuotaStatus } from '@/types'
 
 const STORAGE_KEY = 'baby_care_chat_history'
 
@@ -66,7 +68,7 @@ export function AiAssistantPage() {
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [streamingContent, setStreamingContent] = useState('')
-  const [quota, setQuota] = useState<{ dailyLimit: number; used: number; remaining: number } | null>(null)
+  const [quota, setQuota] = useState<AIQuotaStatus | null>(null)
   const [showSuggestions, setShowSuggestions] = useState(true)
   const scrollRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -94,6 +96,12 @@ export function AiAssistantPage() {
     const content = (text || input).trim()
     if (!content || isLoading) return
 
+    // FR-F3：配额耗尽时禁止发送
+    if (quota && quota.remaining === 0) {
+      toast.warning('今日 AI 配额已用尽，请明天再试')
+      return
+    }
+
     const userMessage: ChatMessage = { role: 'user', content }
     setMessages((prev) => [...prev, userMessage])
     setInput('')
@@ -101,60 +109,57 @@ export function AiAssistantPage() {
     setShowSuggestions(false)
     setStreamingContent('')
 
+    const chatMessages: ChatMessage[] = [...messages, userMessage].map((m) => ({
+      role: m.role,
+      content: m.content,
+    }))
+
+    let fullContent = ''
     try {
-      const chatMessages = [...messages, userMessage].map((m) => ({ role: m.role, content: m.content }))
-
-      try {
-        const response = await aiService.chat(chatMessages, currentBaby?.id, true)
-        if (response.body) {
-          const reader = response.body.getReader()
-          const decoder = new TextDecoder()
-          let fullContent = ''
-
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-
-            const chunk = decoder.decode(value, { stream: true })
-            const lines = chunk.split('\n')
-            for (const line of lines) {
-              if (line.startsWith('data: ')) {
-                const data = line.slice(6)
-                if (data === '[DONE]') continue
-                try {
-                  const parsed = JSON.parse(data)
-                  if (parsed.content) {
-                    fullContent += parsed.content
-                    setStreamingContent(fullContent)
-                  }
-                } catch {
-                  fullContent += data
-                  setStreamingContent(fullContent)
-                }
-              }
-            }
-          }
-
-          setMessages((prev) => [...prev, { role: 'assistant', content: fullContent }])
-          setStreamingContent('')
-        } else {
-          throw new Error('No body')
-        }
-      } catch {
-        const res = await aiService.chat(chatMessages, currentBaby?.id, false)
-        const data = res as unknown as { content: string }
-        setMessages((prev) => [...prev, { role: 'assistant', content: data.content || 'AI 功能暂未接入，敬请期待。' }])
-        setStreamingContent('')
+      const response = await aiService.chatStream(chatMessages, currentBaby?.id)
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
       }
+      await aiService.consumeStream(response, {
+        onChunk: (c) => {
+          fullContent += c
+          setStreamingContent(fullContent)
+        },
+        onError: (code, message) => {
+          toast.error(message || 'AI 服务异常')
+          // 让 finally 处理
+          throw new Error(`${code}: ${message}`)
+        },
+      })
 
+      if (fullContent) {
+        setMessages((prev) => [...prev, { role: 'assistant', content: fullContent }])
+      }
+      setStreamingContent('')
+
+      // 刷新配额（异步，不阻塞）
       aiService.getQuota().then(setQuota).catch(() => {})
-    } catch {
-      setMessages((prev) => [...prev, { role: 'assistant', content: '抱歉，请求失败了，请稍后重试。' }])
+    } catch (err) {
+      // SSE 失败 → 降级为同步接口
+      try {
+        const res = await aiService.chat(chatMessages, currentBaby?.id)
+        setMessages((prev) => [
+          ...prev,
+          { role: 'assistant', content: res.content || 'AI 服务暂未可用' },
+        ])
+      } catch {
+        setMessages((prev) => [
+          ...prev,
+          { role: 'assistant', content: '抱歉，请求失败了，请稍后重试。' },
+        ])
+        const e = err as { message?: string }
+        if (e.message) toast.error(e.message)
+      }
       setStreamingContent('')
     } finally {
       setIsLoading(false)
     }
-  }, [input, isLoading, messages, currentBaby])
+  }, [input, isLoading, messages, currentBaby, quota])
 
   const handleClearHistory = () => {
     if (!confirm('确定清除聊天记录吗？')) return
@@ -179,12 +184,6 @@ export function AiAssistantPage() {
           </div>
           <div>
             <h1 className="heading-sm text-[var(--text-primary)]">AI 护理助手</h1>
-            {quota && (
-              <div className="flex items-center gap-1 caption">
-                <Zap className="h-2.5 w-2.5" />
-                剩余 {quota.remaining}/{quota.dailyLimit}
-              </div>
-            )}
           </div>
         </div>
         <button
@@ -194,6 +193,11 @@ export function AiAssistantPage() {
         >
           <Trash2 className="h-4 w-4" />
         </button>
+      </div>
+
+      {/* FR-F3：配额条 */}
+      <div className="px-4 py-2 bg-[var(--bg-secondary)]">
+        <QuotaBar quota={quota} />
       </div>
 
       {/* Messages */}

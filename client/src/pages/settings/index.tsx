@@ -1,16 +1,18 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronLeft, User, Lock, Save, Download, FileJson, FileSpreadsheet } from 'lucide-react'
+import { ChevronLeft, User, Lock, Save, Download, FileJson, FileSpreadsheet, Palette } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth-store'
 import { useBabyStore } from '@/stores/baby-store'
 import { authService } from '@/services/auth'
 import { exportService } from '@/services/baby-extra'
+import { ThemeSelector } from '@/components/theme-selector'
 
-type TabKey = 'profile' | 'password' | 'export'
+type TabKey = 'profile' | 'password' | 'appearance' | 'export'
 
 const tabs: { key: TabKey; icon: typeof User; label: string }[] = [
   { key: 'profile', icon: User, label: '资料' },
   { key: 'password', icon: Lock, label: '密码' },
+  { key: 'appearance', icon: Palette, label: '外观' },
   { key: 'export', icon: Download, label: '导出' },
 ]
 
@@ -203,6 +205,17 @@ export function SettingsPage() {
             {isSubmitting ? '修改中...' : '修改密码'}
           </button>
         </form>
+      )}
+
+      {/* Appearance Tab —— FR-G1 三态主题 */}
+      {activeTab === 'appearance' && (
+        <div className="card space-y-4 animate-fade-in">
+          <div>
+            <h2 className="heading-sm" style={{ color: 'var(--text-primary)' }}>主题外观</h2>
+            <p className="caption mt-1">深夜照顾宝宝时建议切换为暖夜模式以减少屏幕刺激</p>
+          </div>
+          <ThemeSelector />
+        </div>
       )}
 
       {/* Export Tab */}
