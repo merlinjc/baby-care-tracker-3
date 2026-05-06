@@ -176,6 +176,11 @@ export class OperationLogger {
     return this.id;
   }
 
+  /** 暴露 steps 给上层（cursor 续传需要计数） */
+  get currentSteps(): readonly OperationStep[] {
+    return this.steps;
+  }
+
   /** 累计某个 step 类型的 data 数值（用于 cursor 续传统计） */
   reduceStepData<T extends number>(stepPrefix: string, key: string, init: T = 0 as T): T {
     return this.steps

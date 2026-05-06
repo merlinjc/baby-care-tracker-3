@@ -31,62 +31,14 @@
 
 ### 阶段二：后端能力（M2）
 
-- [ ] **T-2.1** record.service `getTodayStats` 双区间扫描
-  - 跨午夜睡眠：sleep where 改为 `OR: [{startTime in today}, {endTime in today}]`
-  - feeding/sleep/diaper/temperature 全部补 `lastTimeTs`；sleep 补 `lastEndTime / lastEndTimeTs`；temperature 字段 `lastValue → latestValue`
-  - 验收：构造昨晚 23:00 - 今晨 06:30 睡眠数据，stats 返回正确的 lastEndTimeTs
-  - _依赖：T-1.1 | 涉及：FR-A_
-
-- [ ] **T-2.2** record.service 进行中睡眠并发校验 + 路由层 endTimeIsNull 过滤
-  - createRecord 顶部追加：`recordType=sleep && !endTime` 时检查同一 baby 是否已有 ongoing；命中抛 `ConflictError(SLEEP_ALREADY_ACTIVE)`
-  - record.schema `getRecordsQuerySchema` 增加 `endTimeIsNull: z.enum(['true', 'false']).optional()`
-  - getRecords where 构造时支持 `endTime: null` 过滤（与日期范围互斥）
-  - 验收：连续两次创建 endTime 为 null 的 sleep 第二次被拒；查询 `?endTimeIsNull=true` 仅返回进行中睡眠
-  - _依赖：T-2.1 | 涉及：FR-A_
-
-- [ ] **T-2.3** trend.service 增强（getEnhancedWeeklyTrend）
-  - 新增 `REFERENCE_RANGES` 常量（feeding/sleep/diaper 月龄分档）
-  - 新增 `getEnhancedWeeklyTrend(userId, babyId)` 方法
-  - 新增 `calculateStatus / pctChange / TIP_MESSAGES` 辅助
-  - 路由 `babies.ts` 增加 `GET /:id/trend/weekly`
-  - 验收：单元测试 3 个月龄边界（0/3/12）的范围匹配
-  - _依赖：T-1.1 | 涉及：FR-B_
-
-- [ ] **T-2.4** ai.service 混元接入（含 fallback）
-  - 新建 `server/src/services/ai.service.ts`
-  - 实现 `chat / dailyInsight / consumeQuota / refundQuota / getQuotaStatus` 方法
-  - 不依赖 `tencentcloud-sdk-nodejs`（避免新增依赖），用 axios 直调腾讯云签名 API；缺少凭证时降级为 mock 数据 + warning 日志
-  - 实现内存 LRU 缓存（`Map` + size 限制 100）
-  - 验收：缺凭证场景返回 fallback；带凭证场景成功调用并扣配额
-  - _依赖：T-1.5 | 涉及：FR-F_
-
-- [ ] **T-2.5** ai 路由 + SSE 端点
-  - 替换 `server/src/routes/ai.ts` 占位符为真实 service 调用
-  - 新增 `POST /api/ai/chat`（同步）+ `POST /api/ai/chat/stream`（SSE）+ `GET /api/ai/quota` + `GET /api/ai/insight/daily`
-  - 验收：curl SSE 端点能逐字接收 chunk
-  - _依赖：T-2.4 | 涉及：FR-F_
-
-- [ ] **T-2.6** rate-limit 持久化中间件
-  - 新建 `server/src/middleware/rate-limit-persistent.ts`
-  - 不引入 `rate-limiter-flexible`（避免新增依赖），手写基于 Prisma RateLimit 表的限流（原子 update + 过期清理）
-  - 替换 `auth/family/ai/export` 路由的 rate-limit 使用持久化版本
-  - 验收：在多个 dev 实例下连续触发限流，计数共享
-  - _涉及：FR-E2_
-
-- [ ] **T-2.7** patrol 巡检 + 分布式锁 + AIQuota TTL
-  - 新建 `server/src/utils/patrol-lock.ts`（基于 RateLimit 表的乐观锁）
-  - 新建 `server/src/utils/patrol.ts`（不引入 `node-cron`，用 `setInterval` + 启动时校时）
-  - 实现：`familyConsistency` 任务（每天 00:00）+ `aiQuotaCleanup` 任务（每周日 03:00）
-  - `app.ts` 末尾 `import './utils/patrol'`，加 `NODE_ENV !== 'test' && PATROL_ENABLED !== 'false'` 守卫
-  - 验收：手动触发 `runPatrolNow()` 输出 stats；锁机制下并发只有一个实例执行
-  - _依赖：T-1.4 | 涉及：FR-E3 / FR-E4_
-
-- [ ] **T-2.8** family.service / baby.service 接入 OperationLogger
-  - 9 个写操作（createFamily / joinByInviteCode / leaveFamily / dissolveFamily / transferAdmin / updateMemberRole / removeMember / refreshInviteCode / deleteBaby）逐个接入 logger.start/step/succeed/fail
-  - baby.service `deleteBaby` 改造为 cursor 续传（CHUNK_SIZE=500、10s 限时、复用 OperationLog）
-  - 路由层支持 `?cursor=` 参数透传
-  - 验收：`prisma studio` 中可见 9 类 action 的日志记录；deleteBaby 大数据量场景返回 `status: 'in_progress'`
-  - _依赖：T-1.4 | 涉及：FR-E1 / FR-E5_
+- [x] **T-2.1** ✅ record.service `getTodayStats` 双区间扫描 + lastTimeTs 字段
+- [x] **T-2.2** ✅ record.service 进行中睡眠并发校验 + 路由层 endTimeIsNull 过滤
+- [x] **T-2.3** ✅ trend.service 增强（getEnhancedWeeklyTrend）+ babies/:id/trend/weekly 路由
+- [x] **T-2.4** ✅ ai.service 混元接入（含 mock 降级 + 配额回滚 + LRU 缓存）
+- [x] **T-2.5** ✅ ai 路由 4 端点（/chat /chat/stream /insight/daily /quota）
+- [x] **T-2.6** ✅ rate-limit-persistent 中间件（基于 RateLimit 表）
+- [x] **T-2.7** ✅ patrol 巡检 + 分布式锁 + AIQuota TTL 清理（自启动）
+- [x] **T-2.8** ✅ family.service 8 个写操作 + baby.service deleteBaby cursor 续传接入 OperationLogger
 
 ### 阶段三：前端 P0 组件（M3）
 
