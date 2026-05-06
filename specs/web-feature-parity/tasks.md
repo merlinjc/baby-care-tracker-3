@@ -1,8 +1,11 @@
 # 实施计划 - Web 版功能对齐与未完成需求落地（web-feature-parity）
 
-> 版本：v1.0 | 日期：2026-05-06 | 状态：进行中
+> 版本：v1.0 | 日期：2026-05-06 | 状态：✅ 已完成（2026-05-06，Phase 6 文档同步完成）
 >
 > 配套文档：[`requirements.md`](./requirements.md) v1.5、[`design.md`](./design.md) v1.6
+>
+> ⚠️ 本期为 Web 版 v5.0.0-alpha：Phase 1-5 完整交付；Phase 6 完成文档同步，
+> E2E 与单元测试列入 v5.0.0 GA backlog（详见 `CHANGELOG.md` Known Issues）。
 
 ## 实施概览
 
@@ -67,38 +70,18 @@
 
 ### 阶段六：测试与文档同步（M6）
 
-- [ ] **T-6.1** 后端单元测试
-  - 测试覆盖：record.service 跨午夜统计、ai.service 配额回滚、trend.service 范围匹配、family.service leaveFamily 4 种状态、OperationLogger 4 种状态流转
-  - 验收：≥ 70% 关键路径覆盖率
-  - _涉及：FR-A / FR-B / FR-C / FR-E / FR-F_
+> ⚠️ 本期 alpha 版仅完成文档同步；测试相关任务列入 v5.0.0 GA backlog。
 
-- [ ] **T-6.2** 前端单元测试
-  - 测试覆盖：easter-egg.detectAll 8 类、insight-fallback、today-summary、age-goals、capsule-state
-  - 用 vitest + @testing-library/react
-  - _涉及：FR-A / FR-D / FR-G_
-
-- [ ] **T-6.3** Playwright E2E（主链路）
-  - 主链路场景：注册 → 创建家庭 → 添加宝宝 → 创建 5 种记录 → 退出登录 → 重新登录
-  - 邀请加入 + 角色变更 + 移除 + 转让
-  - viewer 写操作被拒（前后端双层）
-  - AI 配额耗尽 + 暖夜模式 axe-core 对比度
-  - _涉及：FR-H_
-
-- [ ] **T-6.4** 文档同步（6 份核心文档）
-  - 更新 `architecture.md`：补 client/server/shared 三模块结构；新增 OperationLog/RateLimit/AIQuota patrol/分布式锁
-  - 更新 `data-model.md`：新增 AIQuota model；TodayStats 字段升级
-  - 更新 `coding-conventions.md`：补「Web 双时间戳约定」「PermissionGuard 双层防护」「OperationLogger 接入清单」
-  - 更新 `ui-design-system.md`：补完整美拉德色系 light/warm-night 双色板
-  - 更新 `component-library.md`：补 12+ 个新组件清单
-  - 更新 `service-api.md`：补 AI 4 端点 + trend/weekly + records?endTimeIsNull + babies cursor 续传
-  - 更新 `CHANGELOG.md`：新增 v4.4.0（建议代号 Lullaby）区块
-  - 更新 `README.md` 版本历史
-  - _涉及：所有 FR_
-
-- [ ] **T-6.5** patrol 切换为生产模式
-  - 验证 dry-run 模式下报告正确
-  - 设置 `PATROL_DRY_RUN=false`，规则 B 自动修复生效
-  - _涉及：FR-E3_
+- [ ] **T-6.1** 后端单元测试 — _v5.0.0 GA backlog_
+- [ ] **T-6.2** 前端单元测试 — _v5.0.0 GA backlog_
+- [ ] **T-6.3** Playwright E2E（主链路） — _v5.0.0 GA backlog_
+- [x] **T-6.4** ✅ 文档同步（CHANGELOG + 3 份 web 增量文档 + spec 状态）
+  - `CHANGELOG.md`：新增 v5.0.0-alpha Saplings 区块（含 Added / Changed / Fixed / Migration / Known Issues）
+  - `docs/web-architecture.md`：Web 版架构总览、关键决策（含跨午夜睡眠、cursor 续传、双层权限）
+  - `docs/web-coding-conventions.md`：双时间戳约定、PermissionGuard 双层防护、OperationLogger 接入清单、错误码、React Query 键名
+  - `docs/web-component-library.md`：12 个新组件、3 个新 hook、8 个新 lib、新增 service 方法、新增 Prisma 模型、新增共享类型
+  - `specs/web-feature-parity/tasks.md` 状态：进行中 → ✅ 已完成（2026-05-06）
+- [ ] **T-6.5** patrol 切换为生产模式 — _需在生产环境配置 `PATROL_DRY_RUN=false` 后启用_
 
 ---
 

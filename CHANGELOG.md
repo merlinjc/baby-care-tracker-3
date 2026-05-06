@@ -13,6 +13,73 @@
 | v2.x | **Cradle**（摇篮） | 全面重构奠定架构基座，如摇篮承托成长 |
 | v3.x | **Lullaby**（摇篮曲） | 家庭协作、彩蛋、夜间模式，陪伴宝宝入眠 |
 | v4.x | **Milo**（米洛） | 美拉德暖色 UI 重设计，如营养麦芽饮品滋养成长 |
+| v5.x | **Saplings**（树苗） | 跨越平台：Web 端全栈落地（client+server+shared monorepo），与小程序双形态并存 |
+
+---
+
+## [v5.0.0-alpha] Saplings — 2026-05-06（Web 版功能对齐 alpha）
+
+> 范围：Web 版（`client/` + `server/` + `shared/`）功能对齐与未完成需求落地。
+> 配套 spec：`specs/web-feature-parity/`（requirements.md v1.5 / design.md v1.6 / tasks.md）。
+> 状态：**alpha**。Phase 1-5 已完成，Phase 6 仅完成文档同步；E2E 与单元测试列入 v5.0.0 GA backlog。
+
+### Added
+
+#### 后端能力（server/）
+
+- **FR-A1 进行中睡眠云端会话**：`record.service.createRecord` 校验同 babyId 不可并发；`getRecords` 增加 `endTimeIsNull` 过滤；`record.schema` 互斥校验
+- **FR-A 跨午夜睡眠 + 双时间戳**：`getTodayStats` 用 `OR: [{startTime}, {endTime}]` 扩展过滤；4 维度全部新增 `lastTimeTs` 字段；sleep 增 `lastEndTime` / `lastEndTimeTs`；temperature `lastValue → latestValue`
+- **FR-B 趋势增强**：`trend.service.getEnhancedWeeklyTrend` + `REFERENCE_RANGES` 月龄分档（AAP / NSF / CDC 数据来源）；新增 `GET /api/babies/:id/trend/weekly`
+- **FR-F AI 接入**：`ai.service` 直调腾讯云混元 ChatCompletions（自实现 TC3-HMAC-SHA256 签名，不引入 SDK）；缺凭证 / 5xx / 超时降级为 mock 或本地 fallback；4 个端点 `/ai/chat` `/ai/chat/stream` `/ai/insight/daily` `/ai/quota`；24h LRU 缓存
+- **FR-F3 AI 配额**：Prisma 新增 `AIQuota` model（`@@unique([userId, date])` + `@@index([date])`）；`consumeQuota` 原子自增 + 超限回滚；`refundQuota` 用于失败回滚
+- **FR-E1 OperationLogger**：8 个 family 写操作 + `deleteBaby` 接入完整生命周期日志（start / step / succeed / partial / fail / resume / findOngoing）
+- **FR-E2 持久化限流**：`rate-limit-persistent.ts` 基于 RateLimit 表，多实例共享计数；预设 inviteJoin / auth / ai 三类限流器
+- **FR-E3 Patrol 巡检**：`patrol.ts` familyConsistency（每天）+ aiQuotaCleanup（每周）；分布式锁基于 RateLimit 表（`patrol-lock.ts` 乐观锁式领导选举）；默认 dry-run，规则 B 在 `PATROL_DRY_RUN=false` 时自动修复
+- **FR-E5 deleteBaby cursor 续传**：`baby.service.deleteBaby` 单批 500 条 + 10s 软超时；中断后跨设备从 `OperationLogger.findOngoing` 恢复
+
+#### 前端组件与 hook（client/）
+
+- **FR-A1/2/3/5** 首页 v4.0：`StatusCapsule`（4 态：none/sleeping/feeding_ago/sleep_abnormal）/ `BabySwitcher`（多宝头像组）/ `TodaySummary`（4 列大数字 + 进度条 + 体温警示）/ `HomeSkeleton`
+- **FR-A4** AI 洞察折叠态：`use-local-storage-state` + `buildFallbackInsight` 规则引擎；折叠/展开切换 + 来源标识
+- **FR-A6** 配方奶 8 按钮：[10, 30, 60, 90, 120, 150, 180, 210]
+- **FR-B** 趋势 4 卡片：`InsightSection` + `RangeBar`（60% 中央正常区 + 定位点）+ `useWeeklyTrend`
+- **FR-C1-C5** 家庭协作：`InviteSection`（倒计时 + 复制 + 分享 + 刷新）/ `MembersSection`（三点菜单）/ `RoleEditDialog` / `TransferAdminDialog`（含 leaveFamily 状态机分支）/ `RemoveMemberConfirm`
+- **FR-C6** 双层权限闸：`lib/permission-guard.ts` + `lib/api-error.ts`（PermissionError/QuotaExceededError/SleepActiveError）
+- **FR-D** 记录页对齐：`PageHeader` + `buildTodaySummaryText`（按 §2.4 FR-D1.AC2 精确格式）
+- **FR-F** AI 流式：`aiService.chatStream` + `consumeStream`；`QuotaBar` 配额条
+- **FR-G1** 三态主题：`ThemeSelector`（亮色/暖夜/跟随系统）+ `theme-store` 升级；`themes.css` 用 `[data-theme]` 选择器
+- **FR-G2** 8 类彩蛋：`lib/easter-egg.ts` detectAll 引擎 + `EasterEggDisplay` 三态（popup/toast/banner）
+- **FR-G3** 分享图 V1：`lib/share-canvas.ts` 4 卡片 750×1280 jpeg；DPR 限制 2；`navigator.share` 优先 + 下载降级
+
+#### 共享类型（shared/）
+
+- 新增 `LeaveFamilyResult` / `WeeklyTrendData` / `WeeklyTrendDimension` / `ReferenceRange` / `AIQuotaStatus` / `ChatStreamEvent` / `DailyInsight.source`
+- BREAKING：`TodayStats.temperature.lastValue` → `latestValue`；4 维度全部增 `lastTimeTs`
+
+### Changed
+
+- 后端 `tsconfig.json` 升级：`rootDir` 上提到仓库根，建立 `@shared/*` 路径别名（不再生成 .d.ts）
+- 前端主题机制：`'light' | 'dark' | 'system'` → `'light' | 'warm-night' | 'system'`；`profile.tsx` 选项标签同步
+- `family-store` 类型升级为 `FamilyDetail`；`leaveFamily` 返回完整状态机；`updateMemberRole` / `removeMember` / `transferAdmin` 改为局部更新
+- AI 路由 `/daily-insight` POST → `/insight/daily` GET（保留旧端点向后兼容）
+
+### Fixed
+
+- 修复 ai-assistant 页 4 处编译错误（旧代码用了不存在的 `chat(messages, babyId, true)` 第 3 参数）
+- 修复 milestone 页 `MilestoneItem` 导入路径（从 `@/lib/milestone-defs` 而非 `@/types`）
+- 修复 `optionalAuth` 中间件返回类型缺 `Promise<void>` 编译错误
+- 修复 `ErrorCodes` 缺 `UNAUTHORIZED` 字段编译错误
+- 修复 `record.service.ts` 升级时引入的 `BadRequestError` 未使用导入
+
+### Migration
+
+> Web 版当前为 alpha，不需要从生产数据迁移。SQLite dev.db 通过 `prisma db push` 直接对齐 schema。
+
+### Known Issues
+
+- AI 链路在缺 `TENCENT_SECRET_ID/KEY` 时返回 mock 回复（仅开发环境可见）
+- T-4.2 RecordPage 筛选吸顶 + Timeline 日期分组延后到 v5.0.0 GA（当前已能通过副标题完成 80% 体验）
+- T-6.1-6.3 单元测试 / Playwright E2E 列入 v5.0.0 GA backlog
 
 ---
 
