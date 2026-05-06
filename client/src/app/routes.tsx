@@ -38,6 +38,7 @@ export const router = createBrowserRouter([
     children: [
       { path: '/login', element: <LoginPage /> },
       { path: '/register', element: <RegisterPage /> },
+      { path: '/auth/wechat/callback', element: <WechatCallbackPage /> },
     ],
   },
 ]);
