@@ -1,24 +1,30 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { Users, Baby, Settings, ChevronRight, Moon, Sun, Monitor, LogOut } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Users, Baby, Settings, ChevronRight, LogOut, Download } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth-store'
-import { useThemeStore } from '@/stores/theme-store'
 import { useBabyStore } from '@/stores/baby-store'
 import { useFamilyStore } from '@/stores/family-store'
 import { authService } from '@/services/auth'
-import { Dialog } from '@/components/ui/dialog'
+import { useConfirm } from '@/components/ui/confirm-dialog'
+import { useState } from 'react'
 
 export function ProfilePage() {
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
   const family = useFamilyStore((s) => s.family)
   const currentBaby = useBabyStore((s) => s.currentBaby)
-  const { mode, setMode } = useThemeStore()
+  const babies = useBabyStore((s) => s.babies)
   const navigate = useNavigate()
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
+  const confirm = useConfirm()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   const handleLogout = async () => {
+    const ok = await confirm({
+      title: '退出登录？',
+      description: '退出后需重新登录才能访问应用。',
+      confirmText: '确认退出',
+      variant: 'danger',
+    })
+    if (!ok) return
     setIsLoggingOut(true)
     try {
       await authService.logout()
@@ -29,133 +35,144 @@ export function ProfilePage() {
     }
   }
 
-  const themeOptions = [
-    { value: 'light' as const, icon: Sun, label: '亮色' },
-    { value: 'warm-night' as const, icon: Moon, label: '暖夜' },
-    { value: 'system' as const, icon: Monitor, label: '跟随系统' },
-  ]
-
   const initial = (user?.nickname || user?.email || '?').charAt(0).toUpperCase()
+
+  /** 快捷入口配置 */
+  const menuItems: {
+    to: string
+    icon: typeof Users
+    label: string
+    detail?: string
+    color: string
+  }[] = [
+    {
+      to: '/baby',
+      icon: Baby,
+      label: '宝宝管理',
+      detail: babies.length > 0 ? `${babies.length} 位` : '未添加',
+      color: 'var(--primary)',
+    },
+    {
+      to: '/family',
+      icon: Users,
+      label: '家庭管理',
+      detail: family?.name ?? '未加入',
+      color: 'var(--sleep)',
+    },
+    {
+      to: '/settings?tab=export',
+      icon: Download,
+      label: '数据导出',
+      color: 'var(--temperature)',
+    },
+    {
+      to: '/settings',
+      icon: Settings,
+      label: '设置',
+      color: 'var(--text-hint)',
+    },
+  ]
 
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-5 animate-fade-in-up">
-      {/* User Card with current baby info merged */}
-      <div className="card-base flex items-center gap-4">
+      {/* 用户卡（放大版） */}
+      <div className="card flex items-center gap-4">
         <div
-          className="icon-circle icon-circle--lg"
-          style={{ backgroundColor: 'var(--primary)' }}
+          className="rounded-full flex items-center justify-center shrink-0"
+          style={{
+            width: 64,
+            height: 64,
+            backgroundColor: 'var(--primary)',
+          }}
         >
-          <span className="text-white font-display font-semibold" style={{ fontSize: 'var(--text-xl)' }}>
+          <span
+            className="text-white font-display font-semibold"
+            style={{ fontSize: 'var(--text-2xl)' }}
+          >
             {initial}
           </span>
         </div>
         <div className="flex-1 min-w-0">
-          <h2 className="heading-md text-[var(--text-primary)] truncate">{user?.nickname || '未登录'}</h2>
+          <h2 className="heading-md text-[var(--text-primary)] truncate">
+            {user?.nickname || '未登录'}
+          </h2>
           <p className="body-sm text-[var(--text-hint)] truncate">{user?.email || ''}</p>
           {currentBaby && (
-            <div className="flex items-center gap-1.5 mt-1.5">
-              <Baby className="h-3 w-3" style={{ color: 'var(--primary)' }} />
-              <span className="caption" style={{ color: 'var(--primary)' }}>
+            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+              <span
+                className="badge-mini"
+                style={{
+                  backgroundColor: 'color-mix(in srgb, var(--primary) 12%, transparent)',
+                  color: 'var(--primary)',
+                }}
+              >
+                <Baby className="h-3 w-3" />
                 {currentBaby.name}
               </span>
+              {family && (
+                <span
+                  className="badge-mini"
+                  style={{
+                    backgroundColor: 'color-mix(in srgb, var(--sleep) 12%, transparent)',
+                    color: 'var(--sleep)',
+                  }}
+                >
+                  {family.name}
+                </span>
+              )}
             </div>
           )}
         </div>
       </div>
 
-      {/* Theme Selector - stable border (no jumping) */}
-      <div className="card-base">
-        <p className="label-base mb-3">主题模式</p>
-        <div className="flex gap-2">
-          {themeOptions.map((opt) => {
-            const isActive = mode === opt.value
-            return (
-              <button
-                key={opt.value}
-                onClick={() => setMode(opt.value)}
-                className="flex-1 flex flex-col items-center gap-2 p-3 rounded-xl transition-colors"
-                style={{
-                  backgroundColor: isActive ? 'var(--primary)' : 'var(--bg-primary)',
-                  color: isActive ? 'white' : 'var(--text-secondary)',
-                  border: `1px solid ${isActive ? 'var(--primary)' : 'var(--border-light)'}`,
-                }}
-                aria-pressed={isActive}
-              >
-                <opt.icon className="h-5 w-5" />
-                <span className="body-sm font-medium">{opt.label}</span>
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* Quick Links */}
-      <div className="space-y-2 stagger-children">
-        {[
-          { to: '/baby', icon: Baby, label: '宝宝管理', color: 'var(--primary)' },
-          { to: '/family', icon: Users, label: `家庭${family ? ` · ${family.name}` : ''}`, color: 'var(--sleep)' },
-          { to: '/settings', icon: Settings, label: '设置', color: 'var(--text-hint)' },
-        ].map((item) => (
-          <Link
+      {/* 快捷入口分组列表（iOS 分组 Cell 风格） */}
+      <div
+        className="rounded-2xl overflow-hidden"
+        style={{
+          backgroundColor: 'var(--bg-card)',
+          border: '1px solid var(--border-light)',
+        }}
+      >
+        {menuItems.map((item, idx) => (
+          <button
             key={item.to}
-            to={item.to}
-            className="card-interactive flex items-center justify-between"
+            type="button"
+            onClick={() => navigate(item.to)}
+            className="w-full flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--bg-elevated)]"
+            style={{
+              borderTop: idx === 0 ? undefined : '1px solid var(--border-light)',
+            }}
           >
-            <div className="flex items-center gap-3">
-              <div
-                className="icon-circle icon-circle--sm"
-                style={{ backgroundColor: `color-mix(in srgb, ${item.color} 12%, transparent)` }}
-              >
-                <item.icon className="h-4 w-4" style={{ color: item.color }} />
-              </div>
-              <span className="body-md text-[var(--text-primary)]">{item.label}</span>
+            <div
+              className="icon-circle icon-circle--sm"
+              style={{
+                backgroundColor: `color-mix(in srgb, ${item.color} 12%, transparent)`,
+              }}
+            >
+              <item.icon className="h-4 w-4" style={{ color: item.color }} />
             </div>
-            <ChevronRight className="h-4 w-4 text-[var(--text-hint)]" />
-          </Link>
+            <span className="body-md text-[var(--text-primary)] flex-1 text-left">
+              {item.label}
+            </span>
+            {item.detail && (
+              <span className="caption text-[var(--text-hint)] truncate max-w-[140px]">
+                {item.detail}
+              </span>
+            )}
+            <ChevronRight className="h-4 w-4 shrink-0" style={{ color: 'var(--text-hint)' }} />
+          </button>
         ))}
       </div>
 
       {/* Logout */}
       <button
-        onClick={() => setShowLogoutConfirm(true)}
+        onClick={handleLogout}
+        disabled={isLoggingOut}
         className="btn-danger-outline w-full"
       >
         <LogOut className="h-4 w-4" />
-        退出登录
+        {isLoggingOut ? '退出中...' : '退出登录'}
       </button>
-
-      {/* Logout confirmation dialog */}
-      <Dialog
-        open={showLogoutConfirm}
-        onClose={() => setShowLogoutConfirm(false)}
-        title="退出登录"
-        icon={<LogOut className="h-4 w-4" />}
-        accentColor="var(--danger)"
-      >
-        <div className="space-y-4">
-          <p className="body-md text-[var(--text-secondary)]">
-            确定要退出登录吗？退出后需重新登录才能访问应用。
-          </p>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setShowLogoutConfirm(false)}
-              className="btn-secondary flex-1"
-            >
-              取消
-            </button>
-            <button
-              type="button"
-              onClick={handleLogout}
-              disabled={isLoggingOut}
-              className="btn-primary flex-1"
-              style={{ backgroundColor: 'var(--danger)' }}
-            >
-              {isLoggingOut ? '退出中...' : '确认退出'}
-            </button>
-          </div>
-        </div>
-      </Dialog>
     </div>
   )
 }

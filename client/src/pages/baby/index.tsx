@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronLeft, Baby, Plus, Pencil, Trash2, X, Lock, Mars, Venus } from 'lucide-react'
+import { Baby, Plus, Pencil, Trash2, X, Lock, Mars, Venus, Users, ChevronRight } from 'lucide-react'
 import { useBabyStore } from '@/stores/baby-store'
 import { useFamilyStore } from '@/stores/family-store'
 import { usePermission } from '@/hooks/use-permission'
 import { recordService } from '@/services/record'
+import { useConfirm } from '@/components/ui/confirm-dialog'
+import { PageHeader } from '@/components/page-header'
+import { HeaderAction } from '@/components/header-action'
 import type { TodayStats } from '@/types'
 
 function getAgeDisplay(birthDate: string): string {
@@ -32,6 +35,7 @@ export function BabyPage() {
   const deleteBaby = useBabyStore((s) => s.deleteBaby)
   const family = useFamilyStore((s) => s.family)
   const { isAdmin, isViewer } = usePermission()
+  const confirm = useConfirm()
 
   const [showAdd, setShowAdd] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -86,7 +90,13 @@ export function BabyPage() {
 
   const handleDelete = async (id: string) => {
     if (!family?.id) return
-    if (!confirm('确定删除该宝宝吗？相关记录不会被删除。')) return
+    const ok = await confirm({
+      title: '删除该宝宝？',
+      description: '相关记录不会被删除。',
+      confirmText: '删除',
+      variant: 'danger',
+    })
+    if (!ok) return
     try {
       await deleteBaby(id, family.id)
     } catch (err) {
@@ -108,23 +118,46 @@ export function BabyPage() {
 
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-4 animate-fade-in-up">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link to="/profile" className="text-[var(--text-hint)] hover:text-[var(--text-primary)] transition-colors">
-            <ChevronLeft className="h-5 w-5" />
-          </Link>
-          <h1 className="heading-lg text-[var(--text-primary)]">宝宝管理</h1>
-        </div>
-        {!isFormOpen && isAdmin && (
-          <button
-            onClick={() => { resetForm(); setShowAdd(true) }}
-            className="btn-primary text-[var(--text-xs)] px-3 py-1.5"
+      <PageHeader
+        title="宝宝管理"
+        backTo="/profile"
+        action={
+          !isFormOpen && isAdmin && family?.id ? (
+            <HeaderAction
+              variant="primary"
+              icon={<Plus className="h-3.5 w-3.5" />}
+              label="添加"
+              onClick={() => { resetForm(); setShowAdd(true) }}
+            />
+          ) : null
+        }
+      />
+
+      {/* No Family: 引导用户去创建/加入家庭 */}
+      {!family?.id && !isFormOpen && (
+        <div className="card-base flex items-center gap-3">
+          <div
+            className="icon-circle icon-circle--md"
+            style={{ backgroundColor: 'color-mix(in srgb, var(--sleep) 12%, transparent)' }}
           >
-            <Plus className="h-3.5 w-3.5" />
-            添加
-          </button>
-        )}
-      </div>
+            <Users className="h-5 w-5" style={{ color: 'var(--sleep)' }} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="body-md font-medium text-[var(--text-primary)]">先创建或加入家庭</p>
+            <p className="caption text-[var(--text-hint)] mt-0.5">
+              添加宝宝信息前，需要先建立家庭空间
+            </p>
+          </div>
+          <Link
+            to="/family"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[var(--text-xs)] font-medium transition-colors"
+            style={{ color: 'var(--primary)' }}
+          >
+            前往
+            <ChevronRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+      )}
 
       {/* Add/Edit Form */}
       {isFormOpen && (
@@ -194,7 +227,7 @@ export function BabyPage() {
 
       {/* Viewer notice */}
       {isViewer && (
-        <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-[var(--text-xs)] text-[var(--text-hint)] bg-[var(--bg-elevated)]">
+        <div className="notice-info">
           <Lock className="h-3.5 w-3.5 shrink-0" />
           您是查看者，无法添加或修改宝宝信息
         </div>
@@ -205,7 +238,15 @@ export function BabyPage() {
         <div className="empty-state">
           <Baby className="h-12 w-12 empty-state__icon" />
           <p className="empty-state__title">暂无宝宝信息</p>
-          <p className="empty-state__desc">点击上方添加宝宝</p>
+          {family?.id && isAdmin ? (
+            <p className="empty-state__desc">点击右上角「添加」，开始记录成长</p>
+          ) : family?.id && isViewer ? (
+            <p className="empty-state__desc">您是查看者，等待管理员添加宝宝</p>
+          ) : !family?.id ? (
+            <p className="empty-state__desc">请先创建或加入家庭</p>
+          ) : (
+            <p className="empty-state__desc">等待管理员添加宝宝</p>
+          )}
         </div>
       ) : (
         <div className="space-y-3 stagger-children">
@@ -242,7 +283,7 @@ export function BabyPage() {
                     <p className="body-md font-medium text-[var(--text-primary)]">{baby.name}</p>
                     {isCurrent && (
                       <span
-                        className="text-[10px] px-1.5 py-0.5 rounded-full"
+                        className="badge-mini"
                         style={{
                           backgroundColor: 'color-mix(in srgb, var(--primary) 15%, transparent)',
                           color: 'var(--primary)',
@@ -263,7 +304,7 @@ export function BabyPage() {
                     <div className="flex items-center gap-1 mt-1.5 flex-wrap">
                       {stats.feeding.count > 0 && (
                         <span
-                          className="text-[10px] px-1.5 py-0.5 rounded-full inline-flex items-center gap-0.5"
+                          className="badge-mini"
                           style={{
                             backgroundColor: 'color-mix(in srgb, var(--feeding) 12%, transparent)',
                             color: 'var(--feeding)',
@@ -274,7 +315,7 @@ export function BabyPage() {
                       )}
                       {stats.sleep.count > 0 && (
                         <span
-                          className="text-[10px] px-1.5 py-0.5 rounded-full"
+                          className="badge-mini"
                           style={{
                             backgroundColor: 'color-mix(in srgb, var(--sleep) 12%, transparent)',
                             color: 'var(--sleep)',
@@ -285,7 +326,7 @@ export function BabyPage() {
                       )}
                       {stats.diaper.count > 0 && (
                         <span
-                          className="text-[10px] px-1.5 py-0.5 rounded-full"
+                          className="badge-mini"
                           style={{
                             backgroundColor: 'color-mix(in srgb, var(--diaper) 12%, transparent)',
                             color: 'var(--diaper)',
@@ -301,7 +342,7 @@ export function BabyPage() {
                   {isAdmin && (
                     <button
                       onClick={() => handleEdit(baby)}
-                      className="p-1.5 rounded-lg text-[var(--text-hint)] hover:text-[var(--primary)] hover:bg-[color-mix(in_srgb,_var(--primary)_12%,_transparent)] transition-colors"
+                      className="icon-btn"
                       title="编辑"
                     >
                       <Pencil className="h-3.5 w-3.5" />
@@ -310,7 +351,7 @@ export function BabyPage() {
                   {isAdmin && (
                     <button
                       onClick={() => handleDelete(baby.id)}
-                      className="p-1.5 rounded-lg text-[var(--text-hint)] hover:text-[var(--danger)] hover:bg-[color-mix(in_srgb,_var(--danger)_12%,_transparent)] transition-colors"
+                      className="icon-btn icon-btn--danger"
                       title="删除"
                     >
                       <Trash2 className="h-3.5 w-3.5" />

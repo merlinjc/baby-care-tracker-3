@@ -4,8 +4,11 @@
  * 列：feeding（次数/8）/ sleep（时长/月龄目标）/ diaper（次数/6）/ temperature（最新值，无进度条）
  * - 点击任一列调用对应回调（推荐打开对应 Dialog）
  * - 体温 ≥38.5 整列变红 + 顶部警示横条由父组件渲染
+ * - 睡眠列右上角支持嵌入「开始/结束」实时计时按钮（v4.3.2）：
+ *   传入 `sleepActive` 时显示「结束」按钮，否则显示「开始」按钮；
+ *   点击按钮不会触发卡片本身的 onSelect。
  */
-import { Baby, Moon, Droplets, Thermometer } from 'lucide-react'
+import { Baby, Moon, Droplets, Thermometer, Play, Square } from 'lucide-react'
 import type { TodayStats } from '@/types'
 import { cn } from '@/lib/utils'
 import { computeDailyGoals } from '@/lib/age-goals'
@@ -14,6 +17,14 @@ interface TodaySummaryProps {
   stats: TodayStats
   birthDateIso?: string
   onSelect?: (key: 'feeding' | 'sleep' | 'diaper' | 'temperature') => void
+  /** 是否存在进行中睡眠（用于切换按钮形态） */
+  sleepActive?: boolean
+  /** 是否允许写操作（viewer / 未授权时为 false，按钮禁用） */
+  canControlSleep?: boolean
+  /** 点击睡眠卡片右上角按钮：开始计时 */
+  onStartSleep?: () => void
+  /** 点击睡眠卡片右上角按钮：结束计时 */
+  onEndSleep?: () => void
 }
 
 function formatSleepDuration(seconds: number): string {
@@ -24,7 +35,15 @@ function formatSleepDuration(seconds: number): string {
   return `${m}m`
 }
 
-export function TodaySummary({ stats, birthDateIso, onSelect }: TodaySummaryProps) {
+export function TodaySummary({
+  stats,
+  birthDateIso,
+  onSelect,
+  sleepActive = false,
+  canControlSleep = true,
+  onStartSleep,
+  onEndSleep,
+}: TodaySummaryProps) {
   const goals = computeDailyGoals(birthDateIso)
 
   const tempValue = stats.temperature.latestValue
@@ -110,43 +129,88 @@ export function TodaySummary({ stats, birthDateIso, onSelect }: TodaySummaryProp
         </div>
       )}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {items.map((item) => (
-          <button
-            key={item.key}
-            onClick={() => onSelect?.(item.key)}
-            className={cn(
-              'card-base text-left flex flex-col gap-2 transition-all hover:border-[var(--primary)]',
-              'cursor-pointer',
-            )}
-            style={{ borderTop: `3px solid ${item.color}` }}
-          >
-            <div className="flex items-center justify-between">
-              <span className="caption">{item.label}</span>
-              <item.Icon className="h-4 w-4" style={{ color: item.color }} />
-            </div>
+        {items.map((item) => {
+          const isSleep = item.key === 'sleep'
+          const showSleepAction = isSleep && (onStartSleep || onEndSleep)
+          return (
             <div
+              key={item.key}
+              role="button"
+              tabIndex={0}
+              onClick={() => onSelect?.(item.key)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  onSelect?.(item.key)
+                }
+              }}
               className={cn(
-                'number-display',
-                item.isText ? 'text-2xl font-bold' : 'text-3xl font-bold',
+                'card-base text-left flex flex-col gap-2 transition-all hover:border-[var(--primary)]',
+                'cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/40',
               )}
-              style={{ color: item.color }}
+              style={{ borderTop: `3px solid ${item.color}` }}
             >
-              {item.value}
-            </div>
-            <div className="caption text-[var(--text-hint)]">{item.detail}</div>
-            {item.showProgress && (
-              <div className="progress-bar">
-                <div
-                  className="progress-bar__fill"
-                  style={{
-                    width: `${Math.round(item.progress * 100)}%`,
-                    backgroundColor: item.color,
-                  }}
-                />
+              <div className="flex items-center justify-between">
+                <span className="caption">{item.label}</span>
+                {showSleepAction ? (
+                  <button
+                    type="button"
+                    disabled={!canControlSleep}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (sleepActive) onEndSleep?.()
+                      else onStartSleep?.()
+                    }}
+                    title={sleepActive ? '结束当前睡眠' : '开始睡眠计时'}
+                    aria-label={sleepActive ? '结束当前睡眠' : '开始睡眠计时'}
+                    className={cn(
+                      'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold transition-opacity',
+                      'disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-85',
+                    )}
+                    style={{
+                      backgroundColor: sleepActive
+                        ? 'var(--danger)'
+                        : `color-mix(in srgb, ${item.color} 18%, transparent)`,
+                      color: sleepActive ? '#FFFFFF' : item.color,
+                    }}
+                  >
+                    {sleepActive ? (
+                      <>
+                        <Square className="h-3 w-3 fill-current" />
+                        结束
+                      </>
+                    ) : (
+                      <>
+                        <Play className="h-3 w-3 fill-current" />
+                        开始
+                      </>
+                    )}
+                  </button>
+                ) : (
+                  <item.Icon className="h-4 w-4" style={{ color: item.color }} />
+                )}
               </div>
-            )}
-          </button>
-        ))}
+              <div
+                className="flex items-baseline number-display font-bold"
+                style={{ minHeight: 32, color: item.color }}
+              >
+                <span className="text-2xl leading-none">{item.value}</span>
+              </div>
+              <div className="caption text-[var(--text-hint)]">{item.detail}</div>
+              {item.showProgress && (
+                <div className="progress-bar">
+                  <div
+                    className="progress-bar__fill"
+                    style={{
+                      width: `${Math.round(item.progress * 100)}%`,
+                      backgroundColor: item.color,
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
     </div>
   )

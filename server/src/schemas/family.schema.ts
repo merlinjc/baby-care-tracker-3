@@ -7,8 +7,14 @@ export const createFamilySchema = z.object({
   relationText: z.string().max(20).optional(),
 });
 
+// 邀请码统一去空格 + 转大写后再校验，提升 UX
+const inviteCodeField = z
+  .string()
+  .transform((s) => s.trim().toUpperCase())
+  .pipe(z.string().length(6, '邀请码为6位').regex(/^[A-HJ-NP-Z2-9]{6}$/, '邀请码格式无效'));
+
 export const joinFamilySchema = z.object({
-  inviteCode: z.string().length(6, '邀请码为6位'),
+  inviteCode: inviteCodeField,
   nickname: z.string().min(1, '昵称不能为空').max(20, '昵称最多20字符'),
   relation: z.string().max(20).optional(),
   relationText: z.string().max(20).optional(),

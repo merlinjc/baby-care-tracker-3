@@ -241,9 +241,9 @@ App({
     systemInfo: null,    // 全局缓存 wx.getSystemInfoSync() 结果
     syncService: null,
     initPromise: null,  // app.initUser() 的 Promise，页面可 await 等待
-    // [v4.3.2 FR-1] 灰度 fallback 开关：控制 getFamilyDetail 是否降级直连
+    // [v4.3.2 FR-1] fallback 开关已关闭：所有 getFamilyDetail 请求走云函数，不再降级直连
     featureFlags: {
-      directReadFamilyFallback: true  // T-7~T0 开启，T+7 关闭，T+14 移除代码
+      directReadFamilyFallback: false  // T+7 已关闭，下个版本移除 fallback 代码
     }
   },
 

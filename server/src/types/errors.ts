@@ -61,6 +61,12 @@ export class BadRequestError extends AppError {
   }
 }
 
+export class ServiceUnavailableError extends AppError {
+  constructor(message: string, code = 'SERVICE_UNAVAILABLE') {
+    super(503, code, message);
+  }
+}
+
 // ============ Error code mapping for specific business errors ============
 
 export const ErrorCodes = {
@@ -71,6 +77,8 @@ export const ErrorCodes = {
   WEAK_PASSWORD: 'WEAK_PASSWORD',
   INVALID_REFRESH_TOKEN: 'INVALID_REFRESH_TOKEN',
   UNAUTHORIZED: 'UNAUTHORIZED',
+  WECHAT_NOT_CONFIGURED: 'WECHAT_NOT_CONFIGURED',
+  WECHAT_AUTH_FAILED: 'WECHAT_AUTH_FAILED',
 
   // Family
   FAMILY_NOT_FOUND: 'FAMILY_NOT_FOUND',

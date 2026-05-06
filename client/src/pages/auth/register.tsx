@@ -1,28 +1,27 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '@/stores/auth-store';
+import { toast } from '@/components/ui/toast';
 
 export function RegisterPage() {
   const [nickname, setNickname] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const register = useAuthStore((s) => s.register);
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
 
     if (password !== confirmPassword) {
-      setError('两次输入的密码不一致');
+      toast.error('两次输入的密码不一致');
       return;
     }
 
     if (password.length < 8) {
-      setError('密码至少8位');
+      toast.error('密码至少 8 位');
       return;
     }
 
@@ -32,7 +31,7 @@ export function RegisterPage() {
       navigate('/');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '注册失败，请稍后再试';
-      setError(message);
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -41,10 +40,6 @@ export function RegisterPage() {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <h2 className="heading-md text-center" style={{ color: 'var(--text-primary)' }}>注册</h2>
-
-      {error && (
-        <div className="px-3 py-2 rounded-lg body-sm" style={{ background: 'color-mix(in srgb, var(--danger) 10%, transparent)', color: 'var(--danger)' }}>{error}</div>
-      )}
 
       <div>
         <label className="label-base">昵称</label>

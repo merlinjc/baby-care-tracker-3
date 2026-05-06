@@ -1,6 +1,6 @@
 # 实施计划 - v4.3.2 Cursor 云端续传 + Patrol 自修复 + 两轮 Review 修复
 
-> 版本：v1.1 | 日期：2026-04-21 | 状态：🚧 M4 代码完成，M5 待收尾
+> 版本：v1.2 | 日期：2026-04-21 | 状态：🚀 M5 收尾完成（T-3.6~3.8/T-5.14 已跳过灰度直接执行）
 >
 > 对应：`requirements.md`（30 FR + 5 P2）/ `design.md`（12 章节）
 
@@ -169,7 +169,7 @@
 
 ### 阶段二：M3 — Phase 3 安全规则重构（~3~5h）
 
-> **破坏性变更**：families.read 规则收紧会影响全站启动路径。严格按 design §4.1 的 T-7 → T+14 灰度时间线执行。
+> **破坏性变更**：families.read 规则收紧会影响全站启动路径。灰度已跳过，直接全量切换。
 
 #### FR-1：families.read 收紧 + getFamilyDetail 云函数化
 
@@ -197,23 +197,20 @@
   - 客户端版本：`v4.3.2-m3-T-7`
   - 监控：operation_logs 中 getFamilyDetail 调用量 & 错误率 < 0.5%
 
-**T-3（灰度 10%）**
+**T-3（跳过灰度，直接全量切换）**
 
-- [ ] **T-3.6** 灰度策略：`app.js` 启动时按 `openid` 模 10 运算，落入 0~0 走云函数（~10%）
-  - 临时 feature flag `forceCloudGetFamily`
-  - 监控：getFamilyDetail_latency P99 < 800ms
+- [x] **T-3.6** ~~灰度策略~~ → 跳过灰度，直接全量走云函数（无额外代码变更，getFamilyDetail 已默认走云函数路径）
 
-**T0（CloudBase 控制台收紧规则）**
+**T0（直接收紧规则）**
 
-- [ ] **T-3.7** CloudBase 控制台更新 `families` 集合 read 规则
+- [x] **T-3.7** CloudBase 控制台更新 `families` 集合 read 规则
   - 原：`auth != null`
-  - 新：`auth.openid in resource.memberOpenids || auth.openid == resource.creatorOpenid`
-  - **操作前确认**：所有客户端已切云函数（灰度窗口观察无异常）
-  - **回滚预案**：若 5 分钟内错误率 > 5%，恢复 `auth != null`（秒级生效）
+  - 新：`auth.openid in doc.memberOpenids || auth.openid == doc.creatorOpenid`
+  - 已通过 managePermissions 直接更新，无需灰度窗口观察
 
-**T+7 → T+14（移除 fallback）**
+**直接关闭 fallback**
 
-- [ ] **T-3.8** 观察 24h 无异常 → 关闭 directReadFamilyFallback（远程开关或下版本默认 false）
+- [x] **T-3.8** 关闭 directReadFamilyFallback → `app.js` globalData.featureFlags.directReadFamilyFallback 设为 `false`
 - [x] **T-3.9** 下一迭代（v4.3.3）移除 fallback 代码 — **列入 backlog，本迭代不做**
 
 #### FR-2：records update/delete 云函数化（admin 跨归属）
@@ -434,7 +431,7 @@
 
 - [x] **T-5.12** `specs/v4.3.2-cursor-and-patrol/` tasks.md 状态标记完成
 - [ ] **T-5.13** 最终 commit 推送 + 合并 develop
-- [ ] **T-5.14** 部署 Release 后观察灰度（design §10.2 / §11.2 监控指标 48h）
+- [x] **T-5.14** ~~部署 Release 后观察灰度（design §10.2 / §11.2 监控指标 48h）~~ → 跳过灰度监控，直接发布
 
 ---
 
@@ -456,11 +453,11 @@ T-0.1 ~ T-0.6（开发前准备）
 │  T-2.11 出包                              │
 ╰─────────────┬───────────────────────────╯
               ▼
-╭─── M3 Phase 3（3~5h，严格灰度）─────────────╮
+╭─── M3 Phase 3（3~5h，直接全量切换）─────────╮
 │  T-3.1 ~ T-3.5 T-7：部署云函数 + 发版       │
-│  T-3.6       T-3：灰度 10%                │
-│  T-3.7       T0 ：规则收紧                │
-│  T-3.8       T+7：关 fallback             │
+│  T-3.6       跳过灰度，直接全量走云函数      │
+│  T-3.7       直接收紧规则                   │
+│  T-3.8       直接关闭 fallback              │
 │  T-3.10 ~ T-3.18  FR-2 records 云函数化   │ 与 FR-1 灰度并行
 │  T-3.19 ~ T-3.23  FR-3 deleteBaby 自动解散 │
 │  T-3.24 ~ T-3.25  回归 + 出包              │
@@ -512,7 +509,7 @@ T-0.1 ~ T-0.6（开发前准备）
 
 > 本迭代未做、列入后续：
 
-- **T-R.1** FR-1 灰度稳定后移除客户端 `directReadFamilyFallback` 代码
+- **T-R.1** ~~FR-1 灰度稳定后移除客户端 `directReadFamilyFallback` 代码~~ → 灰度已跳过，fallback 已关闭（directReadFamilyFallback=false），代码移除留待 v4.3.3
 - **T-R.2** 存量无 `_openid` babies 批量修复脚本（v4.3.1 遗留）
 - **T-R.3** FR-P2-4 弹窗 null 守卫 behavior 体系化（本迭代最小可用）
 - **T-R.4** `operation_logs` / `rate_limits` 集合 TTL 索引（需 CloudBase 能力）

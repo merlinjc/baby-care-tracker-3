@@ -14,22 +14,22 @@ export function BabyCard({ baby, isActive, onClick }: BabyCardProps) {
       onClick={onClick}
       className={cn(
         'card-base w-full flex items-center gap-3 text-left transition-all hover:shadow-card',
-        isActive && 'ring-2 ring-[var(--color-primary)]'
+        isActive && 'ring-2 ring-[var(--primary)]'
       )}
     >
       <div
         className="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
-        style={{ backgroundColor: 'var(--color-primary)' + '20' }}
+        style={{ backgroundColor: 'color-mix(in srgb, var(--primary) 12%, transparent)' }}
       >
         {baby.avatar ? (
           <img src={baby.avatar} alt={baby.name} className="w-12 h-12 rounded-full object-cover" />
         ) : (
-          <BabyIcon className="h-6 w-6" style={{ color: 'var(--color-primary)' }} />
+          <BabyIcon className="h-6 w-6" style={{ color: 'var(--primary)' }} />
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-[var(--color-text-primary)]">{baby.name}</p>
-        <p className="text-xs text-[var(--color-text-hint)] mt-0.5">
+        <p className="body-md font-medium text-[var(--text-primary)]">{baby.name}</p>
+        <p className="caption mt-0.5">
           {baby.gender === 'male' ? '男' : '女'} · {new Date(baby.birthDate).toLocaleDateString('zh-CN')}
         </p>
       </div>

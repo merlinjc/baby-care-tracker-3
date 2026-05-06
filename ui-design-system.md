@@ -1,6 +1,6 @@
 # Baby Care Tracker UI 设计系统
 
-> **版本**: v4.0 | **更新日期**: 2026-04-13 | **设计风格**: 美拉德色系 (Maillard)
+> **版本**: v4.4 | **更新日期**: 2026-05-06 | **设计风格**: 美拉德色系 (Maillard) · 扁平化 · Web 端深度审视
 
 ---
 
@@ -17,12 +17,13 @@
 
 ### 1.2 功能色（按业务域）
 
-| 功能域 | 变量 | 色值 | 渐变背景 |
-|--------|------|------|---------|
-| 喂养 | `--feeding-color` | `#A8D4A8` | `#E8F4E8 → #D4E8D4` |
-| 睡眠 | `--sleep-color` | `#B8A8D4` | `#E8E4F4 → #D4D0E8` |
-| 排便 | `--diaper-color` | `#D4C8A8` | `#F4F0E8 → #E8E4D4` |
-| 体温 | `--temperature-color` | `#D4A8A8` | `#F4E8E8 → #E8D4D4` |
+| 功能域 | 变量 | 色值 | 用途 |
+|--------|------|------|------|
+| 喂养 | `--feeding` | `#A8D4A8` | 按钮纯色填充、badge 背景 |
+| 睡眠 | `--sleep` | `#B8A8D4` | 按钮纯色填充、badge 背景 |
+| 排便 | `--diaper` | `#D4C8A8` | 按钮纯色填充、badge 背景 |
+| 体温 | `--temperature` | `#D4A8A8` | 按钮纯色填充、badge 背景 |
+| 生长 | `--growth` | `#7BA9C9` | 按钮纯色填充、badge 背景 |
 
 ### 1.3 语义色
 
@@ -110,11 +111,14 @@
 
 ### 阴影
 
-| 变量 | 值 |
-|------|-----|
-| `--shadow-card` | `0 4rpx 24rpx rgba(139,123,107,0.08)` |
-| `--shadow-soft` | `0 4rpx 16rpx rgba(139,123,107,0.06)` |
-| `--shadow-popup` | `0 8rpx 48rpx rgba(139,123,107,0.12)` |
+> **v4.3 扁平化**：卡片级别不再使用 `box-shadow`，仅保留 popup/elevated 层级的阴影用于弹窗和浮层。
+
+| 变量 | 值 | 用途 |
+|------|-----|------|
+| `--shadow-card` | `0 2px 12px rgba(139,123,107,0.08)` | 保留变量，卡片不再引用 |
+| `--shadow-soft` | `0 2px 8px rgba(139,123,107,0.06)` | 保留变量，卡片不再引用 |
+| `--shadow-popup` | `0 4px 24px rgba(139,123,107,0.12)` | 弹窗/浮层专用 |
+| `--shadow-elevated` | `0 8px 32px rgba(139,123,107,0.16)` | 高层级浮层 |
 
 ### 遮罩
 
@@ -154,21 +158,22 @@
 ### 6.1 卡片
 
 ```css
-background: var(--bg-secondary);
+background: var(--bg-card);
 border-radius: var(--radius-lg);
-padding: var(--spacing-lg);
-box-shadow: var(--shadow-card);
-border: 1rpx solid var(--border-color);
+padding: var(--spacing-md);
+border: 1px solid var(--border-light);
+/* v4.3 扁平化：去除 box-shadow，仅靠 border 和背景色差区分层级 */
 ```
 
-> **v3.2 规范**：卡片背景统一使用 `var(--bg-secondary)` 纯色，不再使用 `var(--white) → var(--bg-primary)` 渐变。渐变在暖夜模式下产生大色差，文字不可读。
+> **v4.3 扁平化规范**：卡片不使用 `box-shadow`，通过 `border` 和背景色差（card 白 vs 页面 `#F5F1EB`）区分层级。交互卡片 hover 仅变色边框 `border-color: var(--primary)`，不再 `translateY` + `shadow`。
 
 ### 6.2 按钮
 
-- **主按钮**: 渐变 `primary-color → primary-dark`，白字
+- **主按钮**: 纯色 `var(--primary)` 填充，白字（v4.3 扁平化：去除渐变 `linear-gradient(135deg, ...)`）
 - **次要按钮**: 白底 + 边框
-- **禁用态**: `#E5E6EB` 背景
-- **点击反馈**: `transform: scale(0.98) + opacity: 0.9`
+- **禁用态**: `opacity: 0.5`
+- **点击反馈**: `opacity: 0.75`（v4.3 扁平化：去除 `scale(0.98)` 和 `translateY(-1px)`）
+- **hover 反馈**: `opacity: 0.85`（v4.3 扁平化：去除 `box-shadow`）
 
 ### 6.3 弹窗
 
@@ -210,12 +215,12 @@ border: 1rpx solid var(--border-color);
 
 ## 9. 核心设计特征
 
-1. 全局 `135deg` 渐变方向（仅用于按钮等小面积元素）
-2. 棕色调阴影（非黑色），暗色下自动切换为黑色阴影
-3. 功能色四色贯穿（绿/紫/棕/红）
-4. 微交互丰富（scale/pulse/shimmer/弹性曲线）
+1. ~~全局 `135deg` 渐变方向~~ → **v4.3 扁平化**：去除所有 `linear-gradient`，统一使用纯色 `var(--primary)` 填充
+2. 棕色调阴影（仅用于 popup/elevated 层级）——**v4.3 扁平化**：卡片级别不再使用 `box-shadow`
+3. 功能色四色贯穿（绿/紫/棕/红），按钮使用对应纯色 `var(--feeding)` 等填充
+4. 扁平交互反馈：hover 用 `border-color` / `opacity` 变化，active 用 `opacity` 降低——去除 `scale` / `translateY` 动效
 5. 100+ CSS 变量驱动
-6. **卡片背景纯色化**：统一 `var(--bg-secondary)`，禁止 `var(--white) → var(--bg-primary)` 跨色系渐变
+6. **卡片纯色化 + 无阴影**：`var(--bg-card)` + `border: 1px solid var(--border-light)`，仅靠边框和背景色差区分层级
 7. **暖夜模式已实装**：亮色/暖夜/跟随系统三态切换
 
 ---
@@ -256,18 +261,18 @@ border: 1rpx solid var(--border-color);
 | `--mask-color` | `rgba(139,123,107,0.4)` | `rgba(0,0,0,0.6)` |
 | `--mask-color-dark` | `rgba(61,52,39,0.6)` | `rgba(0,0,0,0.75)` |
 
-### 10.3 功能按钮渐变对照
+### 10.3 功能按钮样式对照（v4.3 扁平化）
 
-| 变量 | 亮色值 | 暗色值 | 说明 |
-|------|--------|--------|------|
-| `--feeding-btn-end` | `#8BC48B` | `#5C8F5C` | 喂养按钮渐变终止 |
-| `--sleep-btn-end` | `#9B8BC4` | `#7A6898` | 睡眠按钮渐变终止 |
-| `--diaper-btn-end` | `#A09068` | `#A09068` | 排便按钮渐变终止 |
-| `--temperature-btn-end` | `#C48B8B` | `#A07070` | 体温按钮渐变终止 |
-| `--growth-btn-start` | `#7BA9C9` | `#5A8CA8` | 生长按钮渐变起始 |
-| `--growth-btn-end` | `#5B8FAF` | `#4A7A94` | 生长按钮渐变终止 |
-| `--fab-start` | `#D4A574` | `#B08858` | FAB 按钮渐变起始 |
-| `--fab-end` | `#A67C52` | `#886438` | FAB 按钮渐变终止 |
+> **v4.3 变更**：所有按钮去除 `linear-gradient` 渐变，改为纯色 `var(--xxx)` 填充。hover 仅 `opacity: 0.85`，active 仅 `opacity: 0.75`。
+
+| 按钮类型 | 背景色 | 暗色值 | 文字色 |
+|----------|--------|--------|--------|
+| 喂养按钮 | `var(--feeding)` | `#7CAF7C` | 白色 |
+| 睡眠按钮 | `var(--sleep)` | `#9488B4` | 白色 |
+| 排便按钮 | `var(--diaper)` | `#B4A888` | 白色 |
+| 体温按钮 | `var(--temperature)` | `#B48888` | 白色 |
+| 生长按钮 | `var(--growth)` | `#6B99B9` | 白色 |
+| 主按钮 | `var(--primary)` | `#C8A880` | 白色 |
 
 ### 10.4 密度块色对照
 
@@ -286,7 +291,7 @@ border: 1rpx solid var(--border-color);
 4. **阴影策略切换**：亮色棕阴影 → 暗色黑阴影（暗底上棕阴影不可见）
 5. **发热等级色不变**：语义色保持认知一致性
 6. **分享图始终亮色**：社交分享场景需要亮色背景
-7. **卡片纯色化**（v3.2 新增）：所有卡片背景统一使用 `var(--bg-secondary)` 纯色，消除 `var(--white) → var(--bg-primary)` 跨色系渐变导致的暗色模式文字不可读问题
+7. **卡片纯色化 + 无阴影**（v4.3 更新）：所有卡片使用 `var(--bg-card)` + `border: 1px solid var(--border-light)`，去除 `box-shadow`，仅靠边框和背景色差区分层级
 
 ### 10.6 技术实现
 
@@ -318,3 +323,97 @@ border: 1rpx solid var(--border-color);
 - [ ] 组件 WXML 根元素绑定 `{{darkMode ? 'dark-mode' : ''}}`
 - [ ] 宿主页面 WXML 传递 `dark-mode="{{darkMode}}"` 给所有子组件
 - [ ] 文字颜色使用 `var(--text-primary)` / `var(--text-secondary)` / `var(--text-hint)`
+
+---
+
+## 11. Web 端 v4.4 优化（深度审视）
+
+> 本章针对 `client/` 下的 React Web 应用，对每个页面与 popup 进行的体系化审视与优化。
+
+### 11.1 Token 命名约定（关键）
+
+| 项 | 规则 |
+|----|------|
+| ✅ 在 `style={{}}` 中使用 | `var(--primary)` / `var(--feeding)` / `var(--text-primary)`（直接的 CSS 变量名） |
+| ❌ 在 `style={{}}` 中**禁止** | `var(--color-primary)` / `var(--color-feeding)` 等 `--color-xxx` 前缀（这些仅在 Tailwind `@theme inline` 主题映射中使用，用于 `text-color-primary` 等 className，写在 inline style 是未定义行为，**暗色模式无法切换**） |
+| ✅ 在 className 中使用 | `text-[var(--primary)]` / `bg-[var(--bg-card)]` 直接引用真实变量 |
+
+**违规检测命令**：
+```bash
+grep -rn "var(--color-" client/src --include="*.tsx"
+```
+
+### 11.2 复用组件库（v4.4 新增）
+
+#### `<Dialog>` 基础弹窗组件
+路径：`client/src/components/ui/dialog.tsx`
+
+特性：
+- ESC 键关闭
+- Tab 键 focus trap（键盘可达性）
+- Body scroll lock（防止背景滚动）
+- 移动端底部 sheet + 顶部拖动指示条
+- 桌面端居中卡片（自动切换）
+- 自动聚焦首个可交互元素
+- 关闭后焦点自动归还
+
+属性：
+| 属性 | 类型 | 说明 |
+|------|------|------|
+| `open` | `boolean` | 是否显示 |
+| `onClose` | `() => void` | 关闭回调 |
+| `title` | `string` | 标题文字 |
+| `icon` | `ReactNode` | 标题旁图标（可选） |
+| `accentColor` | `string` | 图标圆背景主色（如 `var(--feeding)`） |
+| `showDragIndicator` | `boolean` | 移动端拖动条（默认 true） |
+
+#### `<SegmentedControl>` 分段控件
+路径：`client/src/components/ui/segmented-control.tsx`
+
+特性：
+- 替代手写 inline style 的"喂养类型/性别/睡眠类型"等多选一控件
+- 支持 `toggleable`（点击已选项可清除）
+- 支持 `layout='flex' | 'wrap'`（等宽 / 自适应换行）
+- 主色可定制（`accentColor`）
+
+### 11.3 页面级优化清单
+
+| 页面 | 主要变更 |
+|------|---------|
+| **home** | AI 洞察标题加刷新按钮（RefreshCw 旋转动画） |
+| **record** | tabs 全量迁移到 `chip--active` + `style={{ backgroundColor }}`；列表加日期分组 header（今天/昨天/月日）；编辑/删除 hover 反馈 5% → 12% 加深 |
+| **discover** | 功能列表改 2x3 grid（启动器风格）；进度卡右上角加百分比 chip |
+| **profile** | 头像换为首字母（nickname[0]）；当前宝宝合并到用户卡；主题选择器选中/未选都保留 1px border（视觉稳定）；退出登录改弹窗确认 |
+| **family** | 邀请码 `ABC 123` 空格分隔；角色用 lucide+badge（Crown/Pencil/Eye）；成员操作按钮 hover 才显示（减少视觉噪音） |
+| **settings** | 抽取 `.tab-button` / `.tab-button--active` 全局类；JSON/CSV 导出改为 `card-interactive` 风格 + 描述文案 |
+| **baby** | 选中态用 `outline: 2px solid` 替代 `borderLeft`（避免与 card-base 边框冲突）；性别用 `Mars/Venus` lucide 图标；今日 stats 改为 chip 化展示 |
+| **vaccine** | 删除冗余的 4 状态统计卡（与 chip 重复）；标准计划改底部抽屉（drawer）；表单全量迁移到 input-base |
+| **milestone** | 4 状态卡顶部 2px 色条；标准推荐改 2 列 grid + 详情居中 popup |
+| **growth** | 全量替换 `var(--color-xxx)` token；tabs 用 `chip--active` |
+| **ai-assistant** | 用户气泡改淡色（`color-mix 18% primary`）+ 边框；AI 气泡左侧加头像；思考态改 3 点波浪动画（typing-dots）；输入框改 textarea 自动伸高 + Shift+Enter 换行 |
+
+### 11.4 Dialog 抽象前后对比
+
+| 维度 | v4.3 | v4.4 |
+|------|------|------|
+| 5 个 dialog 重复代码 | ~600 行 | ~50 行（共享基础） |
+| ESC 关闭 | ❌ | ✅ |
+| Focus trap | ❌ | ✅ |
+| Body scroll lock | ❌ | ✅ |
+| 移动端拖动条 | ❌ | ✅ |
+| Input 样式一致性 | ❌（手写） | ✅（input-base） |
+| 保存按钮 loading | ❌ | ✅（disabled + "保存中..."） |
+
+### 11.5 新增动画
+
+```css
+@keyframes typing-bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+
+.typing-dot { /* 6x6 圆 + stagger 150ms 延迟 */ }
+```
+
+应用场景：AI 助手"思考中"指示。
+

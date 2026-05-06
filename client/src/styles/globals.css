@@ -430,6 +430,68 @@ body {
   background-color: color-mix(in srgb, var(--danger) 5%, transparent);
 }
 
+/* ============ Icon Button (列表行内编辑/删除等高频小按钮) ============ */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: var(--radius-md);
+  color: var(--text-hint);
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.icon-btn:hover {
+  color: var(--primary);
+  background-color: color-mix(in srgb, var(--primary) 12%, transparent);
+}
+
+.icon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.icon-btn--danger:hover {
+  color: var(--danger);
+  background-color: color-mix(in srgb, var(--danger) 12%, transparent);
+}
+
+/* ============ Mini Badge (10px 角标，统一 vaccine/milestone/profile/baby 等场景) ============ */
+.badge-mini {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 6px;
+  border-radius: var(--radius-pill);
+  font-size: 10px;
+  line-height: 1.4;
+  font-weight: 500;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ============ Notice Strip (viewer / 离线 / 引导提示等内联条) ============ */
+.notice-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background-color: var(--bg-elevated);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  color: var(--text-hint);
+}
+
+/* ============ Card Base 修饰类：左侧 3px 色条 ============ */
+/* 用法：<div className="card-base card-base--accent-left" style={{ '--accent-color': 'var(--feeding)' }}> */
+/* 也可直接 inline borderLeft，但建议抽到 style: { borderLeft: '3px solid <color>' } */
+
 /* ============ Chip/Tab Styles ============ */
 .chip {
   display: inline-flex;
@@ -523,6 +585,17 @@ body {
   }
 }
 
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
@@ -548,6 +621,10 @@ body {
 
 .animate-slide-up {
   animation: slideUp 0.3s ease-out both;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
 .animate-shimmer {

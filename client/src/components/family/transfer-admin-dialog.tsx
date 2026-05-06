@@ -6,7 +6,7 @@
  */
 import { useState } from 'react'
 import { Crown, ArrowRight } from 'lucide-react'
-import { Dialog } from '@/components/ui/dialog'
+import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { useFamilyStore } from '@/stores/family-store'
 import { useAuthStore } from '@/stores/auth-store'
 import { toast } from '@/components/ui/toast'
@@ -88,6 +88,15 @@ export function TransferAdminDialog({
       title={thenLeave ? '请先转让管理员' : '转让管理员'}
       icon={<Crown className="h-4 w-4" />}
       accentColor="var(--warning)"
+      footer={
+        <DialogFooter
+          onCancel={onClose}
+          onConfirm={handleSubmit}
+          confirmText={submitting ? '处理中...' : thenLeave ? '转让并退出' : '确认转让'}
+          loading={submitting}
+          disabled={!selectedId}
+        />
+      }
     >
       <p className="body-md text-[var(--text-secondary)] mb-4">
         {thenLeave
@@ -108,12 +117,12 @@ export function TransferAdminDialog({
               <button
                 key={c.id}
                 onClick={() => setSelectedId(c.id)}
-                className="w-full flex items-center gap-3 rounded-xl p-3 text-left transition-colors"
+                className="w-full flex items-center gap-3 rounded-lg p-3 text-left transition-colors"
                 style={{
                   backgroundColor: isSelected
-                    ? 'color-mix(in srgb, var(--warning) 10%, transparent)'
+                    ? 'color-mix(in srgb, var(--primary) 8%, transparent)'
                     : 'var(--bg-primary)',
-                  border: isSelected ? '1px solid var(--warning)' : '1px solid var(--border-light)',
+                  border: isSelected ? '1px solid var(--primary)' : '1px solid var(--border-light)',
                 }}
               >
                 {c.avatar ? (
@@ -130,25 +139,11 @@ export function TransferAdminDialog({
                   <div className="body-md font-medium truncate">{c.nickname}</div>
                   <div className="caption">将变为管理员</div>
                 </div>
-                {isSelected && <ArrowRight className="h-4 w-4" style={{ color: 'var(--warning)' }} />}
+                {isSelected && <ArrowRight className="h-4 w-4" style={{ color: 'var(--primary)' }} />}
               </button>
             )
           })
         )}
-      </div>
-
-      <div className="mt-5 flex gap-2">
-        <button onClick={onClose} className="btn-secondary flex-1" disabled={submitting}>
-          取消
-        </button>
-        <button
-          onClick={handleSubmit}
-          className="btn-primary flex-1"
-          disabled={submitting || !selectedId}
-          style={{ backgroundColor: 'var(--warning)' }}
-        >
-          {submitting ? '处理中...' : thenLeave ? '转让并退出' : '确认转让'}
-        </button>
       </div>
     </Dialog>
   )

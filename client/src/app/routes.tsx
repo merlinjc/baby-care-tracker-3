@@ -7,6 +7,7 @@ import { DiscoverPage } from '@/pages/discover';
 import { ProfilePage } from '@/pages/profile';
 import { LoginPage } from '@/pages/auth/login';
 import { RegisterPage } from '@/pages/auth/register';
+import { WechatCallbackPage } from '@/pages/auth/wechat-callback';
 import { BabyPage } from '@/pages/baby';
 import { FamilyPage } from '@/pages/family';
 import { GrowthPage } from '@/pages/growth';

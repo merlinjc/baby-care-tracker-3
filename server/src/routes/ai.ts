@@ -42,7 +42,7 @@ router.post(
   }),
 );
 
-// POST /api/ai/chat/stream — FR-F4 流式对话（SSE）
+// POST /api/ai/chat/stream — FR-F4 流式对话（真正的 SSE，OpenAI chunk → 内部 chunk/done/error 事件）
 router.post(
   '/chat/stream',
   aiRateLimit,
@@ -50,33 +50,29 @@ router.post(
   asyncHandler(async (req: Request, res: Response) => {
     const { messages, babyId } = req.body;
 
-    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no'); // 禁止 nginx 缓冲
     res.flushHeaders?.();
 
+    const writeEvent = (payload: Record<string, unknown>) => {
+      res.write(`data: ${JSON.stringify(payload)}\n\n`);
+    };
+
     try {
-      // 当前实现：先调用同步接口，再切片成 chunk 输出（占位，待真正接入流式 SSE）
-      // 这样客户端 EventSource 能正常工作，未来切换到混元 stream API 时无需改 client
-      const result = await aiService.chat(req.userId!, messages, babyId);
-      const content = result.content;
-      const chunkSize = 8;
-      for (let i = 0; i < content.length; i += chunkSize) {
-        const chunk = content.slice(i, i + chunkSize);
-        res.write(`data: ${JSON.stringify({ type: 'chunk', content: chunk })}\n\n`);
-        await new Promise((r) => setTimeout(r, 50));
-      }
-      res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
+      await aiService.chatStream(req.userId!, messages, babyId, (delta) => {
+        writeEvent({ type: 'chunk', content: delta });
+      });
+      writeEvent({ type: 'done' });
       res.end();
     } catch (err) {
       const e = err as { code?: string; message?: string };
-      res.write(
-        `data: ${JSON.stringify({
-          type: 'error',
-          code: e.code ?? 'AI_SERVICE_UNAVAILABLE',
-          message: e.message ?? 'AI 服务不可用',
-        })}\n\n`,
-      );
+      writeEvent({
+        type: 'error',
+        code: e.code ?? 'AI_SERVICE_UNAVAILABLE',
+        message: e.message ?? 'AI 服务不可用',
+      });
       res.end();
     }
   }),

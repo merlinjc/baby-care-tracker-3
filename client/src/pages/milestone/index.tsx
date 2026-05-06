@@ -1,9 +1,12 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Link } from 'react-router-dom'
-import { ChevronLeft, Trophy, Plus, X, Star, AlertTriangle, Check, Trash2, ListChecks } from 'lucide-react'
+import { Trophy, Plus, X, Star, AlertTriangle, Check, Trash2, ListChecks } from 'lucide-react'
 import { useBabyStore } from '@/stores/baby-store'
 import { milestoneService } from '@/services/baby-extra'
 import { MILESTONE_DEFINITIONS, getCategoryKey, getCategoryLabel } from '@/lib/milestone-defs'
+import { useConfirm } from '@/components/ui/confirm-dialog'
+import { PageHeader } from '@/components/page-header'
+import { HeaderAction } from '@/components/header-action'
+import { ListSkeleton } from '@/components/ui/list-skeleton'
 import type { MilestoneItem } from '@/lib/milestone-defs'
 import type { MilestoneRecord, Baby } from '@/types'
 
@@ -39,6 +42,7 @@ type StandardItem = {
 
 export function MilestonePage() {
   const currentBaby = useBabyStore((s) => s.currentBaby)
+  const confirm = useConfirm()
   const [milestones, setMilestones] = useState<MilestoneRecord[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [showAdd, setShowAdd] = useState(false)
@@ -143,7 +147,13 @@ export function MilestonePage() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('确定删除这条里程碑记录吗？')) return
+    const ok = await confirm({
+      title: '删除这条里程碑记录？',
+      description: '删除后不可恢复。',
+      confirmText: '删除',
+      variant: 'danger',
+    })
+    if (!ok) return
     setDeletingId(id)
     try {
       const api = (await import('@/services/api')).default
@@ -171,32 +181,28 @@ export function MilestonePage() {
 
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-4 animate-fade-in-up">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link to="/" className="text-[var(--text-hint)] hover:text-[var(--text-primary)] transition-colors">
-            <ChevronLeft className="h-5 w-5" />
-          </Link>
-          <h1 className="heading-lg text-[var(--text-primary)]">里程碑</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowRecommend(true)}
-            className="chip chip--inactive"
-          >
-            <ListChecks className="h-3.5 w-3.5" />
-            标准推荐
-          </button>
-          {!showAdd && (
-            <button
-              onClick={() => setShowAdd(true)}
-              className="btn-primary text-[var(--text-xs)] px-3 py-1.5"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              记录
-            </button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="里程碑"
+        backTo="/discover"
+        action={
+          <div className="flex items-center gap-2">
+            <HeaderAction
+              variant="ghost"
+              icon={<ListChecks className="h-3.5 w-3.5" />}
+              label="标准推荐"
+              onClick={() => setShowRecommend(true)}
+            />
+            {!showAdd && (
+              <HeaderAction
+                variant="primary"
+                icon={<Plus className="h-3.5 w-3.5" />}
+                label="记录"
+                onClick={() => setShowAdd(true)}
+              />
+            )}
+          </div>
+        }
+      />
 
       {/* Stats - 4 column compact cards */}
       <div className="grid grid-cols-4 gap-2 stagger-children">
@@ -283,10 +289,7 @@ export function MilestonePage() {
 
       {/* Milestone List */}
       {isLoading ? (
-        <div className="flex items-center justify-center gap-2 py-12 text-[var(--text-hint)]">
-          <div className="spinner" />
-          <span className="body-md">加载中...</span>
-        </div>
+        <ListSkeleton count={4} withAccent={false} />
       ) : milestones.length === 0 ? (
         <div className="empty-state">
           <Trophy className="h-12 w-12 empty-state__icon" />
@@ -388,10 +391,10 @@ export function MilestonePage() {
                         <StatusIcon className="h-3.5 w-3.5" style={{ color: statusColor }} />
                       </div>
                       <span
-                        className="text-[10px] px-1.5 py-0.5 rounded-full"
+                        className="badge-mini"
                         style={{ backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)`, color }}
                       >
-                        {m.category}
+                        {getCategoryLabel(m.categoryKey)}
                       </span>
                     </div>
                     <div>

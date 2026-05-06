@@ -9,7 +9,9 @@ const feedingDataSchema = z.object({
 
 const sleepDataSchema = z.object({
   sleepType: z.enum(['night', 'nap']),
-  duration: z.number().int().positive(),
+  // FR-A1：进行中睡眠创建时 duration=0（占位），end 时再写入真实秒数；
+  // 因此放宽为 nonnegative（>=0）整数，而不是 positive。
+  duration: z.number().int().nonnegative(),
   location: z.string().max(50).nullable().optional(),
 });
 

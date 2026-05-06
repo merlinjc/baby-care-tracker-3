@@ -50,3 +50,31 @@ export function getRelativeTime(date: string | Date): string {
   if (days < 7) return `${days}天前`
   return formatDate(date)
 }
+
+/**
+ * 将任意日期转换为 <input type="datetime-local"> 所需的本地时间字符串
+ * （格式 `YYYY-MM-DDTHH:mm`，不含秒、不含时区）。
+ */
+export function toDateTimeLocalValue(date: string | Date = new Date()): string {
+  const d = new Date(date)
+  if (Number.isNaN(d.getTime())) return ''
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const yyyy = d.getFullYear()
+  const mm = pad(d.getMonth() + 1)
+  const dd = pad(d.getDate())
+  const hh = pad(d.getHours())
+  const mi = pad(d.getMinutes())
+  return `${yyyy}-${mm}-${dd}T${hh}:${mi}`
+}
+
+/**
+ * 将 <input type="datetime-local"> 的值（本地时间）转换为 ISO 字符串（UTC）。
+ * 输入为空或非法时返回当前时间的 ISO。
+ */
+export function fromDateTimeLocalValue(value: string): string {
+  if (!value) return new Date().toISOString()
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return new Date().toISOString()
+  return d.toISOString()
+}
+

@@ -2,6 +2,7 @@ import { RouterProvider } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { router } from './routes'
 import { Toaster } from '@/components/ui/toast'
+import { ConfirmHost } from '@/components/ui/confirm-dialog'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -18,6 +19,7 @@ export function App() {
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
       <Toaster />
+      <ConfirmHost />
     </QueryClientProvider>
   )
 }

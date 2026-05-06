@@ -1,12 +1,14 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Link } from 'react-router-dom'
-import { ChevronLeft, TrendingUp, Info } from 'lucide-react'
+import { TrendingUp, Info, Plus } from 'lucide-react'
 import { useBabyStore } from '@/stores/baby-store'
 import { trendService } from '@/services/baby-extra'
 import { GrowthDialog } from '@/components/growth-dialog'
 import { useDialog } from '@/hooks/use-dialog'
 import { recordService } from '@/services/record'
 import { getWHOReferenceLines } from '@/lib/who-standards'
+import { PageHeader } from '@/components/page-header'
+import { HeaderAction } from '@/components/header-action'
+import { ChartSkeleton } from '@/components/ui/chart-skeleton'
 import type { TrendType, TrendDataPoint, Baby } from '@/types'
 
 const trendLabels: Record<TrendType, { label: string; unit: string; color: string }> = {
@@ -52,12 +54,15 @@ export function GrowthPage() {
       .finally(() => setIsLoading(false))
   }, [currentBaby, trendType])
 
-  const handleCreateGrowth = async (data: { height?: number; weight?: number; headCircumference?: number; note?: string }) => {
+  const handleCreateGrowth = async (
+    data: { height?: number; weight?: number; headCircumference?: number; note?: string },
+    meta: { recordTime: string; editingId?: string },
+  ) => {
     if (!currentBaby) return
     await recordService.createRecord({
       babyId: currentBaby.id,
       recordType: 'growth',
-      startTime: new Date().toISOString(),
+      startTime: meta.recordTime,
       growthData: data,
     })
     growthDialog.closeDialog()
@@ -126,21 +131,19 @@ export function GrowthPage() {
 
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-4 animate-fade-in-up">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link to="/" className="text-[var(--text-hint)] hover:text-[var(--text-primary)] transition-colors">
-            <ChevronLeft className="h-5 w-5" />
-          </Link>
-          <h1 className="heading-lg text-[var(--text-primary)]">生长曲线</h1>
-        </div>
-        <button
-          onClick={growthDialog.openDialog}
-          className="btn-primary text-[var(--text-xs)] px-3 py-1.5"
-          style={{ backgroundColor: 'var(--growth)' }}
-        >
-          + 记录
-        </button>
-      </div>
+      <PageHeader
+        title="生长曲线"
+        backTo="/discover"
+        action={
+          <HeaderAction
+            variant="primary"
+            icon={<Plus className="h-3.5 w-3.5" />}
+            label="记录"
+            accentColor="var(--growth)"
+            onClick={growthDialog.openDialog}
+          />
+        }
+      />
 
       {/* Type Tabs */}
       <div className="flex gap-2">
@@ -175,17 +178,18 @@ export function GrowthPage() {
       )}
 
       {/* Chart */}
-      <div className="card-base">
-        {isLoading ? (
-          <div className="text-center py-12 caption">加载中...</div>
-        ) : points.length === 0 && !showWHO ? (
-          <div className="empty-state">
-            <TrendingUp className="h-12 w-12 empty-state__icon" />
-            <p className="empty-state__title">暂无{trendLabels[trendType].label}数据</p>
-            <p className="empty-state__desc">点击右上角「记录」添加生长数据</p>
-          </div>
-        ) : (
-          <div>
+      {isLoading ? (
+        <ChartSkeleton chartHeight={200} rows={4} />
+      ) : (
+        <div className="card-base">
+          {points.length === 0 && !showWHO ? (
+            <div className="empty-state">
+              <TrendingUp className="h-12 w-12 empty-state__icon" />
+              <p className="empty-state__title">暂无{trendLabels[trendType].label}数据</p>
+              <p className="empty-state__desc">点击右上角「记录」添加生长数据</p>
+            </div>
+          ) : (
+            <div>
             <div className="flex items-center justify-between mb-2">
               <span className="caption">{trendLabels[trendType].label}趋势</span>
               <span className="caption">单位: {trendLabels[trendType].unit}</span>
@@ -201,14 +205,14 @@ export function GrowthPage() {
               {/* Y-axis labels */}
               {[0, 0.25, 0.5, 0.75, 1].map((pct) => {
                 const val = maxY - pct * yRange
-                return <text key={`y-${pct}`} x={padL - 4} y={padT + pct * plotH + 3} textAnchor="end" className="text-[8px]" fill="var(--text-hint)">{val.toFixed(1)}</text>
+                return <text key={`y-${pct}`} x={padL - 4} y={padT + pct * plotH + 3} textAnchor="end" fontSize="9" fill="var(--text-hint)">{val.toFixed(1)}</text>
               })}
 
               {/* X-axis labels (months) */}
               {Array.from({ length: Math.floor(chartMonths / 3) + 1 }, (_, i) => i * 3)
                 .filter((m) => m <= chartMonths)
                 .map((month) => (
-                  <text key={`x-${month}`} x={toX(month)} y={chartH - 4} textAnchor="middle" className="text-[8px]" fill="var(--text-hint)">
+                  <text key={`x-${month}`} x={toX(month)} y={chartH - 4} textAnchor="middle" fontSize="9" fill="var(--text-hint)">
                     {month}月
                   </text>
                 ))}
@@ -234,7 +238,7 @@ export function GrowthPage() {
                           <text
                             x={toX(filteredRefs[filteredRefs.length - 1].month) + 3}
                             y={toY(filteredRefs[filteredRefs.length - 1][pKey]) + 3}
-                            className="text-[7px]"
+                            fontSize="8"
                             fill={percentileColors[pKey]}
                           >
                             {pKey.toUpperCase().replace('P', 'P')}
@@ -291,8 +295,9 @@ export function GrowthPage() {
               ))}
             </div>
           </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* WHO Info */}
       {showWHO && (

@@ -40,15 +40,17 @@ model Family {
 }
 
 model FamilyMember {
-  id       String   @id @default(cuid())
-  familyId String
-  userId   String
-  role     String   @default("editor") // admin | editor | viewer
-  relation String?
-  joinedAt DateTime @default(now())
+  id          String   @id @default(cuid())
+  familyId    String
+  userId      String
+  role        String   @default("editor") // admin | editor | viewer
+  relation    String?
+  displayName String?  // 用户在家庭中的昵称（API spec §4.1/§4.5 nickname）
+  version     Int      @default(0) // 乐观锁版本号
+  joinedAt    DateTime @default(now())
 
-  family Family @relation(fields: [familyId], references: [id])
-  user   User   @relation(fields: [userId], references: [id])
+  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([familyId, userId])
   @@index([familyId])
@@ -65,7 +67,7 @@ model Baby {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  family           Family           @relation(fields: [familyId], references: [id])
+  family           Family           @relation(fields: [familyId], references: [id], onDelete: Cascade)
   records          Record[]
   vaccineRecords   VaccineRecord[]
   milestoneRecords MilestoneRecord[]
@@ -85,7 +87,7 @@ model Record {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  baby            Baby              @relation(fields: [babyId], references: [id])
+  baby            Baby              @relation(fields: [babyId], references: [id], onDelete: Cascade)
   creator         User              @relation(fields: [createdBy], references: [id])
   feedingData     FeedingRecord?
   sleepData       SleepRecord?
@@ -106,7 +108,7 @@ model FeedingRecord {
   duration    Int?
   breastSide  String? // left | right | both
 
-  record Record @relation(fields: [recordId], references: [id])
+  record Record @relation(fields: [recordId], references: [id], onDelete: Cascade)
 }
 
 model SleepRecord {
@@ -116,7 +118,7 @@ model SleepRecord {
   duration  Int
   location  String?
 
-  record Record @relation(fields: [recordId], references: [id])
+  record Record @relation(fields: [recordId], references: [id], onDelete: Cascade)
 }
 
 model DiaperRecord {
@@ -126,7 +128,7 @@ model DiaperRecord {
   consistency String? // watery | soft | formed | hard
   color       String? // normal | yellow | green | black | red
 
-  record Record @relation(fields: [recordId], references: [id])
+  record Record @relation(fields: [recordId], references: [id], onDelete: Cascade)
 }
 
 model TemperatureRecord {
@@ -135,7 +137,7 @@ model TemperatureRecord {
   temperature Float
   method      String? // oral | axillary | rectal | ear
 
-  record Record @relation(fields: [recordId], references: [id])
+  record Record @relation(fields: [recordId], references: [id], onDelete: Cascade)
 }
 
 model GrowthRecord {
@@ -145,7 +147,7 @@ model GrowthRecord {
   weight            Float?
   headCircumference Float?
 
-  record Record @relation(fields: [recordId], references: [id])
+  record Record @relation(fields: [recordId], references: [id], onDelete: Cascade)
 }
 
 model VaccineRecord {
@@ -159,7 +161,7 @@ model VaccineRecord {
   createdBy      String
   createdAt      DateTime @default(now())
 
-  baby    Baby @relation(fields: [babyId], references: [id])
+  baby    Baby @relation(fields: [babyId], references: [id], onDelete: Cascade)
   creator User  @relation(fields: [createdBy], references: [id])
 
   @@index([babyId, familyId])
@@ -176,7 +178,7 @@ model MilestoneRecord {
   createdBy    String
   createdAt    DateTime @default(now())
 
-  baby    Baby @relation(fields: [babyId], references: [id])
+  baby    Baby @relation(fields: [babyId], references: [id], onDelete: Cascade)
   creator User  @relation(fields: [createdBy], references: [id])
 
   @@index([babyId, familyId])

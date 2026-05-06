@@ -1,13 +1,76 @@
 import { prisma } from '../config/database';
 import { NotFoundError, ForbiddenError, ErrorCodes } from '../types/errors';
 import { getFamilyIdForUser } from '../utils/permission';
-import { startOfDay } from '../utils/date';
+import { startOfDay, endOfDay } from '../utils/date';
 import type {
   WeeklyTrendData,
   WeeklyTrendDimension,
   WeeklyTrendStatus,
   ReferenceRange,
 } from '../types';
+
+/**
+ * FR-B（v4.3.2 修订）：本周/上周时间窗
+ *
+ * - 本周：本周一 00:00 → 今天 23:59:59（不足 7 天则按实际天数计算日均）
+ * - 上周：上周一 00:00 → 上周日 23:59:59（完整 7 天）
+ * - 起始时间不能早于宝宝出生日期；如果 birthDate 落在窗口内，会向后裁剪
+ *   （日均 = 总量 / 实际有效天数；最少 1 天，避免除零）
+ */
+function computeWeekRanges(birthDate: Date, now: Date = new Date()): {
+  thisWeekStart: Date;
+  thisWeekEnd: Date;
+  thisWeekDays: number;
+  lastWeekStart: Date;
+  lastWeekEnd: Date;
+  lastWeekDays: number;
+} {
+  // 计算本周一 00:00（getDay: 0=Sun ... 6=Sat）
+  const today = new Date(now);
+  const day = today.getDay(); // 0..6
+  const diffToMonday = (day + 6) % 7; // 周一为 0，周日为 6
+  const monday = new Date(today);
+  monday.setHours(0, 0, 0, 0);
+  monday.setDate(monday.getDate() - diffToMonday);
+
+  // 上周一 = 本周一 - 7 天；上周日 23:59:59
+  const lastMonday = new Date(monday);
+  lastMonday.setDate(monday.getDate() - 7);
+  const lastSunday = new Date(monday);
+  lastSunday.setMilliseconds(-1); // = 本周一前一毫秒 = 上周日 23:59:59.999
+
+  // 受 birthDate 限制
+  const birthStart = startOfDay(birthDate);
+  const thisWeekStart = monday.getTime() < birthStart.getTime() ? birthStart : monday;
+  const lastWeekStart = lastMonday.getTime() < birthStart.getTime() ? birthStart : lastMonday;
+  // 上周末同样不能早于 birthDate
+  const lastWeekEnd = lastSunday.getTime() < birthStart.getTime() ? birthStart : lastSunday;
+
+  // 本周结束 = "现在"（可能尚未到周日）
+  const thisWeekEnd = endOfDay(today);
+
+  // 实际天数（用于日均）：含起始日和结束日
+  const dayMs = 24 * 60 * 60 * 1000;
+  const thisWeekDays = Math.max(
+    1,
+    Math.ceil((endOfDay(today).getTime() - startOfDay(thisWeekStart).getTime() + 1) / dayMs)
+  );
+  const lastWeekDays = lastWeekEnd.getTime() <= lastWeekStart.getTime()
+    ? 0
+    : Math.max(
+        1,
+        Math.ceil((endOfDay(lastWeekEnd).getTime() - startOfDay(lastWeekStart).getTime() + 1) / dayMs)
+      );
+
+  return {
+    thisWeekStart: startOfDay(thisWeekStart),
+    thisWeekEnd,
+    thisWeekDays,
+    lastWeekStart: startOfDay(lastWeekStart),
+    lastWeekEnd,
+    lastWeekDays,
+  };
+}
 
 /**
  * 月龄参考范围（FR-B2）
@@ -182,12 +245,13 @@ class TrendService {
     const ageMonths = computeAgeMonths(baby.birthDate);
 
     const now = new Date();
-    const thisWeekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const lastWeekStart = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+    const ranges = computeWeekRanges(baby.birthDate, now);
 
     const [thisWeek, lastWeek] = await Promise.all([
-      this.aggregateWeek(babyId, baby.familyId, thisWeekStart, now),
-      this.aggregateWeek(babyId, baby.familyId, lastWeekStart, thisWeekStart),
+      this.aggregateWeek(babyId, baby.familyId, ranges.thisWeekStart, ranges.thisWeekEnd, ranges.thisWeekDays),
+      ranges.lastWeekDays === 0
+        ? Promise.resolve({ feedingAvg: 0, sleepHoursAvg: 0, diaperAvg: 0, tempAbnormal: 0, hasData: false })
+        : this.aggregateWeek(babyId, baby.familyId, ranges.lastWeekStart, ranges.lastWeekEnd, ranges.lastWeekDays),
     ]);
 
     const enhance = (
@@ -227,30 +291,44 @@ class TrendService {
       sleep: enhance('sleep', thisWeek.sleepHoursAvg, lastWeek.sleepHoursAvg),
       diaper: enhance('diaper', thisWeek.diaperAvg, lastWeek.diaperAvg),
       temperature: enhanceTemp(thisWeek.tempAbnormal, lastWeek.tempAbnormal),
-      period: { start: thisWeekStart.toISOString(), end: now.toISOString() },
+      period: {
+        start: ranges.thisWeekStart.toISOString(),
+        end: ranges.thisWeekEnd.toISOString(),
+      },
+      lastWeekPeriod: ranges.lastWeekDays === 0
+        ? null
+        : {
+            start: ranges.lastWeekStart.toISOString(),
+            end: ranges.lastWeekEnd.toISOString(),
+          },
       ageMonths,
     };
   }
 
   /**
    * 单周聚合：返回 4 维度日均值 + 体温异常次数
+   *
+   * @param days 实际天数（由调用方根据"窗口起止 + birthDate 裁剪"得出，调用方负责保证 ≥ 1）
    */
   private async aggregateWeek(
     babyId: string,
     familyId: string,
     start: Date,
-    end: Date
+    end: Date,
+    days: number
   ): Promise<{
     feedingAvg: number;
     sleepHoursAvg: number;
     diaperAvg: number;
     tempAbnormal: number;
+    hasData: boolean;
   }> {
+    const safeDays = Math.max(1, days);
     const records = await prisma.record.findMany({
       where: {
         babyId,
         familyId,
-        startTime: { gte: start, lt: end },
+        startTime: { gte: start, lte: end },
       },
       include: {
         feedingData: true,
@@ -259,11 +337,6 @@ class TrendService {
         temperatureData: true,
       },
     });
-
-    const days = Math.max(
-      1,
-      Math.round((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000))
-    );
 
     let feedingCount = 0;
     let sleepDurationSec = 0;
@@ -288,10 +361,11 @@ class TrendService {
     }
 
     return {
-      feedingAvg: feedingCount / days,
-      sleepHoursAvg: sleepDurationSec / 3600 / days,
-      diaperAvg: diaperCount / days,
+      feedingAvg: feedingCount / safeDays,
+      sleepHoursAvg: sleepDurationSec / 3600 / safeDays,
+      diaperAvg: diaperCount / safeDays,
       tempAbnormal,
+      hasData: records.length > 0,
     };
   }
 }

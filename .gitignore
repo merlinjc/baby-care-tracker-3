@@ -26,6 +26,25 @@ npm-debug.log*
 .env
 .env.local
 .env.*.local
+docker/.env
+
+# Secrets / SSH keys
+*.pem
+*.key
 
 # Archives
 *.zip
+
+# Docker / build artifacts
+*.tar
+docker/ssl/
+
+# Local SQLite
+*.db
+*.db-journal
+
+# Playwright
+/playwright-report/
+/test-results/
+/blob-report/
+/playwright/.cache/

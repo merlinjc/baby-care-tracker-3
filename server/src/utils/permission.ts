@@ -136,12 +136,37 @@ export async function isAdmin(userId: string, familyId: string): Promise<boolean
   return membership?.role === 'admin';
 }
 
+/**
+ * 返回用户当前真正所属的 familyId。
+ *
+ * 与早期版本的差异：会同时校验 `User.familyId` 与 `FamilyMember` 的一致性。
+ * 仅当两边都存在并匹配时才返回 familyId；如果出现脏数据（user.familyId 残留但
+ * FamilyMember 已删除），会自愈：把 user.familyId 重置为 null 并返回 null。
+ */
 export async function getFamilyIdForUser(userId: string): Promise<string | null> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { familyId: true },
   });
-  return user?.familyId ?? null;
+
+  if (!user?.familyId) return null;
+
+  const membership = await prisma.familyMember.findUnique({
+    where: { familyId_userId: { familyId: user.familyId, userId } },
+    select: { id: true },
+  });
+
+  if (!membership) {
+    // 自愈：清理脏数据，避免用户被永久卡死无法创建/加入新家庭
+    await prisma.user
+      .update({ where: { id: userId }, data: { familyId: null } })
+      .catch((err) => {
+        console.warn('[getFamilyIdForUser] failed to self-heal user.familyId', err);
+      });
+    return null;
+  }
+
+  return user.familyId;
 }
 
 export async function checkBabyAccess(userId: string, babyId: string): Promise<boolean> {

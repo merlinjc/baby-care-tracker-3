@@ -1,7 +1,11 @@
 /**
  * QuotaBar - AI 配额条（FR-F3）
  *
- * 显示剩余配额：x / Y。剩余 < 5 时变橙；剩余 0 时变红 + 提示
+ * 两种展现：
+ * - variant='bar'（默认）：完整横条带进度条 —— 用于页面主要位置
+ * - variant='badge'：紧凑徽章 —— 嵌入 header 右上角
+ *
+ * 剩余 < 5 时变橙；剩余 0 时变红 + 提示
  */
 import { Sparkles } from 'lucide-react'
 import type { AIQuotaStatus } from '@/types'
@@ -9,10 +13,19 @@ import type { AIQuotaStatus } from '@/types'
 interface QuotaBarProps {
   quota: AIQuotaStatus | null
   isLoading?: boolean
+  variant?: 'bar' | 'badge'
 }
 
-export function QuotaBar({ quota, isLoading }: QuotaBarProps) {
+export function QuotaBar({ quota, isLoading, variant = 'bar' }: QuotaBarProps) {
   if (isLoading || !quota) {
+    if (variant === 'badge') {
+      return (
+        <span className="inline-flex items-center gap-1 text-[11px] text-[var(--text-hint)]">
+          <Sparkles className="h-3 w-3" />
+          配额…
+        </span>
+      )
+    }
     return (
       <div className="flex items-center gap-2 text-xs text-[var(--text-hint)]">
         <Sparkles className="h-3 w-3" />
@@ -29,6 +42,25 @@ export function QuotaBar({ quota, isLoading }: QuotaBarProps) {
     : isLow
       ? 'var(--warning)'
       : 'var(--primary)'
+
+  if (variant === 'badge') {
+    return (
+      <span
+        className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
+        style={{
+          backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)`,
+          color,
+        }}
+        title={isExhausted ? '今日配额已用完，请明天再试' : `今日剩余 ${quota.remaining} / ${quota.dailyLimit}`}
+      >
+        <Sparkles className="h-3 w-3" />
+        <span className="number-display">
+          {quota.remaining}
+          <span className="opacity-70">/{quota.dailyLimit}</span>
+        </span>
+      </span>
+    )
+  }
 
   return (
     <div

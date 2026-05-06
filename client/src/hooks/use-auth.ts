@@ -7,7 +7,7 @@ export function useAuth() {
   const navigate = useNavigate();
 
   const loginAndRedirect = useCallback(async (email: string, password: string) => {
-    await store.login(email, password);
+    await store.login({ email, password });
     navigate('/');
   }, [store, navigate]);
 

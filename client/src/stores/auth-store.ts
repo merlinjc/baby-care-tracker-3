@@ -1,8 +1,17 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage } from 'zustand/middleware'
 import type { AuthUser } from '@/types'
 import { authService } from '@/services/auth'
 import { config } from '@/config'
+
+export interface LoginCredentials {
+  /** 邮箱（与 phone 二选一） */
+  email?: string
+  /** 手机号（与 email 二选一） */
+  phone?: string
+  /** 明文密码（仅在内存中，绝不持久化） */
+  password: string
+}
 
 interface AuthStore {
   user: AuthUser | null
@@ -11,8 +20,10 @@ interface AuthStore {
   isLoading: boolean
 
   setToken: (token: string) => void
-  login: (email: string, password: string) => Promise<void>
+  /** 通用登录入口：根据 credentials 中的 email/phone 字段调后端 */
+  login: (credentials: LoginCredentials) => Promise<void>
   register: (email: string, password: string, nickname: string) => Promise<void>
+  /** 清除内存 + localStorage 中的登录态（不调用后端 logout，调后端请走 services/auth.logout） */
   logout: () => void
   loadUser: () => Promise<void>
   setLoading: (loading: boolean) => void
@@ -30,10 +41,10 @@ export const useAuthStore = create<AuthStore>()(
         set({ token, isAuthenticated: true })
       },
 
-      login: async (email: string, password: string) => {
+      login: async (credentials: LoginCredentials) => {
         set({ isLoading: true })
         try {
-          const data = await authService.login({ email, password })
+          const data = await authService.login(credentials)
           set({
             user: data.user,
             token: data.accessToken,
@@ -86,11 +97,14 @@ export const useAuthStore = create<AuthStore>()(
     }),
     {
       name: config.tokenKey,
+      // 显式指定 localStorage：刷新/关闭页面再打开都能恢复登录态。
+      // 长期保持登录依赖：①此处的 access token 持久化 + ②后端 httpOnly refreshToken cookie（默认 7 天）。
+      storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         token: state.token,
         user: state.user,
         isAuthenticated: state.isAuthenticated,
       }),
-    }
-  )
+    },
+  ),
 )

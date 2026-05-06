@@ -1,11 +1,13 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { ChevronLeft, Users, Plus, LogOut, Trash2, Crown, Edit3, Eye } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Users, Plus, LogOut, Trash2, Crown, Edit3, Eye } from 'lucide-react'
 import { useFamilyStore } from '@/stores/family-store'
 import { InviteSection } from '@/components/family/invite-section'
 import { MembersSection } from '@/components/family/members-section'
 import { TransferAdminDialog } from '@/components/family/transfer-admin-dialog'
 import { toast } from '@/components/ui/toast'
+import { useConfirm } from '@/components/ui/confirm-dialog'
+import { PageHeader } from '@/components/page-header'
 import { ApiError } from '@/lib/api-error'
 
 const ROLE_BADGE: Record<'admin' | 'editor' | 'viewer', { icon: typeof Crown; label: string; color: string }> = {
@@ -22,6 +24,7 @@ export function FamilyPage() {
   const joinFamily = useFamilyStore((s) => s.joinFamily)
   const leaveFamily = useFamilyStore((s) => s.leaveFamily)
   const dissolveFamily = useFamilyStore((s) => s.dissolveFamily)
+  const confirm = useConfirm()
 
   const [showCreate, setShowCreate] = useState(false)
   const [showJoin, setShowJoin] = useState(false)
@@ -73,7 +76,13 @@ export function FamilyPage() {
 
   // FR-C5：退出家庭状态机
   const handleLeave = async () => {
-    if (!confirm('确定要退出这个家庭吗？')) return
+    const ok = await confirm({
+      title: '退出当前家庭？',
+      description: '退出后需要重新加入才能看到家庭数据。',
+      confirmText: '退出',
+      variant: 'danger',
+    })
+    if (!ok) return
     try {
       const result = await leaveFamily()
       switch (result.status) {
@@ -108,7 +117,13 @@ export function FamilyPage() {
   }
 
   const handleDissolve = async () => {
-    if (!confirm('确定要解散这个家庭吗？此操作不可撤销！所有成员都将被移除。')) return
+    const ok = await confirm({
+      title: '解散当前家庭？',
+      description: '解散后所有成员都将被移除，所有宝宝与记录也将一并清理。此操作不可撤销。',
+      confirmText: '解散家庭',
+      variant: 'danger',
+    })
+    if (!ok) return
     try {
       await dissolveFamily()
       toast.info('家庭已解散')
@@ -121,13 +136,8 @@ export function FamilyPage() {
   // ========== 未加入家庭 ==========
   if (!family) {
     return (
-      <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-6 animate-fade-in-up">
-        <div className="flex items-center gap-3">
-          <Link to="/profile" className="text-[var(--text-hint)] hover:text-[var(--text-primary)]">
-            <ChevronLeft className="h-5 w-5" />
-          </Link>
-          <h1 className="heading-lg">家庭</h1>
-        </div>
+      <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-4 animate-fade-in-up">
+        <PageHeader title="家庭" backTo="/profile" />
         <div className="empty-state">
           <Users className="h-12 w-12 empty-state__icon" />
           <p className="empty-state__title">您还未加入家庭</p>
@@ -239,25 +249,24 @@ export function FamilyPage() {
   return (
     <>
       <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-4 animate-fade-in-up">
-        {/* 头部 */}
-        <div className="flex items-center gap-3">
-          <Link to="/profile" className="text-[var(--text-hint)] hover:text-[var(--text-primary)]">
-            <ChevronLeft className="h-5 w-5" />
-          </Link>
-          <h1 className="heading-lg flex-1 truncate">{family.name}</h1>
-          {roleBadge && (
-            <span
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium"
-              style={{
-                backgroundColor: `color-mix(in srgb, ${roleBadge.color} 12%, transparent)`,
-                color: roleBadge.color,
-              }}
-            >
-              <roleBadge.icon className="h-2.5 w-2.5" />
-              {roleBadge.label}
-            </span>
-          )}
-        </div>
+        <PageHeader
+          title={family.name}
+          backTo="/profile"
+          action={
+            roleBadge ? (
+              <span
+                className="badge-mini"
+                style={{
+                  backgroundColor: `color-mix(in srgb, ${roleBadge.color} 12%, transparent)`,
+                  color: roleBadge.color,
+                }}
+              >
+                <roleBadge.icon className="h-2.5 w-2.5" />
+                {roleBadge.label}
+              </span>
+            ) : null
+          }
+        />
 
         {/* 邀请码区 —— 仅 admin 可见 */}
         {isAdmin && (

@@ -1,48 +1,95 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Droplets } from 'lucide-react'
-import { Dialog } from '@/components/ui/dialog'
+import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { SegmentedControl } from '@/components/ui/segmented-control'
-import type { DiaperType, Consistency, DiaperColor } from '@/types'
+import { toDateTimeLocalValue, fromDateTimeLocalValue } from '@/lib/date'
+import type { DiaperType, Consistency, DiaperColor, CareRecord } from '@/types'
+import type { RecordDialogMeta } from './feeding-dialog'
+
+export interface DiaperDialogSubmitData {
+  diaperType: DiaperType
+  consistency?: Consistency
+  color?: DiaperColor
+  note?: string
+}
 
 interface DiaperDialogProps {
   open: boolean
   onClose: () => void
-  onSubmit: (data: { diaperType: DiaperType; consistency?: Consistency; color?: DiaperColor; note?: string }) => void
+  onSubmit: (data: DiaperDialogSubmitData, meta: RecordDialogMeta) => void | Promise<void>
+  editRecord?: CareRecord
 }
 
-export function DiaperDialog({ open, onClose, onSubmit }: DiaperDialogProps) {
+export function DiaperDialog({ open, onClose, onSubmit, editRecord }: DiaperDialogProps) {
   const [diaperType, setDiaperType] = useState<DiaperType>('both')
   const [consistency, setConsistency] = useState<Consistency | ''>('')
   const [color, setColor] = useState<DiaperColor | ''>('')
   const [note, setNote] = useState('')
+  const [recordTime, setRecordTime] = useState(() => toDateTimeLocalValue())
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const isEdit = !!editRecord
+
+  useEffect(() => {
+    if (!open) return
+    if (editRecord) {
+      const dd = editRecord.diaperData
+      setDiaperType((dd?.diaperType as DiaperType) ?? 'both')
+      setConsistency((dd?.consistency as Consistency | undefined) ?? '')
+      setColor((dd?.color as DiaperColor | undefined) ?? '')
+      setNote(editRecord.note ?? '')
+      setRecordTime(toDateTimeLocalValue(editRecord.startTime))
+    } else {
+      setDiaperType('both')
+      setConsistency('')
+      setColor('')
+      setNote('')
+      setRecordTime(toDateTimeLocalValue())
+    }
+  }, [open, editRecord])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
     try {
-      await onSubmit({
-        diaperType,
-        consistency: consistency || undefined,
-        color: color || undefined,
-        note: note || undefined,
-      })
-      setDiaperType('both'); setConsistency(''); setColor(''); setNote('')
+      await onSubmit(
+        {
+          diaperType,
+          consistency: consistency || undefined,
+          color: color || undefined,
+          note: note || undefined,
+        },
+        {
+          recordTime: fromDateTimeLocalValue(recordTime),
+          editingId: editRecord?.id,
+        },
+      )
       onClose()
     } finally {
       setIsSubmitting(false)
     }
   }
 
+  const formId = 'diaper-dialog-form'
+
   return (
     <Dialog
       open={open}
       onClose={onClose}
-      title="换尿布"
+      title={isEdit ? '编辑换尿布记录' : '换尿布'}
       icon={<Droplets className="h-4 w-4" />}
       accentColor="var(--diaper)"
+      footer={
+        <DialogFooter
+          onCancel={onClose}
+          confirmText={isEdit ? '保存修改' : '保存'}
+          loading={isSubmitting}
+          confirmType="submit"
+          confirmFormId={formId}
+        />
+      }
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form id={formId} onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="label-base">类型</label>
           <SegmentedControl<DiaperType>
@@ -97,6 +144,16 @@ export function DiaperDialog({ open, onClose, onSubmit }: DiaperDialogProps) {
         )}
 
         <div>
+          <label className="label-base">记录时间</label>
+          <input
+            type="datetime-local"
+            value={recordTime}
+            onChange={(e) => setRecordTime(e.target.value)}
+            className="input-base"
+          />
+        </div>
+
+        <div>
           <label className="label-base">备注</label>
           <input
             type="text"
@@ -106,15 +163,6 @@ export function DiaperDialog({ open, onClose, onSubmit }: DiaperDialogProps) {
             className="input-base"
           />
         </div>
-
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="btn-primary w-full"
-          style={{ backgroundColor: 'var(--diaper)' }}
-        >
-          {isSubmitting ? '保存中...' : '保存'}
-        </button>
       </form>
     </Dialog>
   )

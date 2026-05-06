@@ -1,5 +1,6 @@
 import api from './api';
 import type { AuthUser, LoginRequest, RegisterRequest, AuthResponse } from '@baby-care-tracker/shared';
+import type { WechatLoginRequest } from './wechat-auth';
 
 export const authApi = {
   login: async (data: LoginRequest): Promise<AuthResponse> => {
@@ -31,12 +32,25 @@ export const authApi = {
     await api.post('/auth/change-password', { currentPassword: data.oldPassword, newPassword: data.newPassword });
   },
 
+  /**
+   * 主动注销：让后端清除 httpOnly refreshToken cookie。
+   * 后端未实现该端点时安全降级为本地登出（auth-store.logout）。
+   */
   logout: async (): Promise<void> => {
     try {
       await api.post('/auth/logout', null, { withCredentials: true });
     } catch {
-      // Ignore errors on logout
+      // 后端未实现 / 网络异常都不阻塞前端登出
     }
+  },
+
+  /**
+   * 微信扫码登录：用回调拿到的 code 兑换我方 JWT。
+   * 对应后端 POST /api/auth/wechat（详见 docs/web-api-spec.md §2.7）。
+   */
+  loginWithWechat: async (data: WechatLoginRequest): Promise<AuthResponse> => {
+    const res = await api.post('/auth/wechat', data);
+    return res.data.data;
   },
 };
 

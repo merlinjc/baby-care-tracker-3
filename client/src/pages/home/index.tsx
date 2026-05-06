@@ -1,14 +1,14 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { Baby, Moon, Droplets, Thermometer, Plus, Sparkles, Clock, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react'
+import { Plus, Sparkles, Clock, RefreshCw, ChevronDown, ChevronUp, Lightbulb } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/stores/auth-store'
 import { useBabyStore } from '@/stores/baby-store'
 import { useFamilyStore } from '@/stores/family-store'
 import { useDialog } from '@/hooks/use-dialog'
 import { useActiveSleep } from '@/hooks/use-active-sleep'
-import { useWeeklyTrend } from '@/hooks/use-weekly-trend'
 import { useLocalStorageState } from '@/hooks/use-local-storage-state'
+import { usePermission } from '@/hooks/use-permission'
 import { recordService } from '@/services/record'
 import { aiService } from '@/services/ai'
 import { FeedingDialog } from '@/components/feeding-dialog'
@@ -20,10 +20,10 @@ import { Timeline } from '@/components/timeline'
 import { BabySwitcher } from '@/components/baby-switcher'
 import { StatusCapsule } from '@/components/status-capsule'
 import { TodaySummary } from '@/components/today-summary'
-import { InsightSection } from '@/components/insight-section'
 import { HomeSkeleton } from '@/components/home-skeleton'
 import { EasterEggDisplay } from '@/components/easter-egg-display'
 import { toast } from '@/components/ui/toast'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 import { buildFallbackInsight, isInsightEmpty } from '@/lib/insight-fallback'
 import { detectAll, type EggResult } from '@/lib/easter-egg'
 import { ApiError } from '@/lib/api-error'
@@ -45,6 +45,7 @@ export function HomePage() {
   const loadFamily = useFamilyStore((s) => s.loadFamily)
   const loadBabies = useBabyStore((s) => s.loadBabies)
   const queryClient = useQueryClient()
+  const confirm = useConfirm()
 
   const feedingDialog = useDialog()
   const sleepDialog = useDialog()
@@ -89,10 +90,8 @@ export function HomePage() {
   })
 
   // FR-A1：进行中睡眠 + 状态胶囊
-  const { activeSleep, end: endSleep, cancel: cancelSleep } = useActiveSleep(currentBaby?.id)
-
-  // FR-B：本周趋势
-  const { data: weeklyTrend, isLoading: trendLoading } = useWeeklyTrend(currentBaby?.id)
+  const { activeSleep, start: startSleep, end: endSleep, cancel: cancelSleep } = useActiveSleep(currentBaby?.id)
+  const { canEdit } = usePermission()
 
   // FR-A4：AI 洞察折叠态（持久化）
   const [insightCollapsed, setInsightCollapsed] = useLocalStorageState('ai_insight_collapsed', false)
@@ -172,17 +171,28 @@ export function HomePage() {
     queryClient.invalidateQueries({ queryKey: ['activeSleep', currentBaby.id] })
   }
 
-  const createRecord = async (recordType: RecordType, data: Record<string, unknown>) => {
+  const createRecord = async (recordType: RecordType, data: Record<string, unknown>, meta: { recordTime: string; editingId?: string; endTime?: string }) => {
     if (!currentBaby) return
     try {
-      await recordService.createRecord({
-        babyId: currentBaby.id,
-        recordType,
-        startTime: new Date().toISOString(),
-        ...data,
-      })
-      refreshAll()
-      toast.success('记录已添加')
+      if (meta.editingId) {
+        await recordService.updateRecord(meta.editingId, {
+          startTime: meta.recordTime,
+          ...(meta.endTime !== undefined ? { endTime: meta.endTime } : {}),
+          ...(data as Partial<CareRecord>),
+        })
+        refreshAll()
+        toast.success('已更新')
+      } else {
+        await recordService.createRecord({
+          babyId: currentBaby.id,
+          recordType,
+          startTime: meta.recordTime,
+          ...(meta.endTime !== undefined ? { endTime: meta.endTime } : {}),
+          ...data,
+        })
+        refreshAll()
+        toast.success('记录已添加')
+      }
     } catch (err) {
       const e = err as ApiError
       if (e.code === 'PERMISSION_DENIED') {
@@ -191,7 +201,7 @@ export function HomePage() {
         toast.warning(e.message)
         refreshAll()
       } else {
-        toast.error(e.message ?? '添加失败')
+        toast.error(e.message ?? (meta.editingId ? '更新失败' : '添加失败'))
       }
     }
   }
@@ -206,8 +216,33 @@ export function HomePage() {
     }
   }
 
+  // 睡眠卡片「开始」按钮：在 endTime=null 模式下创建一条进行中睡眠
+  const handleStartSleep = async () => {
+    try {
+      const created = await startSleep('nap')
+      if (created) {
+        toast.success('已开始睡眠计时')
+        // 让首页同步刷新（含状态胶囊文案）
+        queryClient.invalidateQueries({ queryKey: ['todayStats', currentBaby?.id] })
+      }
+    } catch (err) {
+      const e = err as ApiError
+      if (e.code === 'PERMISSION_DENIED') {
+        toast.error('您没有创建记录的权限')
+      } else {
+        toast.error(e.message ?? '开始计时失败')
+      }
+    }
+  }
+
   const handleCancelSleep = async () => {
-    if (!confirm('取消计时将删除当前进行中的睡眠记录，确认继续？')) return
+    const ok = await confirm({
+      title: '取消进行中的睡眠计时？',
+      description: '取消计时将删除当前进行中的睡眠记录，此操作不可撤销。',
+      confirmText: '取消计时',
+      variant: 'danger',
+    })
+    if (!ok) return
     try {
       await cancelSleep()
       toast.info('已取消计时')
@@ -242,7 +277,7 @@ export function HomePage() {
   const isInsightFromAI = dailyInsight?.source === 'ai'
 
   return (
-    <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-6 animate-fade-in-up">
+    <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-5 animate-fade-in-up">
       {/* FR-G2：彩蛋（banner 在顶部，popup/toast 全局渲染） */}
       <EasterEggDisplay results={eggResults} onConsume={handleEggConsume} />
 
@@ -292,39 +327,11 @@ export function HomePage() {
           stats={stats}
           birthDateIso={currentBaby.birthDate}
           onSelect={handleSelectStat}
+          sleepActive={!!activeSleep}
+          canControlSleep={canEdit}
+          onStartSleep={handleStartSleep}
+          onEndSleep={handleEndSleep}
         />
-      )}
-
-      {/* 快捷记录 —— 5 个按钮（含生长） */}
-      {currentBaby && (
-        <div>
-          <div className="section-header">
-            <span className="section-header__title">快捷记录</span>
-          </div>
-          <div className="grid grid-cols-5 gap-2 sm:gap-3">
-            {[
-              { type: 'feeding' as const, Icon: Baby, label: '喂养', color: 'var(--feeding)' },
-              { type: 'sleep' as const, Icon: Moon, label: '睡眠', color: 'var(--sleep)' },
-              { type: 'diaper' as const, Icon: Droplets, label: '换尿布', color: 'var(--diaper)' },
-              { type: 'temperature' as const, Icon: Thermometer, label: '体温', color: 'var(--temperature)' },
-              { type: 'growth' as const, Icon: Plus, label: '生长', color: 'var(--growth)' },
-            ].map((action) => (
-              <button
-                key={action.label}
-                onClick={() => openRecordDialog(action.type)}
-                className="card-interactive flex flex-col items-center gap-2 py-3"
-              >
-                <div
-                  className="icon-circle icon-circle--md"
-                  style={{ backgroundColor: `color-mix(in srgb, ${action.color} 12%, transparent)` }}
-                >
-                  <action.Icon className="h-5 w-5" style={{ color: action.color }} />
-                </div>
-                <span className="body-sm text-[var(--text-secondary)] font-medium">{action.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
       )}
 
       {/* FR-A4：AI 洞察折叠态 */}
@@ -353,7 +360,7 @@ export function HomePage() {
               onClick={() => setInsightCollapsed(false)}
               className="card-base w-full flex items-center gap-2 text-left transition-colors hover:border-[var(--sleep)]"
             >
-              <span aria-hidden>💡</span>
+              <Lightbulb className="h-4 w-4 shrink-0" style={{ color: 'var(--sleep)' }} />
               <span className="body-md flex-1 truncate text-[var(--text-secondary)]">
                 {insightToShow.summary}
               </span>
@@ -408,16 +415,6 @@ export function HomePage() {
         </div>
       )}
 
-      {/* FR-B：本周趋势 */}
-      {currentBaby && (
-        <div>
-          <div className="section-header">
-            <span className="section-header__title">本周趋势</span>
-          </div>
-          <InsightSection trend={weeklyTrend ?? null} isLoading={trendLoading} />
-        </div>
-      )}
-
       {/* Today Timeline */}
       {currentBaby && (
         <div>
@@ -443,27 +440,27 @@ export function HomePage() {
       <FeedingDialog
         open={feedingDialog.open}
         onClose={feedingDialog.closeDialog}
-        onSubmit={(data) => createRecord('feeding', { feedingData: data })}
+        onSubmit={(data, meta) => createRecord('feeding', { feedingData: data }, meta)}
       />
       <SleepDialog
         open={sleepDialog.open}
         onClose={sleepDialog.closeDialog}
-        onSubmit={(data) => createRecord('sleep', { sleepData: data })}
+        onSubmit={(data, meta) => createRecord('sleep', { sleepData: data }, meta)}
       />
       <DiaperDialog
         open={diaperDialog.open}
         onClose={diaperDialog.closeDialog}
-        onSubmit={(data) => createRecord('diaper', { diaperData: data })}
+        onSubmit={(data, meta) => createRecord('diaper', { diaperData: data }, meta)}
       />
       <TemperatureDialog
         open={temperatureDialog.open}
         onClose={temperatureDialog.closeDialog}
-        onSubmit={(data) => createRecord('temperature', { temperatureData: data })}
+        onSubmit={(data, meta) => createRecord('temperature', { temperatureData: data }, meta)}
       />
       <GrowthDialog
         open={growthDialog.open}
         onClose={growthDialog.closeDialog}
-        onSubmit={(data) => createRecord('growth', { growthData: data })}
+        onSubmit={(data, meta) => createRecord('growth', { growthData: data }, meta)}
       />
     </div>
   )

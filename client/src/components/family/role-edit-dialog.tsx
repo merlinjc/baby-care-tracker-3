@@ -4,9 +4,9 @@
  * 三选一 RadioGroup（admin/editor/viewer），提交后调 store.updateMemberRole
  * 后端拦截 SOLE_ADMIN 时前端 toast 提示
  */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Shield, Edit, Eye, UserCog } from 'lucide-react'
-import { Dialog } from '@/components/ui/dialog'
+import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { useFamilyStore } from '@/stores/family-store'
 import { toast } from '@/components/ui/toast'
 import { ApiError } from '@/lib/api-error'
@@ -29,10 +29,12 @@ export function RoleEditDialog({ open, onClose, member }: RoleEditDialogProps) {
   const [selected, setSelected] = useState<FamilyRole>(member?.role ?? 'editor')
   const [submitting, setSubmitting] = useState(false)
 
-  // member 变化时重置选择
-  if (member && member.role !== selected && !submitting) {
-    setSelected(member.role)
-  }
+  // member 变化（弹窗打开/切换目标成员）时同步选择
+  useEffect(() => {
+    if (open && member) {
+      setSelected(member.role)
+    }
+  }, [open, member])
 
   if (!member) return null
 
@@ -65,6 +67,15 @@ export function RoleEditDialog({ open, onClose, member }: RoleEditDialogProps) {
       title={`修改 ${member.user?.nickname ?? '成员'} 的权限`}
       icon={<UserCog className="h-4 w-4" />}
       accentColor="var(--primary)"
+      footer={
+        <DialogFooter
+          onCancel={onClose}
+          onConfirm={handleSubmit}
+          confirmText={submitting ? '保存中...' : '确认'}
+          loading={submitting}
+          disabled={selected === member.role}
+        />
+      }
     >
       <div className="space-y-2">
         {OPTIONS.map((opt) => {
@@ -72,7 +83,7 @@ export function RoleEditDialog({ open, onClose, member }: RoleEditDialogProps) {
           return (
             <label
               key={opt.value}
-              className="flex items-start gap-3 rounded-xl p-3 cursor-pointer transition-colors"
+              className="flex items-start gap-3 rounded-lg p-3 cursor-pointer transition-colors"
               style={{
                 backgroundColor: isSelected ? 'color-mix(in srgb, var(--primary) 8%, transparent)' : 'var(--bg-primary)',
                 border: isSelected ? '1px solid var(--primary)' : '1px solid var(--border-light)',
@@ -95,18 +106,6 @@ export function RoleEditDialog({ open, onClose, member }: RoleEditDialogProps) {
             </label>
           )
         })}
-      </div>
-      <div className="mt-5 flex gap-2">
-        <button onClick={onClose} className="btn-secondary flex-1" disabled={submitting}>
-          取消
-        </button>
-        <button
-          onClick={handleSubmit}
-          className="btn-primary flex-1"
-          disabled={submitting || selected === member.role}
-        >
-          {submitting ? '保存中...' : '确认'}
-        </button>
       </div>
     </Dialog>
   )

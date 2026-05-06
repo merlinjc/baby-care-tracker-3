@@ -1,18 +1,25 @@
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
-import { Baby, Moon, Droplets, Thermometer, Ruler, Plus, Trash2, Pencil, Calendar, Lock, ClipboardList } from 'lucide-react'
+import { useEffect, useState, useRef, useMemo } from 'react'
+import { Baby, Moon, Droplets, Thermometer, Ruler, Trash2, Pencil, Calendar, Lock, ClipboardList, UserCircle2 } from 'lucide-react'
+import { useInfiniteQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query'
 import { useBabyStore } from '@/stores/baby-store'
 import { usePermission } from '@/hooks/use-permission'
 import { useDialog } from '@/hooks/use-dialog'
+import { useWeeklyTrend } from '@/hooks/use-weekly-trend'
 import { recordService } from '@/services/record'
-import { getRecordSummary } from '@/lib/record'
+import { getRecordSummary, getRecordDetails } from '@/lib/record'
 import { buildTodaySummaryText } from '@/lib/today-summary'
 import { PageHeader } from '@/components/page-header'
+import { HeaderAction } from '@/components/header-action'
+import { AddRecordMenu } from '@/components/add-record-menu'
+import { ListSkeleton } from '@/components/ui/list-skeleton'
 import { FeedingDialog } from '@/components/feeding-dialog'
 import { SleepDialog } from '@/components/sleep-dialog'
 import { DiaperDialog } from '@/components/diaper-dialog'
 import { TemperatureDialog } from '@/components/temperature-dialog'
 import { GrowthDialog } from '@/components/growth-dialog'
-import type { CareRecord, RecordType } from '@baby-care-tracker/shared'
+import { InsightSection } from '@/components/insight-section'
+import { useConfirm } from '@/components/ui/confirm-dialog'
+import type { CareRecord, RecordType, PaginatedResponse } from '@baby-care-tracker/shared'
 
 const recordTypeConfig: { [K in RecordType]: { icon: typeof Baby; label: string; color: string } } = {
   feeding: { icon: Baby, label: '喂养', color: 'var(--feeding)' },
@@ -25,15 +32,10 @@ const recordTypeConfig: { [K in RecordType]: { icon: typeof Baby; label: string;
 export function RecordPage() {
   const currentBaby = useBabyStore((s) => s.currentBaby)
   const { canEdit, isViewer } = usePermission()
-  const [records, setRecords] = useState<CareRecord[]>([])
-  const [isLoading, setIsLoading] = useState(false)
+  const confirm = useConfirm()
+  const queryClient = useQueryClient()
   const [activeType, setActiveType] = useState<RecordType | 'all'>('all')
   const [deletingId, setDeletingId] = useState<string | null>(null)
-
-  // Pagination
-  const [page, setPage] = useState(1)
-  const [hasMore, setHasMore] = useState(true)
-  const [isLoadingMore, setIsLoadingMore] = useState(false)
   const observerRef = useRef<HTMLDivElement>(null)
 
   // Date filter
@@ -41,85 +43,127 @@ export function RecordPage() {
   const [endDate, setEndDate] = useState('')
   const [showDateFilter, setShowDateFilter] = useState(false)
 
-  const feedingDialog = useDialog()
-  const sleepDialog = useDialog()
-  const diaperDialog = useDialog()
-  const temperatureDialog = useDialog()
-  const growthDialog = useDialog()
+  const feedingDialog = useDialog<CareRecord>()
+  const sleepDialog = useDialog<CareRecord>()
+  const diaperDialog = useDialog<CareRecord>()
+  const temperatureDialog = useDialog<CareRecord>()
+  const growthDialog = useDialog<CareRecord>()
 
   const PAGE_SIZE = 20
 
-  const loadRecords = useCallback(async (pageNum: number, append = false) => {
-    if (!currentBaby) return
-    if (append) {
-      setIsLoadingMore(true)
-    } else {
-      setIsLoading(true)
-    }
-    try {
-      const result = await recordService.getRecords({
+  // FR-B：本周趋势（从首页迁入）
+  const { data: weeklyTrend, isLoading: trendLoading } = useWeeklyTrend(currentBaby?.id)
+
+  // Records: useInfiniteQuery（基于后端 hasMore，避免"正好一满页触发空请求"的临界问题）
+  const recordsQueryKey = useMemo(
+    () => ['records', currentBaby?.id, 'list', activeType, startDate || null, endDate || null] as const,
+    [currentBaby?.id, activeType, startDate, endDate],
+  )
+
+  const {
+    data: recordsData,
+    isLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+    refetch: refetchRecords,
+  } = useInfiniteQuery<PaginatedResponse<CareRecord>, Error, InfiniteData<PaginatedResponse<CareRecord>>, typeof recordsQueryKey, number>({
+    queryKey: recordsQueryKey,
+    enabled: !!currentBaby,
+    initialPageParam: 1,
+    queryFn: async ({ pageParam }) => {
+      if (!currentBaby) {
+        return { items: [], total: 0, page: pageParam, pageSize: PAGE_SIZE, hasMore: false }
+      }
+      return recordService.getRecords({
         babyId: currentBaby.id,
         recordType: activeType === 'all' ? undefined : activeType,
         startDate: startDate || undefined,
         endDate: endDate || undefined,
-        page: pageNum,
+        page: pageParam,
         pageSize: PAGE_SIZE,
       })
-      const items = result.items || []
-      if (append) {
-        setRecords((prev) => [...prev, ...items])
-      } else {
-        setRecords(items)
-      }
-      setHasMore(items.length >= PAGE_SIZE)
-      setPage(pageNum)
-    } catch {
-      if (!append) setRecords([])
-    } finally {
-      setIsLoading(false)
-      setIsLoadingMore(false)
-    }
-  }, [currentBaby, activeType, startDate, endDate])
+    },
+    getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.page + 1 : undefined),
+    staleTime: 30 * 1000,
+  })
 
-  useEffect(() => {
-    loadRecords(1, false)
-  }, [loadRecords])
+  const records: CareRecord[] = useMemo(
+    () => recordsData?.pages.flatMap((p) => p.items ?? []) ?? [],
+    [recordsData],
+  )
 
+  // IntersectionObserver 触发分页
   useEffect(() => {
-    if (!observerRef.current || !hasMore) return
+    const target = observerRef.current
+    if (!target || !hasNextPage) return
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && !isLoadingMore && !isLoading && hasMore) {
-          loadRecords(page + 1, true)
+        if (entries[0].isIntersecting && !isFetchingNextPage && !isLoading && hasNextPage) {
+          fetchNextPage()
         }
       },
-      { threshold: 0.1 }
+      { threshold: 0.1 },
     )
-    observer.observe(observerRef.current)
+    observer.observe(target)
     return () => observer.disconnect()
-  }, [hasMore, isLoadingMore, isLoading, page, loadRecords])
+  }, [hasNextPage, isFetchingNextPage, isLoading, fetchNextPage])
 
-  const createRecord = async (recordType: RecordType, data: { [key: string]: unknown }) => {
+  const createRecord = async (
+    recordType: RecordType,
+    data: { [key: string]: unknown },
+    meta: { recordTime: string; editingId?: string; endTime?: string },
+  ) => {
     if (!currentBaby) return
     try {
-      await recordService.createRecord({
-        ...data,
-        babyId: currentBaby.id,
-        recordType,
-        startTime: new Date().toISOString(),
-      } as Parameters<typeof recordService.createRecord>[0])
-      loadRecords(1, false)
+      if (meta.editingId) {
+        await recordService.updateRecord(meta.editingId, {
+          startTime: meta.recordTime,
+          ...(meta.endTime !== undefined ? { endTime: meta.endTime } : {}),
+          ...(data as Partial<CareRecord>),
+        })
+      } else {
+        await recordService.createRecord({
+          ...data,
+          babyId: currentBaby.id,
+          recordType,
+          startTime: meta.recordTime,
+          ...(meta.endTime !== undefined ? { endTime: meta.endTime } : {}),
+        } as Parameters<typeof recordService.createRecord>[0])
+      }
+      // 创建/更新后重新拉取（保持分页首页对齐）
+      refetchRecords()
     } catch (err) {
-      console.error('Failed to create record:', err)
+      console.error('Failed to create/update record:', err)
     }
   }
 
   const deleteRecord = async (id: string) => {
-    if (!confirm('确定删除这条记录吗？')) return
+    const ok = await confirm({
+      title: '删除这条记录？',
+      description: '删除后不可恢复。',
+      confirmText: '删除',
+      variant: 'danger',
+    })
+    if (!ok) return
     setDeletingId(id)
     try {
       await recordService.deleteRecord(id)
-      setRecords((prev) => prev.filter((r) => r.id !== id))
+      // 乐观更新：在所有分页数据里过滤掉该条
+      queryClient.setQueryData<InfiniteData<PaginatedResponse<CareRecord>>>(
+        recordsQueryKey,
+        (old) => {
+          if (!old) return old
+          return {
+            ...old,
+            pages: old.pages.map((p) => ({
+              ...p,
+              items: p.items.filter((r) => r.id !== id),
+              total: Math.max(0, p.total - 1),
+            })),
+          }
+        },
+      )
     } catch (err) {
       console.error('Failed to delete record:', err)
     } finally {
@@ -127,19 +171,19 @@ export function RecordPage() {
     }
   }
 
-  const openDialogForType = (type: RecordType) => {
-    const dialogMap: { [K in RecordType]: { openDialog: () => void } } = {
+  const openDialogForType = (type: RecordType, record?: CareRecord) => {
+    const dialogMap: { [K in RecordType]: { openDialog: (p?: CareRecord) => void } } = {
       feeding: feedingDialog,
       sleep: sleepDialog,
       diaper: diaperDialog,
       temperature: temperatureDialog,
       growth: growthDialog,
     }
-    dialogMap[type].openDialog()
+    dialogMap[type].openDialog(record)
   }
 
   const handleEdit = (record: CareRecord) => {
-    openDialogForType(record.recordType)
+    openDialogForType(record.recordType, record)
   }
 
   const clearDateFilter = () => {
@@ -212,31 +256,33 @@ export function RecordPage() {
       {/* FR-D1：page-header + 今日速览副标题 */}
       <PageHeader
         title="记录"
+        variant="tab"
         icon={<ClipboardList className="h-6 w-6" />}
         accentColor="var(--primary)"
         subtitle={pageSubtitle}
         action={
           <div className="flex items-center gap-2">
-            <button
+            <HeaderAction
+              variant="ghost"
+              icon={<Calendar className="h-3.5 w-3.5" />}
+              label="筛选"
+              active={showDateFilter}
               onClick={() => setShowDateFilter(!showDateFilter)}
-              className={`chip ${showDateFilter ? 'chip--active' : 'chip--inactive'}`}
-              style={showDateFilter ? { backgroundColor: 'var(--primary)' } : undefined}
-            >
-              <Calendar className="h-3.5 w-3.5" />
-              筛选
-            </button>
+            />
             {canEdit && (
-              <button
-                onClick={() => openDialogForType(activeType === 'all' ? 'feeding' : activeType)}
-                className="btn-primary text-[var(--text-xs)] px-3 py-1.5"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                添加
-              </button>
+              <AddRecordMenu onPick={(type) => openDialogForType(type)} />
             )}
           </div>
         }
       />
+
+      {/* FR-B：本周趋势（从首页迁入） */}
+      <div>
+        <div className="section-header">
+          <span className="section-header__title">本周趋势</span>
+        </div>
+        <InsightSection trend={weeklyTrend ?? null} isLoading={trendLoading} />
+      </div>
 
       {/* Date Filter */}
       {showDateFilter && (
@@ -292,10 +338,7 @@ export function RecordPage() {
 
       {/* Records List */}
       {isLoading ? (
-        <div className="flex items-center justify-center gap-2 py-12 text-[var(--text-hint)]">
-          <div className="spinner" />
-          <span className="body-md">加载中...</span>
-        </div>
+        <ListSkeleton count={5} />
       ) : records.length === 0 ? (
         <div className="empty-state">
           <ClipboardIcon className="h-12 w-12 empty-state__icon" />
@@ -307,11 +350,11 @@ export function RecordPage() {
           {groupedRecords.map((group) => (
             <div key={group.label} className="space-y-2">
               <div className="flex items-center gap-2 px-1">
-                <span className="caption font-semibold" style={{ letterSpacing: 'var(--tracking-wide)' }}>
+                <span className="caption font-semibold">
                   {group.label}
                 </span>
                 <span
-                  className="text-[10px] px-1.5 py-0.5 rounded-full"
+                  className="badge-mini"
                   style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-hint)' }}
                 >
                   {group.items.length}
@@ -321,39 +364,76 @@ export function RecordPage() {
               {group.items.map((record) => {
                 const config = recordTypeConfig[record.recordType]
                 const Icon = config.icon
+                const details = getRecordDetails(record)
+                const creatorLabel = record.creator?.nickname?.trim() || null
                 return (
                   <div
                     key={record.id}
-                    className="card-base flex items-center gap-3"
+                    className="card-base flex items-start gap-3"
                     style={{ borderLeft: `3px solid ${config.color}` }}
                   >
                     <div
-                      className="icon-circle icon-circle--sm"
+                      className="icon-circle icon-circle--sm shrink-0 mt-0.5"
                       style={{ backgroundColor: `color-mix(in srgb, ${config.color} 12%, transparent)` }}
                     >
                       <Icon className="h-4 w-4" style={{ color: config.color }} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-2">
                         <span className="body-md font-medium text-[var(--text-primary)]">
                           {config.label}
                         </span>
-                        <span className="caption number-display">
+                        <span className="caption number-display shrink-0">
                           {new Date(record.startTime).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </div>
+
+                      {/* 一行总览 */}
                       <p className="body-sm text-[var(--text-secondary)] mt-0.5 truncate">
                         {getRecordSummary(record)}
                       </p>
+
+                      {/* 详细字段（key:value 标签组） */}
+                      {details.length > 0 && (
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                          {details.map((d) => (
+                            <span
+                              key={d.key}
+                              className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px]"
+                              style={{
+                                backgroundColor: 'var(--bg-elevated)',
+                                color: 'var(--text-secondary)',
+                              }}
+                            >
+                              <span className="opacity-60">{d.key}</span>
+                              <span className="number-display font-medium text-[var(--text-primary)]">
+                                {d.value}
+                              </span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* 备注 */}
                       {record.note && (
-                        <p className="caption mt-0.5 truncate">{record.note}</p>
+                        <p className="caption mt-1 line-clamp-2" title={record.note}>
+                          📝 {record.note}
+                        </p>
+                      )}
+
+                      {/* 记录者昵称 */}
+                      {creatorLabel && (
+                        <div className="mt-1 flex items-center gap-1 caption" style={{ color: 'var(--text-hint)' }}>
+                          <UserCircle2 className="h-3 w-3" />
+                          <span className="truncate">由 {creatorLabel} 记录</span>
+                        </div>
                       )}
                     </div>
                     <div className="flex items-center gap-0.5 shrink-0">
                       {canEdit && (
                         <button
                           onClick={() => handleEdit(record)}
-                          className="p-1.5 rounded-lg text-[var(--text-hint)] hover:text-[var(--primary)] hover:bg-[color-mix(in_srgb,_var(--primary)_12%,_transparent)] transition-colors"
+                          className="icon-btn"
                           title="编辑"
                         >
                           <Pencil className="h-3.5 w-3.5" />
@@ -363,7 +443,7 @@ export function RecordPage() {
                         <button
                           onClick={() => deleteRecord(record.id)}
                           disabled={deletingId === record.id}
-                          className="p-1.5 rounded-lg text-[var(--text-hint)] hover:text-[var(--danger)] hover:bg-[color-mix(in_srgb,_var(--danger)_12%,_transparent)] transition-colors"
+                          className="icon-btn icon-btn--danger"
                           title="删除"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -376,9 +456,9 @@ export function RecordPage() {
             </div>
           ))}
           {/* Infinite scroll trigger */}
-          {hasMore && (
+          {hasNextPage ? (
             <div ref={observerRef} className="flex items-center justify-center py-4">
-              {isLoadingMore ? (
+              {isFetchingNextPage ? (
                 <div className="flex items-center gap-2 text-[var(--text-hint)]">
                   <div className="spinner spinner--sm" />
                   <span className="body-sm">加载更多...</span>
@@ -387,13 +467,17 @@ export function RecordPage() {
                 <span className="caption">下拉加载更多</span>
               )}
             </div>
+          ) : records.length > 0 && (
+            <div className="flex items-center justify-center py-4">
+              <span className="caption">— 没有更多了 —</span>
+            </div>
           )}
         </div>
       )}
 
       {/* Viewer notice */}
       {isViewer && (
-        <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl caption bg-[var(--bg-elevated)]">
+        <div className="notice-info">
           <Lock className="h-3.5 w-3.5 shrink-0" />
           您是查看者，无法添加或修改记录
         </div>
@@ -403,27 +487,32 @@ export function RecordPage() {
       <FeedingDialog
         open={feedingDialog.open}
         onClose={feedingDialog.closeDialog}
-        onSubmit={(data) => createRecord('feeding', { feedingData: data })}
+        editRecord={feedingDialog.payload}
+        onSubmit={(data, meta) => createRecord('feeding', { feedingData: data }, meta)}
       />
       <SleepDialog
         open={sleepDialog.open}
         onClose={sleepDialog.closeDialog}
-        onSubmit={(data) => createRecord('sleep', { sleepData: data })}
+        editRecord={sleepDialog.payload}
+        onSubmit={(data, meta) => createRecord('sleep', { sleepData: data }, meta)}
       />
       <DiaperDialog
         open={diaperDialog.open}
         onClose={diaperDialog.closeDialog}
-        onSubmit={(data) => createRecord('diaper', { diaperData: data })}
+        editRecord={diaperDialog.payload}
+        onSubmit={(data, meta) => createRecord('diaper', { diaperData: data }, meta)}
       />
       <TemperatureDialog
         open={temperatureDialog.open}
         onClose={temperatureDialog.closeDialog}
-        onSubmit={(data) => createRecord('temperature', { temperatureData: data })}
+        editRecord={temperatureDialog.payload}
+        onSubmit={(data, meta) => createRecord('temperature', { temperatureData: data }, meta)}
       />
       <GrowthDialog
         open={growthDialog.open}
         onClose={growthDialog.closeDialog}
-        onSubmit={(data) => createRecord('growth', { growthData: data })}
+        editRecord={growthDialog.payload}
+        onSubmit={(data, meta) => createRecord('growth', { growthData: data }, meta)}
       />
     </div>
   )

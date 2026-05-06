@@ -5,7 +5,7 @@
  */
 import { useState } from 'react'
 import { UserX, AlertTriangle } from 'lucide-react'
-import { Dialog } from '@/components/ui/dialog'
+import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { useFamilyStore } from '@/stores/family-store'
 import { toast } from '@/components/ui/toast'
 import { ApiError } from '@/lib/api-error'
@@ -62,13 +62,23 @@ export function RemoveMemberConfirm({ open, onClose, member }: RemoveMemberConfi
       title="移除家庭成员"
       icon={<UserX className="h-4 w-4" />}
       accentColor="var(--danger)"
+      footer={
+        <DialogFooter
+          onCancel={handleClose}
+          onConfirm={handleSubmit}
+          confirmText={submitting ? '移除中...' : '移除'}
+          loading={submitting}
+          disabled={!valid}
+          variant="danger"
+        />
+      }
     >
       <div
-        className="rounded-lg p-3 mb-4 flex items-start gap-2"
+        className="rounded-md p-3 mb-4 flex items-start gap-2"
         style={{ backgroundColor: 'color-mix(in srgb, var(--danger) 8%, transparent)' }}
       >
         <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" style={{ color: 'var(--danger)' }} />
-        <div className="text-xs space-y-1">
+        <div className="body-sm space-y-1">
           <p style={{ color: 'var(--danger)' }}>
             您正在移除 <span className="font-semibold">{member.user?.nickname ?? '成员'}</span>。
           </p>
@@ -90,23 +100,6 @@ export function RemoveMemberConfirm({ open, onClose, member }: RemoveMemberConfi
         disabled={submitting}
         autoComplete="off"
       />
-
-      <div className="mt-5 flex gap-2">
-        <button onClick={handleClose} className="btn-secondary flex-1" disabled={submitting}>
-          取消
-        </button>
-        <button
-          onClick={handleSubmit}
-          className="btn-primary flex-1"
-          disabled={!valid || submitting}
-          style={{
-            backgroundColor: valid ? 'var(--danger)' : 'var(--text-hint)',
-            cursor: valid ? 'pointer' : 'not-allowed',
-          }}
-        >
-          {submitting ? '移除中...' : '移除'}
-        </button>
-      </div>
     </Dialog>
   )
 }

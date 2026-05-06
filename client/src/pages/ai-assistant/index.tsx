@@ -1,13 +1,19 @@
-import { Link } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ChevronLeft, Bot, Send, Sparkles, Trash2 } from 'lucide-react'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useBabyStore } from '@/stores/baby-store'
 import { aiService } from '@/services/ai'
 import { QuotaBar } from '@/components/quota-bar'
 import { toast } from '@/components/ui/toast'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 import type { ChatMessage, AIQuotaStatus } from '@/types'
 
 const STORAGE_KEY = 'baby_care_chat_history'
+
+/** 视图层消息：带前端本地时间戳，后端只消费 role/content */
+interface ChatMessageVM extends ChatMessage {
+  ts?: number
+}
 
 const SUGGESTED_QUESTIONS = [
   '宝宝几个月开始添加辅食？',
@@ -18,7 +24,7 @@ const SUGGESTED_QUESTIONS = [
   '宝宝不吃奶怎么办？',
 ]
 
-function loadHistory(): ChatMessage[] {
+function loadHistory(): ChatMessageVM[] {
   try {
     const data = localStorage.getItem(STORAGE_KEY)
     return data ? JSON.parse(data) : []
@@ -27,11 +33,25 @@ function loadHistory(): ChatMessage[] {
   }
 }
 
-function saveHistory(messages: ChatMessage[]) {
+function saveHistory(messages: ChatMessageVM[]) {
   try {
-    const toSave = messages.slice(-100)
+    const toSave = messages.slice(-50)
     localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave))
   } catch {}
+}
+
+function formatBubbleTime(ts?: number): string | null {
+  if (!ts) return null
+  const d = new Date(ts)
+  if (Number.isNaN(d.getTime())) return null
+  const now = new Date()
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  if (sameDay) return `${pad(d.getHours())}:${pad(d.getMinutes())}`
+  return `${d.getMonth() + 1}月${d.getDate()}日 ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
 /** AI assistant avatar circle (left side of AI bubbles) */
@@ -57,13 +77,35 @@ function TypingDots() {
   )
 }
 
+/** 统一气泡样式（圆角 18px，轻微方向尖角 4px） */
+function bubbleStyle(role: 'user' | 'assistant'): React.CSSProperties {
+  const isUser = role === 'user'
+  return {
+    backgroundColor: isUser
+      ? 'color-mix(in srgb, var(--primary) 18%, var(--bg-card))'
+      : 'color-mix(in srgb, var(--primary) 6%, var(--bg-card))',
+    color: 'var(--text-primary)',
+    border: isUser
+      ? '1px solid color-mix(in srgb, var(--primary) 25%, transparent)'
+      : '1px solid var(--border-light)',
+    borderRadius: isUser
+      ? '18px 18px 4px 18px'
+      : '18px 18px 18px 4px',
+    fontSize: 'var(--text-sm)',
+    lineHeight: 1.6,
+  }
+}
+
 export function AiAssistantPage() {
   const currentBaby = useBabyStore((s) => s.currentBaby)
-  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+  const confirm = useConfirm()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const [messages, setMessages] = useState<ChatMessageVM[]>(() => {
     const history = loadHistory()
     return history.length > 0
       ? history
-      : [{ role: 'assistant', content: '你好！我是宝宝护理助手，有什么可以帮你的吗？' }]
+      : [{ role: 'assistant', content: '你好！我是宝宝护理助手，有什么可以帮你的吗？', ts: Date.now() }]
   })
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -72,6 +114,8 @@ export function AiAssistantPage() {
   const [showSuggestions, setShowSuggestions] = useState(true)
   const scrollRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  /** 防止 React StrictMode 双调用 / 路由 state 残留导致 autoPrompt 被重复发送 */
+  const autoPromptHandledRef = useRef(false)
 
   useEffect(() => {
     saveHistory(messages)
@@ -102,13 +146,14 @@ export function AiAssistantPage() {
       return
     }
 
-    const userMessage: ChatMessage = { role: 'user', content }
+    const userMessage: ChatMessageVM = { role: 'user', content, ts: Date.now() }
     setMessages((prev) => [...prev, userMessage])
     setInput('')
     setIsLoading(true)
     setShowSuggestions(false)
     setStreamingContent('')
 
+    // 发送给后端时只保留 role/content（剥离前端字段）
     const chatMessages: ChatMessage[] = [...messages, userMessage].map((m) => ({
       role: m.role,
       content: m.content,
@@ -133,7 +178,10 @@ export function AiAssistantPage() {
       })
 
       if (fullContent) {
-        setMessages((prev) => [...prev, { role: 'assistant', content: fullContent }])
+        setMessages((prev) => [
+          ...prev,
+          { role: 'assistant', content: fullContent, ts: Date.now() },
+        ])
       }
       setStreamingContent('')
 
@@ -145,12 +193,12 @@ export function AiAssistantPage() {
         const res = await aiService.chat(chatMessages, currentBaby?.id)
         setMessages((prev) => [
           ...prev,
-          { role: 'assistant', content: res.content || 'AI 服务暂未可用' },
+          { role: 'assistant', content: res.content || 'AI 服务暂未可用', ts: Date.now() },
         ])
       } catch {
         setMessages((prev) => [
           ...prev,
-          { role: 'assistant', content: '抱歉，请求失败了，请稍后重试。' },
+          { role: 'assistant', content: '抱歉，请求失败了，请稍后重试。', ts: Date.now() },
         ])
         const e = err as { message?: string }
         if (e.message) toast.error(e.message)
@@ -161,87 +209,106 @@ export function AiAssistantPage() {
     }
   }, [input, isLoading, messages, currentBaby, quota])
 
-  const handleClearHistory = () => {
-    if (!confirm('确定清除聊天记录吗？')) return
-    setMessages([{ role: 'assistant', content: '你好！我是宝宝护理助手，有什么可以帮你的吗？' }])
+  const handleClearHistory = async () => {
+    const ok = await confirm({
+      title: '清除聊天记录？',
+      description: '所有历史对话将被清空，此操作不可撤销。',
+      confirmText: '清除',
+      variant: 'danger',
+    })
+    if (!ok) return
+    setMessages([{ role: 'assistant', content: '你好！我是宝宝护理助手，有什么可以帮你的吗？', ts: Date.now() }])
     localStorage.removeItem(STORAGE_KEY)
     setShowSuggestions(true)
   }
 
+  /**
+   * 监听路由 state.autoPrompt：发现页等其他页面可通过 navigate('/ai-assistant', { state: { autoPrompt } })
+   * 把预填问题带进来；这里自动发送一次，并清掉 state，避免刷新重复触发。
+   */
+  useEffect(() => {
+    const auto = (location.state as { autoPrompt?: string } | null)?.autoPrompt
+    if (!auto || autoPromptHandledRef.current) return
+    autoPromptHandledRef.current = true
+    // 立即清除 history state，避免刷新或后退后再次触发
+    navigate(location.pathname, { replace: true, state: null })
+    // 异步触发 send，确保组件首屏渲染完成
+    setTimeout(() => {
+      handleSend(auto)
+    }, 0)
+  }, [location.state, location.pathname, navigate, handleSend])
+
   return (
     <div className="flex flex-col h-[calc(100vh-3.5rem)] md:h-screen">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-light)] bg-[var(--bg-secondary)]">
-        <div className="flex items-center gap-3">
-          <Link to="/" className="text-[var(--text-hint)] hover:text-[var(--text-primary)] transition-colors">
+      {/* Header（全屏对话页专用 sticky 顶栏，配额徽章嵌入右侧） */}
+      <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-[var(--border-light)] bg-[var(--bg-secondary)]">
+        <div className="flex items-center gap-3 min-w-0">
+          <Link
+            to="/discover"
+            aria-label="返回"
+            className="text-[var(--text-hint)] hover:text-[var(--text-primary)] transition-colors"
+          >
             <ChevronLeft className="h-5 w-5" />
           </Link>
           <div
-            className="icon-circle icon-circle--sm"
+            className="icon-circle icon-circle--sm shrink-0"
             style={{ backgroundColor: 'color-mix(in srgb, var(--sleep) 15%, transparent)' }}
           >
             <Bot className="h-4 w-4" style={{ color: 'var(--sleep)' }} />
           </div>
-          <div>
-            <h1 className="heading-sm text-[var(--text-primary)]">AI 护理助手</h1>
-          </div>
+          <h1 className="heading-sm text-[var(--text-primary)] truncate">AI 护理助手</h1>
         </div>
-        <button
-          onClick={handleClearHistory}
-          className="p-2 rounded-lg text-[var(--text-hint)] hover:text-[var(--danger)] hover:bg-[color-mix(in_srgb,_var(--danger)_12%,_transparent)] transition-colors"
-          title="清除聊天记录"
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
-      </div>
-
-      {/* FR-F3：配额条 */}
-      <div className="px-4 py-2 bg-[var(--bg-secondary)]">
-        <QuotaBar quota={quota} />
+        <div className="flex items-center gap-2 shrink-0">
+          <QuotaBar quota={quota} variant="badge" />
+          <button
+            onClick={handleClearHistory}
+            aria-label="清除聊天记录"
+            title="清除聊天记录"
+            className="icon-btn icon-btn--danger"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3 bg-[var(--bg-primary)]">
-        {messages.map((msg, i) => (
-          <div
-            key={i}
-            className={`flex gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}
-          >
-            {msg.role === 'assistant' && <AssistantAvatar />}
+        {messages.map((msg, i) => {
+          const isUser = msg.role === 'user'
+          const timeLabel = formatBubbleTime(msg.ts)
+          return (
             <div
-              className="max-w-[80%] px-4 py-2.5 leading-relaxed whitespace-pre-wrap"
-              style={{
-                backgroundColor: msg.role === 'user'
-                  ? 'color-mix(in srgb, var(--primary) 18%, var(--bg-card))'
-                  : 'var(--bg-secondary)',
-                color: 'var(--text-primary)',
-                border: msg.role === 'user'
-                  ? '1px solid color-mix(in srgb, var(--primary) 25%, transparent)'
-                  : '1px solid var(--border-light)',
-                borderRadius: msg.role === 'user'
-                  ? 'var(--radius-lg) var(--radius-sm) var(--radius-sm) var(--radius-lg)'
-                  : 'var(--radius-sm) var(--radius-lg) var(--radius-lg) var(--radius-lg)',
-                fontSize: 'var(--text-sm)',
-              }}
+              key={i}
+              className={`flex gap-2 ${isUser ? 'justify-end' : 'justify-start'} animate-fade-in`}
             >
-              {msg.content}
+              {!isUser && <AssistantAvatar />}
+              <div className="max-w-[80%] flex flex-col gap-1">
+                <div
+                  className="px-4 py-2.5 whitespace-pre-wrap break-words"
+                  style={bubbleStyle(isUser ? 'user' : 'assistant')}
+                >
+                  {msg.content}
+                </div>
+                {timeLabel && (
+                  <span
+                    className={`caption px-1 number-display ${isUser ? 'text-right' : 'text-left'}`}
+                    style={{ color: 'var(--text-hint)' }}
+                  >
+                    {timeLabel}
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
 
         {/* Streaming content */}
         {streamingContent && (
           <div className="flex gap-2 justify-start animate-fade-in">
             <AssistantAvatar />
             <div
-              className="max-w-[80%] px-4 py-2.5 leading-relaxed whitespace-pre-wrap"
-              style={{
-                backgroundColor: 'var(--bg-secondary)',
-                color: 'var(--text-primary)',
-                border: '1px solid var(--border-light)',
-                borderRadius: 'var(--radius-sm) var(--radius-lg) var(--radius-lg) var(--radius-lg)',
-                fontSize: 'var(--text-sm)',
-              }}
+              className="max-w-[80%] px-4 py-2.5 whitespace-pre-wrap break-words"
+              style={bubbleStyle('assistant')}
             >
               {streamingContent}
               <span className="inline-block w-1.5 h-4 ml-0.5 rounded-sm bg-[var(--primary)] animate-pulse" />
@@ -253,14 +320,7 @@ export function AiAssistantPage() {
         {isLoading && !streamingContent && (
           <div className="flex gap-2 justify-start animate-fade-in">
             <AssistantAvatar />
-            <div
-              className="px-4 py-2"
-              style={{
-                backgroundColor: 'var(--bg-secondary)',
-                border: '1px solid var(--border-light)',
-                borderRadius: 'var(--radius-sm) var(--radius-lg) var(--radius-lg) var(--radius-lg)',
-              }}
-            >
+            <div className="px-4 py-2" style={bubbleStyle('assistant')}>
               <TypingDots />
             </div>
           </div>
@@ -311,6 +371,7 @@ export function AiAssistantPage() {
             disabled={isLoading || !input.trim()}
             className="btn-primary px-3 shrink-0"
             style={{ height: '40px' }}
+            aria-label="发送"
           >
             <Send className="h-4 w-4" />
           </button>

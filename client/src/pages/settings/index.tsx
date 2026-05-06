@@ -1,11 +1,13 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { ChevronLeft, User, Lock, Save, Download, FileJson, FileSpreadsheet, Palette } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
+import { User, Lock, Save, Download, FileJson, FileSpreadsheet, Palette } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth-store'
 import { useBabyStore } from '@/stores/baby-store'
 import { authService } from '@/services/auth'
 import { exportService } from '@/services/baby-extra'
 import { ThemeSelector } from '@/components/theme-selector'
+import { PageHeader } from '@/components/page-header'
+import { toast } from '@/components/ui/toast'
 
 type TabKey = 'profile' | 'password' | 'appearance' | 'export'
 
@@ -24,21 +26,24 @@ export function SettingsPage() {
   const [oldPassword, setOldPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [activeTab, setActiveTab] = useState<TabKey>('profile')
+  const [searchParams] = useSearchParams()
+  const initialTab: TabKey = (() => {
+    const t = searchParams.get('tab') as TabKey | null
+    return t && ['profile', 'password', 'appearance', 'export'].includes(t) ? t : 'profile'
+  })()
+  const [activeTab, setActiveTab] = useState<TabKey>(initialTab)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!nickname.trim()) return
     setIsSubmitting(true)
-    setMessage(null)
     try {
       await authService.updateProfile({ nickname: nickname.trim() })
       await loadUser()
-      setMessage({ type: 'success', text: '资料更新成功' })
+      toast.success('资料更新成功')
     } catch {
-      setMessage({ type: 'error', text: '更新失败，请稍后再试' })
+      toast.error('更新失败，请稍后再试')
     } finally {
       setIsSubmitting(false)
     }
@@ -46,24 +51,23 @@ export function SettingsPage() {
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault()
-    setMessage(null)
     if (newPassword.length < 8) {
-      setMessage({ type: 'error', text: '新密码至少8位' })
+      toast.error('新密码至少 8 位')
       return
     }
     if (newPassword !== confirmPassword) {
-      setMessage({ type: 'error', text: '两次输入的密码不一致' })
+      toast.error('两次输入的密码不一致')
       return
     }
     setIsSubmitting(true)
     try {
       await authService.changePassword({ oldPassword, newPassword })
-      setMessage({ type: 'success', text: '密码修改成功' })
+      toast.success('密码修改成功')
       setOldPassword('')
       setNewPassword('')
       setConfirmPassword('')
     } catch {
-      setMessage({ type: 'error', text: '密码修改失败，请检查旧密码是否正确' })
+      toast.error('密码修改失败，请检查旧密码是否正确')
     } finally {
       setIsSubmitting(false)
     }
@@ -72,7 +76,7 @@ export function SettingsPage() {
   const handleExport = async (format: 'json' | 'csv') => {
     const currentBaby = useBabyStore.getState().currentBaby
     if (!currentBaby) {
-      setMessage({ type: 'error', text: '请先选择宝宝' })
+      toast.error('请先选择宝宝')
       return
     }
     try {
@@ -83,20 +87,15 @@ export function SettingsPage() {
       a.download = `baby_care_${currentBaby.name}.${format}`
       a.click()
       URL.revokeObjectURL(url)
-      setMessage({ type: 'success', text: `${format.toUpperCase()} 导出成功` })
+      toast.success(`${format.toUpperCase()} 导出成功`)
     } catch (err) {
-      setMessage({ type: 'error', text: err instanceof Error ? err.message : '导出失败' })
+      toast.error(err instanceof Error ? err.message : '导出失败')
     }
   }
 
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-4 animate-fade-in-up">
-      <div className="flex items-center gap-3">
-        <Link to="/profile" className="text-[var(--text-hint)] hover:text-[var(--text-primary)] transition-colors">
-          <ChevronLeft className="h-5 w-5" />
-        </Link>
-        <h1 className="heading-lg" style={{ color: 'var(--text-primary)' }}>设置</h1>
-      </div>
+      <PageHeader title="设置" backTo="/profile" />
 
       {/* Tab Switcher (using tab-button shared class) */}
       <div className="flex gap-2">
@@ -115,21 +114,6 @@ export function SettingsPage() {
           )
         })}
       </div>
-
-      {/* Message */}
-      {message && (
-        <div
-          className="px-3 py-2 rounded-lg body-sm animate-fade-in"
-          style={{
-            backgroundColor: message.type === 'success'
-              ? 'color-mix(in srgb, var(--success) 10%, transparent)'
-              : 'color-mix(in srgb, var(--danger) 10%, transparent)',
-            color: message.type === 'success' ? 'var(--success)' : 'var(--danger)',
-          }}
-        >
-          {message.text}
-        </div>
-      )}
 
       {/* Profile Form */}
       {activeTab === 'profile' && (

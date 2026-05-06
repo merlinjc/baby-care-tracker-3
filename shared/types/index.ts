@@ -35,6 +35,8 @@ export interface FamilyMember {
   userId: string;
   role: FamilyRole;
   relation: string | null;
+  /** 用户在该家庭中的展示昵称（创建/加入家庭时入参 nickname 会落库到此字段） */
+  displayName: string | null;
   joinedAt: string;
   user?: Pick<User, 'id' | 'nickname' | 'avatar'>;
 }
@@ -297,7 +299,10 @@ export interface WeeklyTrendData {
   sleep: WeeklyTrendDimension;
   diaper: WeeklyTrendDimension;
   temperature: WeeklyTrendDimension;
+  /** 本周窗口（本周一 00:00 → 今天 23:59:59，受 baby.birthDate 限制） */
   period: { start: string; end: string };
+  /** 上周完整窗口（上周一 00:00 → 上周日 23:59:59）；当 birthDate 落在本周或之后时为 null */
+  lastWeekPeriod: { start: string; end: string } | null;
   ageMonths: number;
 }
 

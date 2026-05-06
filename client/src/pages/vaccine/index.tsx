@@ -1,9 +1,12 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Link } from 'react-router-dom'
-import { ChevronLeft, Syringe, Plus, X, Check, Clock, AlertTriangle, Trash2, ListChecks } from 'lucide-react'
+import { Syringe, Plus, X, Check, Clock, AlertTriangle, Trash2, ListChecks } from 'lucide-react'
 import { useBabyStore } from '@/stores/baby-store'
 import { vaccineService } from '@/services/baby-extra'
 import { getVaccinePlans } from '@/lib/vaccine-plans'
+import { useConfirm } from '@/components/ui/confirm-dialog'
+import { PageHeader } from '@/components/page-header'
+import { HeaderAction } from '@/components/header-action'
+import { ListSkeleton } from '@/components/ui/list-skeleton'
 import type { VaccineRecord, Baby } from '@/types'
 
 type StatusFilter = 'all' | 'completed' | 'upcoming' | 'overdue'
@@ -16,6 +19,7 @@ function getAgeMonths(baby: Baby): number {
 
 export function VaccinePage() {
   const currentBaby = useBabyStore((s) => s.currentBaby)
+  const confirm = useConfirm()
   const [vaccines, setVaccines] = useState<VaccineRecord[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [showAdd, setShowAdd] = useState(false)
@@ -116,7 +120,13 @@ export function VaccinePage() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('确定删除这条疫苗记录吗？')) return
+    const ok = await confirm({
+      title: '删除这条疫苗记录？',
+      description: '删除后不可恢复。',
+      confirmText: '删除',
+      variant: 'danger',
+    })
+    if (!ok) return
     setDeletingId(id)
     try {
       const api = (await import('@/services/api')).default
@@ -156,32 +166,28 @@ export function VaccinePage() {
 
   return (
     <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-4 animate-fade-in-up">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link to="/" className="text-[var(--text-hint)] hover:text-[var(--text-primary)] transition-colors">
-            <ChevronLeft className="h-5 w-5" />
-          </Link>
-          <h1 className="heading-lg text-[var(--text-primary)]">疫苗计划</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowRecommend(true)}
-            className="chip chip--inactive"
-          >
-            <ListChecks className="h-3.5 w-3.5" />
-            标准计划
-          </button>
-          {!showAdd && (
-            <button
-              onClick={() => setShowAdd(true)}
-              className="btn-primary text-[var(--text-xs)] px-3 py-1.5"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              添加
-            </button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="疫苗计划"
+        backTo="/discover"
+        action={
+          <div className="flex items-center gap-2">
+            <HeaderAction
+              variant="ghost"
+              icon={<ListChecks className="h-3.5 w-3.5" />}
+              label="标准计划"
+              onClick={() => setShowRecommend(true)}
+            />
+            {!showAdd && (
+              <HeaderAction
+                variant="primary"
+                icon={<Plus className="h-3.5 w-3.5" />}
+                label="添加"
+                onClick={() => setShowAdd(true)}
+              />
+            )}
+          </div>
+        }
+      />
 
       {/* Status Filter Tabs with count badge */}
       <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
@@ -194,12 +200,10 @@ export function VaccinePage() {
           >
             {tab.label}
             <span
-              className="ml-1 px-1.5 rounded-full number-display"
+              className="ml-1 px-1.5 rounded-full number-display text-[10px] leading-4"
               style={{
                 backgroundColor: statusFilter === tab.key ? 'rgba(255,255,255,0.25)' : `color-mix(in srgb, ${tab.color} 12%, transparent)`,
                 color: statusFilter === tab.key ? 'white' : tab.color,
-                fontSize: '10px',
-                lineHeight: '16px',
               }}
             >
               {tab.count}
@@ -245,10 +249,7 @@ export function VaccinePage() {
 
       {/* Vaccine List */}
       {isLoading ? (
-        <div className="flex items-center justify-center gap-2 py-12 text-[var(--text-hint)]">
-          <div className="spinner" />
-          <span className="body-md">加载中...</span>
-        </div>
+        <ListSkeleton count={5} />
       ) : displayItems.length === 0 ? (
         <div className="empty-state">
           <Syringe className="h-12 w-12 empty-state__icon" />
@@ -277,7 +278,7 @@ export function VaccinePage() {
                   <button
                     onClick={() => handleDelete(v.id)}
                     disabled={deletingId === v.id}
-                    className="p-1.5 rounded-lg text-[var(--text-hint)] hover:text-[var(--danger)] hover:bg-[color-mix(in_srgb,_var(--danger)_12%,_transparent)] transition-colors shrink-0"
+                    className="icon-btn icon-btn--danger"
                     title="删除"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -306,7 +307,7 @@ export function VaccinePage() {
                       <span className="caption">{p.dose}</span>
                       {!p.isFree && (
                         <span
-                          className="text-[10px] px-1.5 py-0.5 rounded-full"
+                          className="badge-mini"
                           style={{
                             backgroundColor: 'color-mix(in srgb, var(--warning) 12%, transparent)',
                             color: 'var(--warning)',
@@ -406,7 +407,7 @@ export function VaccinePage() {
                         <span className="caption">{plan.dose}</span>
                         {!plan.isFree && (
                           <span
-                            className="text-[10px] px-1.5 py-0.5 rounded-full"
+                            className="badge-mini"
                             style={{
                               backgroundColor: 'color-mix(in srgb, var(--warning) 12%, transparent)',
                               color: 'var(--warning)',
