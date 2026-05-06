@@ -104,8 +104,11 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD curl -fsS http://127.0.0.1:3000/api/health || exit 1
 
 WORKDIR /app/server
-# 启动前自动应用 Prisma migrations，再起 Node
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server/src/app.js"]
+# 启动前同步 Prisma schema 到数据库，再起 Node
+# 说明：本项目当前未使用 migrations（与 docs/devops-workflow.md §6.2 约定一致：pnpm db:push）
+#   - 若 prisma/migrations 目录存在 → 优先 migrate deploy（向 MySQL 切换后启用）
+#   - 否则 fallback 到 db push（SQLite 阶段使用，幂等：表已存在不会丢数据）
+CMD ["sh", "-c", "if [ -d prisma/migrations ]; then npx prisma migrate deploy; else npx prisma db push --skip-generate --accept-data-loss; fi && node dist/server/src/app.js"]
 
 
 # ---------- Stage 5: 仅前端静态产物（一次性容器，启动时把 dist 拷入共享 volume） ----------

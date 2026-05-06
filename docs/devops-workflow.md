@@ -1,6 +1,6 @@
 # Baby Care Tracker Web · 开发与发布工作流
 
-> **版本**：v1.1  ·  **最后更新**：2026-05-06
+> **版本**：v1.2  ·  **最后更新**：2026-05-06
 > **适用范围**：`baby-care-tracker-web` 全栈（client + server）
 > **目标读者**：负责本仓库开发、Code Review、发布的工程师
 
@@ -40,8 +40,9 @@
 ┌────────────────────────────────────────────────────────────────────────────┐
 │              Lighthouse 服务器  152.136.125.185  (OpenCloudOS 9.4)          │
 │                                                                            │
-│   :80  ──► nginx (容器)  ──► /api/* ──► server (容器, :3000)               │
-│                          └─► /* ─────► client_dist (volume, 静态文件)      │
+│   :80  ──► 301 ──► https://www.neo3.cn （default_server / 全量跳转）      │
+│   :443 ──► nginx (容器, TLS)  ──► /api/* ──► server (容器, :3000)          │
+│                                └─► /* ─────► client_dist (volume, 静态)   │
 │                                                                            │
 │   持久化卷：server_data (SQLite) · server_uploads · client_dist            │
 │   Cron 02:00：每日打包 SQLite → /opt/baby-care/backups/  (保留 14 天)      │
@@ -124,7 +125,7 @@ baby-care-tracker-web/
 | 用户 | `root`（部署用），`lighthouse` / `www`（其他） |
 | Docker | 28.0.1 |
 | Docker Compose | 2.32.1 |
-| 默认监听 | 22 (SSH), 8888 (宝塔), 80 (Nginx 容器) |
+| 默认监听 | 22 (SSH), 8888 (宝塔), 80/443 (Nginx 容器) |
 | 部署目录 | `/opt/baby-care` |
 
 ### 4.3 必需的环境变量（`docker/.env`）
@@ -405,7 +406,7 @@ pnpm remote ssh               # 直接 SSH
 
 | 数据 | 容器内路径 | Volume 名 | 说明 |
 |---|---|---|---|
-| SQLite | `/app/data/prod.db` | `baby-care_server_data` | 启动自动 `prisma migrate deploy` |
+| SQLite | `/app/data/prod.db` | `baby-care_server_data` | 启动时自动同步 schema：有 `prisma/migrations/` 走 `migrate deploy`，无则走 `prisma db push`（当前 SQLite 阶段使用，幂等）|
 | 上传文件 | `/app/uploads` | `baby-care_server_uploads` | 头像等 |
 | 前端静态 | `/usr/share/nginx/html` | `baby-care_client_dist` | 每次部署被覆盖 |
 
@@ -444,23 +445,66 @@ docker compose -f docker/docker-compose.yml start server
 
 ---
 
-## 12. HTTPS 升级路径
+## 12. 域名与 HTTPS
 
-当域名就绪：
+**生产域名**：`www.neo3.cn`（裸域 `neo3.cn` 301 → www）
+**当前证书**：TrustAsia DV TLS RSA（腾讯云免费 SSL），覆盖 `neo3.cn` + `www.neo3.cn`，90 天有效期，需定期续签。
 
-1. 在腾讯云控制台申请 SSL 证书（免费）；
-2. 下载 nginx 格式证书，放到 `/opt/baby-care/docker/ssl/{fullchain.pem,privkey.pem}`；
-3. 修改 `docker/nginx.conf`：取消 HTTPS 段注释，配置 `ssl_certificate` 指向 `/etc/nginx/ssl/`；
-4. `docker-compose.yml`：放开 `443:443` 端口和 `./ssl:/etc/nginx/ssl:ro` 卷；
-5. `pnpm remote restart nginx`。
+### 12.1 接入流程回顾（已完成）
 
-或用 certbot：
+1. **DNS（DNSPod）**：`www` A → `152.136.125.185`、`@`（裸域）A → `152.136.125.185`；
+2. **云防火墙**：Lighthouse 控制台放通 TCP/443；
+3. **证书上传**：
+   ```bash
+   scp -i BJ_Baby_Care_Tracker.pem \
+     neo3.cn_nginx/neo3.cn_bundle.crt root@152.136.125.185:/opt/baby-care/docker/ssl/fullchain.pem
+   scp -i BJ_Baby_Care_Tracker.pem \
+     neo3.cn_nginx/neo3.cn.key        root@152.136.125.185:/opt/baby-care/docker/ssl/privkey.pem
+   ssh ... "chmod 600 /opt/baby-care/docker/ssl/privkey.pem"
+   ```
+4. **nginx.conf**：
+   - `server_name www.neo3.cn`（主站）、`neo3.cn`（301）、`default_server _`（80 全量 301）
+   - TLS 1.2/1.3 + 现代 cipher suites + HTTP/2
+   - HSTS 1 年 / CSP / X-Frame-Options / Referrer-Policy / X-Content-Type-Options
+5. **docker-compose.yml**：暴露 `443:443` 端口、挂载 `./ssl:/etc/nginx/ssl:ro`
+6. **CORS_ORIGIN**（GitHub Secret + server `.env`）：
+   ```
+   CORS_ORIGIN=https://www.neo3.cn,https://neo3.cn,http://152.136.125.185
+   ```
+   （后端 `server/src/middleware/cors.ts` 按逗号分隔解析）
+7. **重启**：`docker compose --env-file .env up -d --force-recreate --no-deps nginx server`
+
+### 12.2 301 与安全策略
+
+| 来源 | 目的 | 说明 |
+|---|---|---|
+| `http://www.neo3.cn/*` | `https://www.neo3.cn/*` | 80 全量 301 |
+| `http://neo3.cn/*`     | `https://www.neo3.cn/*` | 80 + 裸域 |
+| `https://neo3.cn/*`    | `https://www.neo3.cn/*` | 443 裸域 server 块 |
+| `http://152.136.125.185/*` | `https://www.neo3.cn/*` | IP 直访也跳域名（default_server） |
+
+### 12.3 nginx `add_header` 继承坑
+
+nginx 规则：**一个 `location` 块里一旦出现 `add_header`，会完全覆盖 `server` 级继承的 `add_header`**。本项目把 SPA fallback 的 `location /` 加了 `Cache-Control`，所以必须在该 location 里重复声明 HSTS / CSP / X-Frame-Options 等安全头，否则前端会完全失去这些保护。`/assets/` 同理。
+
+### 12.4 证书续签（每 90 天）
+
+TrustAsia 免费证书到期前：
+
+1. 腾讯云控制台重新申请（同域名）
+2. 重复 12.1 第 3 步：scp 新证书到服务器覆盖
+3. `docker exec baby-care-nginx nginx -s reload`（无需重启容器）
+
+### 12.5 备选：certbot 自动签发 Let's Encrypt
+
+若要摆脱 90 天手动操作，可切换 certbot：
 
 ```bash
 pnpm remote ssh
 docker run --rm -v /opt/baby-care/ssl:/etc/letsencrypt \
-  -p 80:80 certbot/certbot certonly --standalone -d your-domain.com
+  -p 80:80 certbot/certbot certonly --standalone -d www.neo3.cn -d neo3.cn
 ```
+然后在 `docker-compose.yml` 增加 crontab 或 renew sidecar。
 
 ---
 
@@ -507,6 +551,19 @@ TCR 个人版默认创建为 **私有仓库**，匿名 pull 会失败。
 
 **Q9：TCR 个人版仓库满了怎么办？**
 A：TCR 个人版按命名空间限 100 个 tag。在 [TCR 控制台](https://console.cloud.tencent.com/tcr/repository) → 个人版 → 触发垃圾回收，或考虑升级企业版。也可在 deploy.yml 增加 cleanup 步骤，调用 `tcr-toolkit` 删除 N 天前的 tag。
+
+**Q10：注册/登录接口 500，日志报 `The table 'main.User' does not exist`？**
+A：生产数据库 schema 没建表。本项目当前 **未维护 prisma migrations**（与 `pnpm db:push` 约定一致）。容器启动会按以下逻辑同步 schema：
+- 若 `server/prisma/migrations/` 存在 → 走 `prisma migrate deploy`；
+- 否则 → 走 `prisma db push --skip-generate --accept-data-loss`（幂等，不丢已有数据）。
+
+如果你**首次部署后立刻翻车**，多半是用了老镜像（CMD 仍是 `migrate deploy`，但仓库里没 migrations 目录）。应急修复：
+```bash
+ssh -i BJ_Baby_Care_Tracker.pem root@152.136.125.185
+docker exec -w /app/server baby-care-server npx prisma db push --skip-generate --accept-data-loss
+docker exec baby-care-server sh -c 'apk add --no-cache sqlite >/dev/null 2>&1; sqlite3 /app/data/prod.db ".tables"'
+```
+之后重新构建并发布镜像（新 Dockerfile 已带 fallback），即可彻底闭环。
 
 ---
 
