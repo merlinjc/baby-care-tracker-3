@@ -1,6 +1,6 @@
 # Baby Care Tracker Web · 开发与发布工作流
 
-> **版本**：v1.0  ·  **最后更新**：2026-05-06
+> **版本**：v1.1  ·  **最后更新**：2026-05-06
 > **适用范围**：`baby-care-tracker-web` 全栈（client + server）
 > **目标读者**：负责本仓库开发、Code Review、发布的工程师
 
@@ -32,8 +32,8 @@
 │                                                                            │
 │   merge to main ──► Deploy workflow                                        │
 │            ├─ docker build (runtime + client-dist)                         │
-│            ├─ docker save → scp → ssh                                      │
-│            └─ docker compose up -d on Lighthouse                           │
+│            ├─ push to TCR (ccr.ccs.tencentyun.com/merlinjc/...)            │
+│            └─ ssh server: docker compose pull + up -d                      │
 └────────────────────────────────┬───────────────────────────────────────────┘
                                  │
                                  ▼
@@ -131,6 +131,7 @@ baby-care-tracker-web/
 
 | 变量 | 是否必填 | 示例 |
 |---|---|---|
+| `IMAGE_REGISTRY` | 自动 | `ccr.ccs.tencentyun.com/merlinjc/baby-care-tracker-3`（CD 自动渲染；本机 `deploy.sh` 用 `baby-care-tracker-web`） |
 | `IMAGE_TAG` | 自动 | `c0a1b2c`（commit short sha） |
 | `DATABASE_URL` | 是 | `file:/app/data/prod.db`（SQLite）|
 | `JWT_SECRET` | 是 | `openssl rand -base64 48` |
@@ -176,6 +177,8 @@ pnpm server:bootstrap
 #    DEPLOY_USER           = root
 #    DEPLOY_PATH           = /opt/baby-care
 #    DEPLOY_SSH_KEY        = <BJ_Baby_Care_Tracker.pem 全文>
+#    TCR_USERNAME          = <腾讯云主账号 ID，纯数字，TCR 控制台可查>
+#    TCR_PASSWORD          = <TCR 个人版 registry 密码（非腾讯云登录密码）>
 #    DATABASE_URL          = file:/app/data/prod.db
 #    JWT_SECRET            = <openssl rand -base64 48>
 #    JWT_REFRESH_SECRET    = <openssl rand -base64 48>
@@ -321,16 +324,21 @@ CI workflow（`.github/workflows/ci.yml`）应在 Phase 6 后追加：
 
 ### 7.2 CD（`.github/workflows/deploy.yml`）
 
+> **v1.1 起改为 registry 模式**：CI 把镜像 push 到腾讯云 TCR 个人版（`ccr.ccs.tencentyun.com/merlinjc/baby-care-tracker-3`），服务器从同生态 TCR 拉取，单次部署从 10+ 分钟缩到 2~3 分钟。
+
 | Step | 说明 |
 |---|---|
 | 构建两个镜像 | `runtime`（server）+ `client-dist`（前端静态） |
-| `docker save` → tar | 打包 |
-| `scp` 上传到服务器 | 路径 `/opt/baby-care/baby-care.tar` |
-| 渲染服务器 `.env` | 用 GitHub Secrets 注入 |
-| `docker load` + `compose up -d` | 滚动更新 |
-| 健康检查 | `curl http://host/api/health`，30 次重试 |
+| `docker login` TCR | 用 GitHub Secrets `TCR_USERNAME` / `TCR_PASSWORD` 登录 |
+| `docker push` | 推送 `:<sha>` 与 `:latest`（client 版多带 `-client` 后缀） |
+| `scp` 配置文件 | 仅传 `docker-compose.yml` / `nginx.conf`（小文件） |
+| 渲染服务器 `.env` | 用 GitHub Secrets 注入；`IMAGE_REGISTRY=ccr.ccs.tencentyun.com/merlinjc/baby-care-tracker-3` |
+| `docker compose pull + up -d` | 服务器从 TCR 拉取 + 滚动更新（同生态拉取秒级完成） |
+| 健康检查 | `curl http://host/api/health`，最多 60 次（每 3s） |
 
-**回滚**：在服务器 `/opt/baby-care/docker/` 修改 `.env` 的 `IMAGE_TAG` 改回上一版本，再 `docker compose up -d` 即可（前提：上一版镜像还在）。或者在 GitHub Actions 手动触发 deploy 并填入旧 tag。
+**回滚**：在服务器 `/opt/baby-care/docker/.env` 修改 `IMAGE_TAG` 为上一版本（TCR 中需保留旧 tag），再 `docker compose --env-file .env up -d`。或在 GitHub Actions 手动触发 deploy 并填入旧 tag。
+
+> ⚠️ TCR 个人版有镜像数量上限，按命名空间（默认 100 个 tag），定期清理旧 tag。可在 [TCR 控制台](https://console.cloud.tencent.com/tcr/repository) → 个人版 → 触发垃圾回收。
 
 ---
 
@@ -464,6 +472,22 @@ pnpm remote ssh
 docker image ls | grep baby-care
 docker image rm baby-care-tracker-web:旧tag baby-care-tracker-web:旧tag-client
 ```
+
+**Q7：CD 中 `docker login ccr.ccs.tencentyun.com` 401？**
+A：检查 GitHub Secrets：
+- `TCR_USERNAME` 必须是腾讯云**主账号 ID**（纯数字），不是子账号名也不是邮箱；
+- `TCR_PASSWORD` 是 [TCR 控制台 → 个人版 → 访问凭证](https://console.cloud.tencent.com/tcr/user) 里设置的 registry 密码，**不是腾讯云登录密码**；
+- 若忘记密码，可在控制台重置一次。
+
+**Q8：服务器 pull 时报 `unauthorized`？**
+A：服务器侧 `docker login` 凭证由 deploy.yml 在每次部署前重新写入。如手动在服务器上 pull，需先：
+```bash
+docker login ccr.ccs.tencentyun.com -u <主账号 ID>
+```
+TCR 个人版默认创建为 **私有仓库**，匿名 pull 会失败。
+
+**Q9：TCR 个人版仓库满了怎么办？**
+A：TCR 个人版按命名空间限 100 个 tag。在 [TCR 控制台](https://console.cloud.tencent.com/tcr/repository) → 个人版 → 触发垃圾回收，或考虑升级企业版。也可在 deploy.yml 增加 cleanup 步骤，调用 `tcr-toolkit` 删除 N 天前的 tag。
 
 ---
 

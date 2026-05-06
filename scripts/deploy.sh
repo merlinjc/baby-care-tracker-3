@@ -29,7 +29,9 @@ DEPLOY_HOST="${DEPLOY_HOST:?DEPLOY_HOST not set}"
 DEPLOY_USER="${DEPLOY_USER:-root}"
 DEPLOY_PATH="${DEPLOY_PATH:-/opt/baby-care}"
 SSH_KEY_PATH="${SSH_KEY_PATH:-./BJ_Baby_Care_Tracker.pem}"
-IMAGE_REGISTRY="${IMAGE_REGISTRY:-baby-care-tracker-web}"
+# 本机应急部署走 docker save → scp → load，不经过 registry，
+# 故强制使用本地短镜像名，避免与 CI 写入的 TCR 路径冲突。
+IMAGE_REGISTRY="baby-care-tracker-web"
 
 # Tag = 命令行参数 / git short sha / latest
 TAG="${1:-$(git rev-parse --short HEAD 2>/dev/null || echo latest)}"
@@ -110,13 +112,17 @@ echo '  -> 加载镜像'
 docker load -i baby-care-${TAG}.tar
 rm -f baby-care-${TAG}.tar
 
-# 把 IMAGE_TAG 写进 .env（覆盖默认 latest）
+# 把 IMAGE_REGISTRY / IMAGE_TAG 写进 .env（覆盖 CI 留下的 TCR 路径）
+grep -q '^IMAGE_REGISTRY=' docker/.env && \
+  sed -i "s|^IMAGE_REGISTRY=.*|IMAGE_REGISTRY=${IMAGE_REGISTRY}|" docker/.env || \
+  echo "IMAGE_REGISTRY=${IMAGE_REGISTRY}" >> docker/.env
 grep -q '^IMAGE_TAG=' docker/.env && \
   sed -i "s|^IMAGE_TAG=.*|IMAGE_TAG=${TAG}|" docker/.env || \
   echo "IMAGE_TAG=${TAG}" >> docker/.env
 
 echo '  -> 拉起服务'
 cd docker
+# 镜像已 load 到本地，跳过 pull（pull 失败不影响）
 docker compose --env-file .env pull 2>/dev/null || true
 docker compose --env-file .env up -d --remove-orphans
 

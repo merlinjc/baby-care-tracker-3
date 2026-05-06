@@ -48,3 +48,7 @@ docker/ssl/
 /test-results/
 /blob-report/
 /playwright/.cache/
+/.auth/
+
+# CodeBuddy IDE 内部数据（settings/logs/plans/teams 等本机状态，不入库）
+.codebuddy/

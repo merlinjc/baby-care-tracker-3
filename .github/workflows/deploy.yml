@@ -1,7 +1,8 @@
 # =============================================================================
 #  Baby Care Tracker Web - 持续部署
-#  流程：构建 → push 到 ghcr.io → 服务器 pull
-#  优势：跨境只传元数据，镜像走 ghcr 国际 CDN，比 scp 快 5-10 倍
+#  流程：构建 → push 到腾讯云 TCR（个人版） → 服务器 pull
+#  优势：服务器（腾讯云 Lighthouse）从同生态 TCR 拉镜像，速度近乎瞬时，
+#        相比之前 ghcr.io 跨境拉取快 5~20 倍。
 #  触发：
 #    - master / main 分支推送（自动部署到生产）
 #    - 手动触发（指定 tag）
@@ -24,8 +25,10 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}   # merlinjc/baby-care-tracker-3
+  # 腾讯云 TCR 个人版地址（公网域名，全国可达；同地域 Lighthouse 拉取近乎走内网）
+  REGISTRY: ccr.ccs.tencentyun.com
+  # 命名空间/仓库名
+  IMAGE_NAME: merlinjc/baby-care-tracker-3
 
 jobs:
   build-and-deploy:
@@ -34,7 +37,6 @@ jobs:
     timeout-minutes: 45
     permissions:
       contents: read
-      packages: write       # 允许推到 ghcr.io
     environment:
       name: production
       url: http://152.136.125.185
@@ -53,16 +55,16 @@ jobs:
             TAG="${GITHUB_SHA::7}"
           fi
           echo "tag=$TAG" >> $GITHUB_OUTPUT
-          # ghcr.io 要求小写仓库名
+          # registry 路径要求小写
           IMAGE_LC=$(echo "${{ env.IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]')
           echo "image_lc=$IMAGE_LC" >> $GITHUB_OUTPUT
 
-      - name: Login to GHCR
+      - name: Login to Tencent TCR
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ secrets.TCR_USERNAME }}
+          password: ${{ secrets.TCR_PASSWORD }}
 
       - name: Build & push runtime image
         uses: docker/build-push-action@v6
@@ -116,10 +118,11 @@ jobs:
           PATH_REMOTE: ${{ secrets.DEPLOY_PATH }}
           TAG: ${{ steps.tag.outputs.tag }}
           IMAGE_LC: ${{ steps.tag.outputs.image_lc }}
+          REGISTRY: ${{ env.REGISTRY }}
         run: |
           ssh -o ConnectTimeout=30 -i ~/.ssh/id_deploy $USER@$HOST bash -s <<EOF
           cat > $PATH_REMOTE/docker/.env <<ENV
-          IMAGE_REGISTRY=ghcr.io/$IMAGE_LC
+          IMAGE_REGISTRY=$REGISTRY/$IMAGE_LC
           IMAGE_TAG=$TAG
           DATABASE_URL=${{ secrets.DATABASE_URL }}
           JWT_SECRET=${{ secrets.JWT_SECRET }}
@@ -142,15 +145,16 @@ jobs:
           PATH_REMOTE: ${{ secrets.DEPLOY_PATH }}
           TAG: ${{ steps.tag.outputs.tag }}
           IMAGE_LC: ${{ steps.tag.outputs.image_lc }}
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GHCR_USER: ${{ github.actor }}
+          REGISTRY: ${{ env.REGISTRY }}
+          TCR_USER: ${{ secrets.TCR_USERNAME }}
+          TCR_PASS: ${{ secrets.TCR_PASSWORD }}
         run: |
           ssh -o ConnectTimeout=30 -i ~/.ssh/id_deploy $USER@$HOST bash -s <<EOF
           set -euo pipefail
           cd $PATH_REMOTE/docker
 
-          echo '  -> docker login ghcr.io'
-          echo '$GHCR_TOKEN' | docker login ghcr.io -u '$GHCR_USER' --password-stdin
+          echo '  -> docker login $REGISTRY'
+          echo '$TCR_PASS' | docker login '$REGISTRY' -u '$TCR_USER' --password-stdin
 
           echo '  -> pull 最新镜像'
           docker compose --env-file .env pull
@@ -161,8 +165,8 @@ jobs:
           echo '  -> 清理历史镜像'
           docker image prune -f
 
-          echo '  -> docker logout ghcr.io'
-          docker logout ghcr.io
+          echo '  -> docker logout'
+          docker logout '$REGISTRY' || true
           EOF
 
       - name: Health check
