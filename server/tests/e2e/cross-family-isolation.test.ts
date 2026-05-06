@@ -54,11 +54,11 @@ beforeAll(async () => {
 
   // U6 拉取 babyB1 的真实 recordId / vaccineId / milestoneId（FamilyB 内部视角）
   // 这些 ID 后面会被 FamilyA 用户尝试访问/修改，期望被拒
-  const recs = await apiRequest<{ records: Array<{ id: string }> }>('/api/records', {
+  const recs = await apiRequest<{ items: Array<{ id: string }> }>('/api/records', {
     token: sessions.U6.token,
     query: { babyId: seed.babies.B1.id, pageSize: 50 },
   });
-  babyB1RecordId = recs.data?.records?.[0]?.id ?? '';
+  babyB1RecordId = recs.data?.items?.[0]?.id ?? '';
 
   const vaccs = await apiRequest<{ items: Array<{ id: string }> }>(
     `/api/babies/${seed.babies.B1.id}/vaccines`,
@@ -190,13 +190,13 @@ describe('跨家庭隔离：FamilyA admin (U1) 访问 FamilyB 数据', () => {
 
   // -------- records --------
   it('GET /records?babyId=B1 → 拒绝或返回空', async () => {
-    const r = await apiRequest<{ records: unknown[]; total: number }>('/api/records', {
+    const r = await apiRequest<{ items: unknown[]; total: number }>('/api/records', {
       token: sessions.U1!.token,
       query: { babyId: seed.babies.B1.id, pageSize: 50 },
     });
     if (r.ok) {
       expect(r.data?.total ?? 0, '应不返回任何 FamilyB 记录').toBe(0);
-      expect((r.data?.records ?? []).length).toBe(0);
+      expect((r.data?.items ?? []).length).toBe(0);
     } else {
       expectIsolated(r, 'records list cross-family');
     }
@@ -278,7 +278,11 @@ describe('跨家庭隔离：FamilyA admin (U1) 访问 FamilyB 数据', () => {
     const r = await apiRequest(`/api/babies/${seed.babies.B1.id}/vaccines`, {
       method: 'POST',
       token: sessions.U1!.token,
-      body: { name: '恶意疫苗', dose: '第1剂', vaccinatedDate: '2025-06-01' },
+      body: {
+        name: '恶意疫苗',
+        dose: '第1剂',
+        vaccinatedDate: '2025-06-01T00:00:00.000Z',
+      },
     });
     expectIsolated(r, 'vaccine create cross-family');
   });
@@ -297,7 +301,11 @@ describe('跨家庭隔离：FamilyA admin (U1) 访问 FamilyB 数据', () => {
     const r = await apiRequest(`/api/babies/${seed.babies.B1.id}/milestones`, {
       method: 'POST',
       token: sessions.U1!.token,
-      body: { name: '恶意里程碑', category: '运动', achievedDate: '2025-06-01' },
+      body: {
+        name: '恶意里程碑',
+        category: '运动',
+        achievedDate: '2025-06-01T00:00:00.000Z',
+      },
     });
     expectIsolated(r, 'milestone create cross-family');
   });
@@ -305,7 +313,7 @@ describe('跨家庭隔离：FamilyA admin (U1) 访问 FamilyB 数据', () => {
   it('GET /babies/:B1/trends → 拒绝', async () => {
     const r = await apiRequest(`/api/babies/${seed.babies.B1.id}/trends`, {
       token: sessions.U1!.token,
-      query: { type: 'feeding', range: '7d' },
+      query: { type: 'weight', period: 'week' },
     });
     expectIsolated(r, 'trends cross-family');
   });
@@ -328,7 +336,7 @@ describe('跨家庭隔离：FamilyA admin (U1) 访问 FamilyB 数据', () => {
 
 describe('跨家庭隔离：FamilyA editor (U2) 同样无权', () => {
   it('U2 GET /records?babyId=B1 → 同样隔离', async () => {
-    const r = await apiRequest<{ records: unknown[]; total: number }>('/api/records', {
+    const r = await apiRequest<{ items: unknown[]; total: number }>('/api/records', {
       token: sessions.U2!.token,
       query: { babyId: seed.babies.B1.id },
     });
@@ -415,7 +423,7 @@ describe('反向：FamilyB U6 也无法访问 FamilyA 数据（对称性）', ()
 
 describe('反向：U6 对自家数据正常可见（确保隔离不误伤）', () => {
   it('U6 GET /records?babyId=B1 → 应返回 ≥3 条种子记录', async () => {
-    const r = await apiRequest<{ records: unknown[]; total: number }>('/api/records', {
+    const r = await apiRequest<{ items: unknown[]; total: number }>('/api/records', {
       token: sessions.U6!.token,
       query: { babyId: seed.babies.B1.id, pageSize: 50 },
     });

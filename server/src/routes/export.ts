@@ -3,6 +3,7 @@ import { exportService } from '../services/export.service';
 import { authenticate } from '../middleware/auth';
 import { exportRateLimit } from '../middleware/rate-limit';
 import { validateQuery } from '../middleware/validate';
+import { asyncHandler } from '../utils/async-handler';
 import { exportQuerySchema } from '../schemas/common.schema';
 
 const router = Router();
@@ -11,7 +12,7 @@ const router = Router();
 router.use(authenticate);
 
 // GET /api/export
-router.get('/', exportRateLimit, validateQuery(exportQuerySchema), async (req: Request, res: Response) => {
+router.get('/', exportRateLimit, validateQuery(exportQuerySchema), asyncHandler(async (req: Request, res: Response) => {
   const result = await exportService.exportData(req.userId!, req.query as any);
 
   const date = new Date().toISOString().split('T')[0];
@@ -27,6 +28,6 @@ router.get('/', exportRateLimit, validateQuery(exportQuerySchema), async (req: R
     res.setHeader('Content-Disposition', `attachment; filename=${filename}.json`);
     res.json(result.data);
   }
-});
+}));
 
 export default router;

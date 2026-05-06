@@ -9,18 +9,27 @@
  *
  * 前置：先 pnpm dev（client :5173 + server :3000）
  */
-import { test, expect, loginViaUI } from './fixtures/seed';
+import { test, expect, loginViaUI, loginViaAPI } from './fixtures/seed';
 
 test.describe('P0 浏览器冒烟', () => {
-  test('S01b U2 登录 / 看到家庭 / 看到首页今日记录', async ({ page, seed }) => {
-    // 用种子已存在的 editor U2（FamilyA 内）
-    await loginViaUI(page, seed.accounts.U2.email, seed.password);
+  test('S01b U2 登录 / 看到家庭 / 看到首页今日记录', async ({ page, context, seed }) => {
+    // 用 API 登录，避免触发 authRateLimit
+    await loginViaAPI(context, seed.accounts.U2.email, seed.password);
 
     // 等待首页加载完成（确认 family + baby store 已加载）
-    await page.goto('/');
+    // 触发 page.goto + 等待 /api/babies 接口响应（store 完成加载）
+    const [babiesResp] = await Promise.all([
+      page.waitForResponse(
+        (r) => r.url().includes('/api/babies') && r.request().method() === 'GET',
+        { timeout: 15_000 },
+      ).catch(() => null),
+      page.goto('/'),
+    ]);
+    void babiesResp;
+
     await expect(
       page.getByText('小橘 · 今日记录').or(page.getByText('小桃 · 今日记录')),
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: 15_000 });
 
     // 进入家庭页 — 应能看到当前家庭名 FamilyA-E2E + 角色"成员"
     await page.goto('/family');
@@ -28,8 +37,8 @@ test.describe('P0 浏览器冒烟', () => {
     await expect(page.getByText('成员').first()).toBeVisible();
   });
 
-  test('S12+S16 切换宝宝 + 记录页', async ({ page, seed }) => {
-    await loginViaUI(page, seed.accounts.U2.email, seed.password);
+  test('S12+S16 切换宝宝 + 记录页', async ({ page, context, seed }) => {
+    await loginViaAPI(context, seed.accounts.U2.email, seed.password);
 
     // 直接访问 /record，验证 babies store 在子路由直入时也能加载
     await page.goto('/record');
@@ -41,7 +50,9 @@ test.describe('P0 浏览器冒烟', () => {
     await expect(page.getByText('小桃').first()).toBeVisible();
   });
 
-  test('S01 新用户注册 → 创建家庭 → 显示管理员角色', async ({ page, seed }) => {
+  test('S01 新用户注册 → 创建家庭 → 显示管理员角色（保留 UI 链路）', async ({ page, seed }) => {
+    // 此用例必须走 UI 验证注册-自动登录-创建家庭真实链路，保留 loginViaUI 风格
+    void loginViaUI;
     const ts = Date.now();
     const email = `s01ui.${ts}@e2e.local`;
     const password = seed.password;
@@ -64,16 +75,13 @@ test.describe('P0 浏览器冒烟', () => {
     // 进家庭页 → 创建家庭
     await page.goto('/family');
     await page.getByRole('button', { name: '创建家庭' }).click();
-    // 表单展开
     await page
       .locator('input')
       .filter({ hasText: '' })
       .first()
       .waitFor({ state: 'visible' });
 
-    // 填写家庭名
     const familyName = `UI家庭-${ts}`;
-    // 找 placeholder 含"家庭"或第一个 visible input
     const inputs = page.locator('form.card input').all();
     const allInputs = await inputs;
     if (allInputs.length >= 1) await allInputs[0].fill(familyName);
@@ -81,7 +89,6 @@ test.describe('P0 浏览器冒烟', () => {
 
     await page.getByRole('button', { name: /创建家庭|创建中/ }).last().click();
 
-    // 创建成功 → 应展示家庭名和管理员徽章
     await expect(page.getByText(familyName)).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText('管理员').first()).toBeVisible();
   });

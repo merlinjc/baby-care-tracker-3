@@ -188,29 +188,148 @@ DELETE /babies/:id?cursor=2500
 - AI 调用 8s 超时 → 降级文案立即返回
 - patrol 任务每天/每周一次，CPU 影响可忽略
 
+## 7.5 登录态与微信登录扩展（v4.3.2+）
+
+### 7.5.1 三层会话保持
+
+```
+┌────────────────────────────────────────────────────────────┐
+│                       Browser                              │
+│                                                            │
+│  localStorage.baby_care_token                              │
+│   └── { token, user, isAuthenticated }  ← zustand persist  │
+│                                                            │
+│  localStorage.baby_care_last_login_identifier              │
+│   └── { identifier, kind: 'email'|'phone' } ← 自动回填用户名│
+│                                                            │
+│  localStorage.baby_care_remember_me                        │
+│   └── 'true' | 'false'                                     │
+│                                                            │
+│  cookie: refreshToken (httpOnly, SameSite=Strict, 7d)      │
+│   └── path=/api/auth/refresh，仅用于续 access token         │
+│                                                            │
+└────────────────────────┬───────────────────────────────────┘
+                         │ axios interceptor
+                         │   (TOKEN_EXPIRED → POST /refresh)
+                         ▼
+                  续 15min access token
+```
+
+**关键不变量**：
+- ❌ **绝不**在前端持久化明文密码（XSS 风险）；密码自动填充必须依赖浏览器原生密码管理器（input `autoComplete="current-password"`）。
+- ✅ "关闭页面再打开仍登录"由 access token 持久化 + httpOnly refresh token cookie 联合保证。
+- ✅ 「记住我」开关只控制是否记忆**用户名**，不控制 access token 的持久化（access token 默认就持久化到主动登出）。
+
+### 7.5.2 微信扫码登录（方案预留，未启用）
+
+```
+   /login → 点「微信扫码登录」按钮（仅当 VITE_WECHAT_LOGIN_ENABLED=true 时渲染）
+        │
+        │ window.location = open.weixin.qq.com/connect/qrconnect
+        │   ?appid&redirect_uri&response_type=code&scope=snsapi_login&state=...
+        ▼
+   微信扫码 → 用户授权 → 跳回我方 redirect_uri?code=xxx&state=xxx
+        │
+        ▼
+   /auth/wechat/callback (WechatCallbackPage)
+     1) consumeWechatOauthState(state) ← 防 CSRF
+     2) authApi.loginWithWechat({ code, state })
+                │
+                ▼
+        POST /api/auth/wechat
+        ├── wechatAuthService.loginByCode(code)
+        │     ├─ 检查 WECHAT_WEB_APP_ID/_SECRET 配置 → 缺则 503 WECHAT_NOT_CONFIGURED
+        │     ├─ fetchAccessToken: code → access_token + openid + unionid
+        │     ├─ fetchUserInfo: access_token + openid → 昵称/头像
+        │     └─ TODO: prisma.user.upsert by wechatUnionId（等 schema 落地）
+        └── 返回 { user, accessToken } + Set-Cookie refreshToken
+     3) 写入 useAuthStore + navigate('/', replace)
+```
+
+**未启用原因 & 启用步骤**：
+
+1. **prisma schema 缺字段**：`User` 没有 `wechatUnionId` 唯一字段。启用前需加：
+   ```prisma
+   model User {
+     ...
+     wechatUnionId  String?  @unique
+     wechatOpenId   String?
+   }
+   ```
+   并 `prisma migrate dev --name add_wechat_union_id`。
+2. **企业资质**：微信开放平台「网站应用」要求开发者主体认证（个人开发者目前不支持），且回调域名需 ICP 备案。
+3. **环境变量**：前端 `VITE_WECHAT_LOGIN_ENABLED / VITE_WECHAT_APP_ID / VITE_WECHAT_REDIRECT_URI`；后端 `WECHAT_WEB_APP_ID / WECHAT_WEB_APP_SECRET`。
+
+**关于"已有小程序 AppID"的常见误解**：本项目已有微信小程序（AppID `wx1f1bc8e6ff2be61d`），但小程序 AppID **不能直接**用于网站应用 OAuth；网站应用必须在「微信开放平台」单独注册。两个 AppID 关联同一开放平台账号后才能拿到统一的 `unionid` 用于跨端用户体系。
+
+**未来增量**（不在 v4.3.2 范围）：
+- 微信小程序内嵌 H5 场景：用「公众号网页授权」(`snsapi_userinfo`) 替代扫码登录
+- iOS/Android Native 场景：用「微信 SDK」`onResp` 拿 code 走同一个 `/api/auth/wechat`
+- 与小程序端用户打通：`unionid` 关联后在 `User` 表补 `User.openid`（小程序）+ `wechatUnionId` 双索引
+
 ## 8. 测试体系（v5.0.0 GA backlog）
 
 ```
 ┌─ server/tests/         Vitest 4
-│   ├─ unit/                     纯函数（permission / family-schema / invite-code）
-│   ├─ integration/              service 层 8 个家庭场景测试（共享 SQLite test.db）
-│   ├─ helpers/api-client.ts     E2E 用：ApiResponse 封装（token + cookies）
-│   ├─ helpers/seed.ts           E2E 用：调 seed-e2e.ts --json 拉 fixture
-│   └─ e2e/p0-smoke.test.ts      E2E API（HTTP）：S01/S03/S10/S10b/S10c/S11/S16/S25 + viewer
+│   ├─ unit/                          纯函数（permission / family-schema / invite-code）
+│   ├─ integration/                   service 层 8 个家庭场景测试（共享 SQLite test.db）
+│   ├─ helpers/api-client.ts          E2E 用：ApiResponse 封装（token + cookies）
+│   ├─ helpers/seed.ts                E2E 用：调 seed-e2e.ts --json 拉 fixture
+│   └─ e2e/                           E2E API（HTTP → dev server）
+│       ├─ p0-smoke.test.ts                S01..S25 + viewer 主链路（10 用例）
+│       ├─ cross-family-isolation.test.ts  跨家庭穷尽接口隔离 + 反向对称（33 用例）
+│       └─ same-family-visibility.test.ts  同家庭三角色可见性 + 归属规则（23 用例）
 │
 ├─ e2e/                  Playwright 1.59 — chromium 浏览器
-│   ├─ fixtures/seed.ts          共享 seed + loginViaUI
-│   └─ p0-smoke.spec.ts          S01-UI / S01b 家庭+角色徽章 / S12+S16 子路由直访
+│   ├─ global-setup.ts                启动前 reset seed + 预热 token（规避 authRateLimit）
+│   ├─ fixtures/seed.ts               loginViaUI / loginViaAPI（含 ensureFreshToken 自动续期）
+│   ├─ p0-smoke.spec.ts               S01-UI / S01b / S12+S16（3 用例）
+│   └─ cross-family-isolation.spec.ts U6/U1/U2 视角 + 双 context 并行 + U5 引导态（5 用例）
 │
-├─ server/vitest.config.ts       单元/集成测试（test.db + globalSetup）
-├─ server/vitest.e2e.config.ts   E2E 配置（不重置 db / 走 dev server）
-└─ server/prisma/seed-e2e.ts     专用种子（独立于默认 seed.ts）
+├─ server/vitest.config.ts            单元/集成测试（test.db + globalSetup）
+├─ server/vitest.e2e.config.ts        E2E 配置（不重置 db / 走 dev server）
+├─ playwright.config.ts               Playwright 配置（globalSetup + 120s timeout）
+└─ server/prisma/seed-e2e.ts          E2E 专用种子（独立于默认 seed.ts）
     ├─ 6 账号池（U1-U6） / 双家庭（A/B） / 3 宝宝
     ├─ 跨午夜睡眠 / 高温 / 异常颜色 样本
+    ├─ FamilyB 完整种子（records/vaccines/milestones）支持隔离对照
     └─ --bulk=N 灌注大数据量（S14 cursor 续传）
 ```
+
+**测试矩阵**：
+- 后端 unit/integration：75 用例（test.db）
+- 后端 E2E API：66 用例（共享 dev server）
+- Playwright UI：8 用例（chromium）
+- 累计 149 个 E2E/集成自动化测试
 
 **测试场景对照**：见 [`specs/web-feature-parity/e2e-scenarios.md`](../specs/web-feature-parity/e2e-scenarios.md)（35 用例分 6 个优先级）；任务进度见 [`specs/web-feature-parity/tasks.md`](../specs/web-feature-parity/tasks.md) 附录 A。
 
 **执行命令**：详见 [`devops-workflow.md` §6.5](./devops-workflow.md)。
+
+### 8.1 跨家庭数据隔离原则（关键安全保障）
+
+后端所有 service 层都遵循同一隔离模式：
+
+```typescript
+// 1. 通过 babyId/recordId 反查实体
+const baby = await prisma.baby.findUnique({ where: { id: babyId } });
+if (!baby) throw new NotFoundError('宝宝');
+
+// 2. 拿当前用户的 familyId
+const familyId = await getFamilyIdForUser(userId);
+
+// 3. 双重校验：用户必有 familyId 且与实体 familyId 相等
+if (!familyId || baby.familyId !== familyId) {
+  throw new ForbiddenError('无权访问该宝宝数据');
+}
+
+// 4. 后续查询强制附加 familyId 条件（防御 ORM 误用）
+const where = { babyId, familyId: baby.familyId, ... };
+```
+
+**route 层补充防御**（HTTP 入口）：
+- `POST /api/families/:id/leave` —— 用户的 familyId !== :id 时直接 403，避免暴露家庭存在性
+
+**所有路由必须用 `asyncHandler` 包装**（否则 service 抛错时请求挂死，造成 DoS 风险，详见 [`tasks.md` 附录 B BUG-VACCINES-EXPORT-NO-ASYNC-HANDLER](../specs/web-feature-parity/tasks.md)）。
+
 

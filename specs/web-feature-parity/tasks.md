@@ -167,6 +167,32 @@ T-3.2 (PermissionGuard) ─→ T-3.3 ──────────┤
 - [x] **T-A.1.11** ✅ S01b U2 登录 + 家庭文案 + 角色徽章 + 首页今日记录
 - [x] **T-A.1.12** ✅ S12+S16 直接访问 /record + /baby 子路由（修复 BUG-LAYOUT-BABIES-RELOAD 后启用）
 
+### A.1.5 跨家庭隔离 + 同家庭可见性（已完成 2026-05-06）
+
+后端 E2E API（穷尽接口 + 角色矩阵）：
+
+- [x] **T-A.1.5.1** ✅ `cross-family-isolation.test.ts`（33 passed）— 22 个接口的跨家庭拒绝 + 反向对称 + 隔离不误伤
+  - babies 4 接口（GET/PATCH/DELETE/list）
+  - families 5 接口（detail/members/refresh-invite/leave/dissolve）
+  - records 6 接口（list/detail/PATCH/DELETE/POST/today-stats）
+  - vaccines 2 接口（list/POST）+ milestones 2 接口（list/POST）
+  - trends/trend-weekly/export 3 接口
+  - 反向：U6 → FamilyA 同样被拒
+  - 同时验证：U6 自家数据正常可见
+- [x] **T-A.1.5.2** ✅ `same-family-visibility.test.ts`（23 passed）— FamilyA 内 admin/editor/viewer 三角色可见性 + 归属规则
+  - 可见性：三角色都能读所有成员的记录（含 creator 字段）
+  - 归属规则：editor 仅能改自己；admin 可改任意；viewer 全 403
+  - 多宝宝隔离：babyA1/babyA2 数据互不串扰
+  - viewer 写权限矩阵：records/vaccines/milestones/babies/family 全 403，仅可 GET + export
+- [x] **T-A.1.5.3** ✅ Playwright `cross-family-isolation.spec.ts`（5 passed）— 浏览器视角验证 UI 不显示对方家庭文案
+  - U6/U1/U2 各自视角均无对方文案哨兵
+  - 双 context 并行：同浏览器双家庭互不干扰
+  - U5 未加入家庭用户：UI 引导态正确
+- [x] **T-A.1.5.4** ✅ 测试基础设施增强：
+  - `e2e/global-setup.ts` 启动前 reset seed + 预热 6 个 token，规避 authRateLimit
+  - `e2e/fixtures/seed.ts` `loginViaAPI` + `ensureFreshToken` 自动续期（token 过期时 retry login）
+  - `server/prisma/seed-e2e.ts` 为 FamilyB 补完整种子（records/vaccines/milestones）做隔离样本
+
 ### A.2 P1 权限/状态机（待办）
 
 后端 API 测试：
@@ -238,6 +264,26 @@ T-3.2 (PermissionGuard) ─→ T-3.3 ──────────┤
 | 现象 | `useEffect` deps 缺 `family?.id`：首次执行时 `family` 为 null → 不调 `loadBabies`；后续 `loadFamily` 异步完成后 `family` 有值，但 effect 不会重跑，babies 永远为空数组。<br>触发条件：用户**直接访问** `/baby` 或 `/record` 等子路由（如刷新页面、扫码进入分享链接）。 |
 | 修复 | effect deps 加 `family?.id`：`[isAuthenticated, family?.id, loadFamily, loadBabies]` |
 | 验证 | `e2e/p0-smoke.spec.ts → S12+S16 切换宝宝 + 记录页` 已 enable，3/3 通过 |
+
+### ✅ BUG-VACCINES-EXPORT-NO-ASYNC-HANDLER（已修复 2026-05-06，跨家庭隔离测试发现）
+
+| 项 | 内容 |
+|----|------|
+| 严重度 | **P1（生产环境拒绝服务风险）** |
+| 文件 | `server/src/routes/vaccines.ts`（5 个路由）+ `server/src/routes/export.ts`（1 个路由） |
+| 现象 | 这 6 个路由处理器没有用 `asyncHandler` 包装，service 层抛出 `ForbiddenError` / `NotFoundError` 时，错误**未被 Express 捕获**，导致请求**永远挂起**直到客户端超时。<br>具体接口：<br>- GET/POST `/api/babies/:id/vaccines`<br>- GET `/api/babies/:id/vaccine-stats`<br>- GET/POST `/api/babies/:id/milestones`<br>- GET `/api/babies/:id/trends`<br>- GET `/api/export`<br>受影响场景：跨家庭非法访问 + 任意权限拒绝路径 |
+| 修复 | 6 个路由处理器全部用 `asyncHandler(...)` 包装 |
+| 验证 | `tests/e2e/cross-family-isolation.test.ts` 33/33 通过（之前 vaccines/milestones/export 跨家庭访问超时 30s） |
+
+### ✅ BUG-LEAVE-OTHERS-FAMILY-INFO-LEAK（已修复 2026-05-06，跨家庭隔离测试发现）
+
+| 项 | 内容 |
+|----|------|
+| 严重度 | P2（信息泄露） |
+| 文件 | `server/src/routes/families.ts`（route 层加防御） |
+| 现象 | `POST /api/families/:id/leave` 当用户**不属于**目标家庭时，返回 200 + `status: 'not_member'`。<br>攻击者可通过此接口枚举 familyId，区分"家庭存在但非自己" vs "家庭不存在"两种状态（`not_member` vs `family_not_found`），从而探测系统中所有家庭的 ID。 |
+| 修复 | route 层加 HTTP 入口防御：`getFamilyIdForUser(userId) !== :id` 时直接 403。<br>service 层保留 `not_member` / `family_not_found` 状态机用于自愈并发删除场景。 |
+| 验证 | `cross-family-isolation.test.ts → POST /families/:B/leave → 拒绝` 通过；现有 `family-leave` integration 测试（C5/C6/C7）75 用例不破坏。 |
 
 ---
 

@@ -140,6 +140,8 @@ Refresh Token 通过 `httpOnly` + `SameSite=Strict` cookie 自动携带。
 | 400 | `PHONE_ALREADY_EXISTS` | 手机号已被注册 |
 | 400 | `WEAK_PASSWORD` | 密码强度不足 |
 | 401 | `INVALID_REFRESH_TOKEN` | Refresh Token 无效或已过期 |
+| 401 | `WECHAT_AUTH_FAILED` | 微信授权失败（code 失效或 unionid 缺失） |
+| 503 | `WECHAT_NOT_CONFIGURED` | 微信扫码登录尚未配置（详见 §2.8） |
 
 #### 家庭错误码
 
@@ -359,6 +361,70 @@ interface ChangePasswordResponse {
 | 400 | `INVALID_CREDENTIALS` | 当前密码错误 |
 | 400 | `WEAK_PASSWORD` | 新密码强度不足 |
 | 401 | `UNAUTHORIZED` | Token 无效或过期 |
+
+---
+
+### 2.7 POST /api/auth/logout
+
+主动注销。清掉 httpOnly `refreshToken` cookie，使后端不能再续期；前端额外调 `useAuthStore.logout()` 清掉本地 access token & user。
+
+**请求**：无需请求体；端点对未认证开放（即使 access token 已过期/缺失也允许调用）。
+
+**成功响应** `200`：
+
+```typescript
+interface LogoutResponse {
+  message: string;  // "已退出登录"
+}
+```
+
+**错误响应**：无（即使没有 cookie 也成功，等价于 no-op，方便前端 idempotent 调用）。
+
+---
+
+### 2.8 POST /api/auth/wechat（方案预留）
+
+微信开放平台「网站应用」OAuth2 扫码登录回调：前端拿到 `code` 后调本接口换取我方 JWT。
+
+**请求体**：
+
+```typescript
+interface WechatLoginRequest {
+  code: string;       // 必填，微信回调返回的 OAuth code
+  state?: string;     // 可选，CSRF state（前端已在 sessionStorage 校验）
+}
+```
+
+**成功响应** `200`：
+
+```typescript
+interface AuthResponse {
+  user: AuthUser;
+  accessToken: string;
+}
+```
+
+> 与普通登录一致：Refresh Token 通过 `Set-Cookie` 设置。
+
+**错误响应**：
+
+| 状态码 | 错误码 | 触发条件 |
+|-------|--------|---------|
+| 400 | `INVALID_PARAMS` | code 缺失/格式错 |
+| 401 | `WECHAT_AUTH_FAILED` | 微信平台回报 errcode（code 过期/已使用/无效）或 unionid 缺失 |
+| 503 | `WECHAT_NOT_CONFIGURED` | 后端尚未配置 `WECHAT_WEB_APP_ID/_SECRET` 或 schema 未补 `wechatUnionId` 字段 |
+
+**业务规则**：
+- 限流：5 次/分钟/IP（沿用 `authRateLimit`）。
+- 当前为「方案预留」：默认返回 `WECHAT_NOT_CONFIGURED`。
+- 启用步骤详见 `server/src/services/wechat-auth.service.ts` 的 `TODO(wechat-login-phase-2)` 注释块；核心要点：
+  1. 在「微信开放平台」(https://open.weixin.qq.com/) 注册「网站应用」，拿到 web 端专用 AppID（**与小程序 AppID 不同**）。
+  2. 主体认证（个人开发者目前不支持网站应用）+ 配置 ICP 备案的回调域名。
+  3. 后端 `.env` 配置 `WECHAT_WEB_APP_ID` + `WECHAT_WEB_APP_SECRET`；前端 `.env` 配置 `VITE_WECHAT_LOGIN_ENABLED=true` + `VITE_WECHAT_APP_ID` + `VITE_WECHAT_REDIRECT_URI`。
+  4. 在 prisma schema 上为 `User` 加 `wechatUnionId String? @unique` + `wechatOpenId String?` 字段并 migrate。
+  5. 替换 service 中的 TODO 块为真正的 `prisma.user.upsert` 实现。
+
+**前端配套路由**：`/auth/wechat/callback` 页面（`pages/auth/wechat-callback.tsx`）负责接收 `code + state`、做 CSRF 校验、调本接口、写入 store、跳首页。
 
 ---
 

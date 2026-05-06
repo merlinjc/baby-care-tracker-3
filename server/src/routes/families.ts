@@ -4,6 +4,8 @@ import { authenticate } from '../middleware/auth';
 import { validateBody, validateParams } from '../middleware/validate';
 import { familyRateLimit } from '../middleware/rate-limit';
 import { asyncHandler } from '../utils/async-handler';
+import { getFamilyIdForUser } from '../utils/permission';
+import { ForbiddenError, ErrorCodes } from '../types/errors';
 import {
   createFamilySchema,
   joinFamilySchema,
@@ -69,7 +71,13 @@ router.get('/:id/members', validateParams(familyIdParamSchema), asyncHandler(asy
 }));
 
 // POST /api/families/:id/leave
+// 安全闸（HTTP 入口）：避免攻击者通过任意 familyId 调 leave 探测家庭存在性。
+// 仅当目标 familyId 与用户当前 familyId 一致才放行；service 内部仍保留状态机用于自愈并发场景。
 router.post('/:id/leave', validateParams(familyIdParamSchema), asyncHandler(async (req, res) => {
+  const ownFamilyId = await getFamilyIdForUser(req.userId!);
+  if (ownFamilyId !== req.params.id) {
+    throw new ForbiddenError('无权操作该家庭', ErrorCodes.PERMISSION_DENIED);
+  }
   const result = await familyService.leaveFamily(req.userId!, req.params.id);
 
   res.json({

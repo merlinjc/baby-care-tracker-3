@@ -499,6 +499,11 @@ server/
 | transferAdmin | `tests/integration/family-transfer-admin.test.ts` | 6 |
 | **合计（unit + integration）** | **11 文件** | **75 用例** |
 | E2E API（v5.0.0+） | `tests/e2e/p0-smoke.test.ts` | 10 |
+| E2E API（跨家庭隔离） | `tests/e2e/cross-family-isolation.test.ts` | 33 |
+| E2E API（同家庭可见性） | `tests/e2e/same-family-visibility.test.ts` | 23 |
+| Playwright 浏览器（P0 冒烟） | `e2e/p0-smoke.spec.ts` | 3 |
+| Playwright 浏览器（跨家庭） | `e2e/cross-family-isolation.spec.ts` | 5 |
+| **总计** | **15 文件** | **149 用例** |
 
 后续新增 service / 修复 bug 时，必须在对应文件追加场景编号化的 it。
 
@@ -550,6 +555,87 @@ const dateStringSchema = z
 工程实践：
 - 凡是"日期 / 数字范围 / 枚举值依赖其他字段"的 schema，必须配 `.refine`
 - 配套 e2e 测试覆盖**边界值**（未来一秒 / 1899-12-31 / 1900-01-01）
+
+### 12.8 Express 路由层 asyncHandler 强制规范
+
+> 教训来自 BUG-VACCINES-EXPORT-NO-ASYNC-HANDLER（2026-05-06 修复，跨家庭隔离测试发现）
+
+**所有 async 路由处理器必须用 `asyncHandler(...)` 包装**，否则 service 抛错时请求会挂死，造成 DoS 风险：
+
+```typescript
+// ❌ 错误：service 抛 ForbiddenError 时，错误未冒泡，请求永远不返回
+router.get('/:id/vaccines', validateParams(...), async (req, res) => {
+  const result = await vaccineService.getVaccines(req.userId!, req.params.id, req.query);
+  res.json({ success: true, data: result });
+});
+
+// ✅ 正确
+import { asyncHandler } from '../utils/async-handler';
+
+router.get('/:id/vaccines', validateParams(...), asyncHandler(async (req, res) => {
+  const result = await vaccineService.getVaccines(req.userId!, req.params.id, req.query);
+  res.json({ success: true, data: result });
+}));
+```
+
+`asyncHandler` 的 4 行实现（`server/src/utils/async-handler.ts`）：
+
+```typescript
+export function asyncHandler(fn: AsyncRequestHandler) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
+  };
+}
+```
+
+**Code Review 强制条款**：
+- 任何 PR 引入新的 `router.get/post/...(/* ... */, async (req, res) => {...})` 直接被拒
+- E2E 测试 `tests/e2e/cross-family-isolation.test.ts` 包含跨家庭被拒路径，会自动覆盖该错误
+
+### 12.9 跨家庭数据隔离规范（FR-Security）
+
+> 教训来自 BUG-LEAVE-OTHERS-FAMILY-INFO-LEAK（2026-05-06 修复）
+
+后端实现**双层防御**确保 FamilyA 用户无法访问 FamilyB 数据：
+
+**Service 层（4 步隔离模式）**：
+
+```typescript
+async getRecords(userId, query) {
+  // 1. 通过外键反查实体
+  const baby = await prisma.baby.findUnique({ where: { id: query.babyId } });
+  if (!baby) throw new NotFoundError('宝宝');
+
+  // 2. 拿当前用户的 familyId
+  const familyId = await getFamilyIdForUser(userId);
+
+  // 3. 双重校验
+  if (!familyId || baby.familyId !== familyId) {
+    throw new ForbiddenError('无权访问', ErrorCodes.PERMISSION_DENIED);
+  }
+
+  // 4. 强制附加 familyId where 条件（防御 ORM 误用）
+  return prisma.record.findMany({ where: { babyId, familyId: baby.familyId, ... } });
+}
+```
+
+**Route 层补充防御**（HTTP 入口）：
+
+某些"无须传 babyId 的家庭操作"（如 leave / dissolve）必须在 route 层先校验当前用户 familyId 是否匹配：
+
+```typescript
+// POST /api/families/:id/leave
+router.post('/:id/leave', validateParams(familyIdParamSchema), asyncHandler(async (req, res) => {
+  const ownFamilyId = await getFamilyIdForUser(req.userId!);
+  if (ownFamilyId !== req.params.id) {
+    throw new ForbiddenError('无权操作该家庭', ErrorCodes.PERMISSION_DENIED);
+  }
+  const result = await familyService.leaveFamily(req.userId!, req.params.id);
+  res.json({ success: true, data: result });
+}));
+```
+
+**E2E 验证**：`tests/e2e/cross-family-isolation.test.ts` 穷尽 22 个接口的跨家庭拒绝路径 + 反向对称 + 自家可见性，必须全绿。新增 service / 接口时同步在该测试追加。
 
 ## 11. 分页列表 & Dialog 底层（v4.3.x P3 起）
 
@@ -626,3 +712,56 @@ AI 助手页 (`pages/ai-assistant/index.tsx`) 通过：
 - **禁止**使用 query string 传递长 prompt（URL 长度限制 + 暴露在浏览器历史）；统一用 `state`。
 
 
+
+## 14. 登录态与凭据存储约定（v4.3.2+）
+
+### 14.1 严禁明文密码落 localStorage
+
+- ❌ 禁止把 `password` 写入 `localStorage` / `sessionStorage` / `IndexedDB` / `cookie` 任何前端持久化层（XSS 注入即可被窃取）。
+- ✅ 「保存密码 + 自动填充」交给浏览器原生密码管理器，前端只需正确标注：
+  - 用户名输入框：`name="username"` + `autoComplete="username"`
+  - 密码输入框：`name="password"` + `autoComplete="current-password"`（注册页用 `new-password`）
+  - `<form>` 顶层：`autoComplete="on"`
+- 用户名/邮箱/手机号可以保存（无敏感性）：通过 `lib/remember-credentials.ts` 提供的 `readRememberedIdentifier / writeRememberedIdentifier` 接口操作，存储 key 统一前缀 `baby_care_`。
+
+### 14.2 「记住我 / 保持登录态」实现
+
+实现分三层：
+
+| 层 | 存储位置 | 生命周期 | 作用 |
+|---|---|---|---|
+| Access Token | `localStorage` (`baby_care_token`，由 `useAuthStore` 通过 zustand `persist` 自动写入) | JWT 自带 15min 过期；持久存盘到用户主动登出 | 关闭浏览器再打开仍保持登录态 |
+| Refresh Token | `httpOnly` + `SameSite=Strict` cookie，path 限制到 `/api/auth/refresh` | 7 天（`JWT_REFRESH_EXPIRES_IN`，cookie maxAge 同步） | access token 过期时自动续期，期间用户无感 |
+| 上次登录的标识符 | `localStorage` (`baby_care_last_login_identifier`) | 永久（直到用户取消「记住我」勾选） | 自动回填用户名输入框 |
+
+页面再次打开时：
+1. zustand `persist` 中间件 hydrate 出 `token + user + isAuthenticated`；
+2. `MainLayout` 检查到已登录 → 直接渲染主页；
+3. 后续任意请求若返回 `TOKEN_EXPIRED`，axios 拦截器（`services/api.ts`）调 `/api/auth/refresh` 自动续 access token，整个过程用户无感。
+
+### 14.3 Login 表单约定
+
+新登录页（`pages/auth/login.tsx`）核心约定：
+
+- 用户名字段使用 `<input type="text" inputMode="email">` 而非 `type="email"`，以兼容手机号；通过 `detectIdentifierKind(input)` 自动判定走 `{ email }` 或 `{ phone }` 字段。
+- `useAuthStore.login` 接收 `LoginCredentials`：`{ email?, phone?, password }`；其中 email/phone 二选一，password 仅停留在内存中（绝不持久化）。
+- 「记住我」开关默认 **勾选**：登录成功时写入 `baby_care_last_login_identifier` + `baby_care_remember_me`；取消勾选时同步清空已存的标识符。
+- **绝不**自己实现"密码自动填充"，永远依赖浏览器原生能力。
+
+### 14.4 注销流程
+
+1. 用户点 Profile 页「退出登录」→ `authService.logout()` → `POST /api/auth/logout`
+2. 后端 `clearCookie` 清掉 `refreshToken`（端点对未认证开放，即使 access token 已过期也成功）
+3. 前端再调 `useAuthStore.logout()` 清掉内存 + `localStorage` 中的 access token & user
+4. 路由跳 `/login`
+
+如果后端 `/api/auth/logout` 调用失败（网络问题等），前端依然完成本地登出（`services/auth.ts` 已 try/catch 处理）。
+
+### 14.5 微信扫码登录（方案预留）
+
+详见 `docs/web-api-spec.md §2.7` 与 `docs/web-architecture.md §微信登录扩展`。简要规则：
+
+- **控制开关**：`VITE_WECHAT_LOGIN_ENABLED=true` + `VITE_WECHAT_APP_ID`（前端 .env）+ `WECHAT_WEB_APP_ID/_SECRET`（server .env）
+- **当前状态**：仅前端入口 + 后端路由骨架；未配置时前端不渲染按钮、后端返回 503 `WECHAT_NOT_CONFIGURED`。
+- **已知小程序 vs 网站应用区别**：本项目小程序 AppID 是 `wx1f1bc8e6ff2be61d`，但网站应用必须在「微信开放平台」（open.weixin.qq.com）单独注册（与小程序 AppID 不同），且需要主体认证 + ICP 备案域名。
+- **二阶段启用步骤**详见 `server/src/services/wechat-auth.service.ts` 的 `TODO(wechat-login-phase-2)` 注释块（核心是补 `User.wechatUnionId` schema + migrate）。
