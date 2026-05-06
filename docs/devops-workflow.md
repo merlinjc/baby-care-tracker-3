@@ -340,6 +340,25 @@ CI workflow（`.github/workflows/ci.yml`）应在 Phase 6 后追加：
 
 > ⚠️ TCR 个人版有镜像数量上限，按命名空间（默认 100 个 tag），定期清理旧 tag。可在 [TCR 控制台](https://console.cloud.tencent.com/tcr/repository) → 个人版 → 触发垃圾回收。
 
+#### 7.2.1 部署耗时基线（v1.1 首跑实测，2026-05-06）
+
+| Step | 首次推 TCR | 增量部署（预期） |
+|---|---|---|
+| Set up / checkout / buildx / login | 14s | 14s |
+| Build & push **runtime** image | **15m 27s** | 2~4min |
+| Build & push **client-dist** image | **2m 09s** | 1~2min |
+| SSH + scp + render .env | 19s | 20s |
+| **Pull & restart on server**（核心收益） | **27s** ⭐ | **20~40s** |
+| Health check | < 1s | < 30s |
+| **总计** | **≈ 18m 36s** | **≈ 4~7 min** |
+
+> 对比 v1.0（ghcr.io）：服务器 pull 一步通常 5~15min，整体常 15~30+min。
+
+**异常阈值**（连续两次部署超过以下值需要排查）：
+- runtime build & push 增量超过 **8min** → 检查 GHA cache 命中率 / TCR 是否限流；
+- pull & restart 超过 **3min** → 检查 Lighthouse → TCR 网络（同地域应秒级）；
+- 总耗时超过 **15min** → 看 Actions 详细日志定位。
+
 ---
 
 ## 8. 应急部署（绕过 CI/CD）
