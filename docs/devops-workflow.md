@@ -90,7 +90,7 @@ baby-care-tracker-web/
 
 | 分支 | 用途 | 部署策略 |
 |---|---|---|
-| `main` | 生产分支，永远可发布 | **推送即自动部署到生产** |
+| `master`（本仓库主分支）/ `main` | 生产分支，永远可发布 | **推送即自动部署到生产** |
 | `develop` | 集成分支（可选） | 仅 CI，不部署 |
 | `feature/*` | 功能开发 | 仅 CI |
 | `fix/*` | 修复 | 仅 CI |
@@ -98,7 +98,7 @@ baby-care-tracker-web/
 
 **约定**：
 - 任何分支提 PR 时触发 CI；
-- 只有 `main` 分支推送会触发 CD；
+- 只有主分支（`master` / `main`）推送会触发 CD；
 - 通过 `Actions → Deploy → Run workflow` 可手动指定 tag 部署（应急、回滚）。
 
 ---
