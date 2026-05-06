@@ -139,8 +139,34 @@ module.exports = async (ctx, params) => {
     await logger.step('pull_family_baby', 'fail', { error: e.message });
   }
 
+  // [v4.3.2 FR-3] 自动解散判断：
+  // 当家庭的 members=1（admin 单人）且删完后 babies 为空时，自动解散家庭。
+  // 避免出现"只剩 admin 一个人、没有任何 baby"的空家庭僵尸状态。
+  // 规则：
+  //   - members > 1：保护多成员，不解散
+  //   - babies 删完后 > 0：仍有宝宝，不解散
+  //   - members === 1 && babies → 0：自动解散
+  //   - members === 0：脏数据场景，也解散
+  let autoDissolved = false;
+  try {
+    const freshRes = await db.collection('families').doc(familyId).get();
+    const freshFamily = freshRes && freshRes.data;
+    if (freshFamily) {
+      const remainingBabies = (freshFamily.babies || []).length;
+      const memberCount = (freshFamily.members || []).length;
+      if (remainingBabies === 0 && memberCount <= 1) {
+        const { dissolveFamilyCore } = require('../lib/family-dissolve');
+        await dissolveFamilyCore(ctx, freshFamily, logger);
+        autoDissolved = true;
+      }
+    }
+  } catch (e) {
+    // 自动解散失败不影响主删宝宝结果；家庭成为"空但存在"的状态，由 patrol 后续处理
+    await logger.step('auto_dissolve_check_failed', 'warn', { error: e.message });
+  }
+
   const finalResult = Object.assign(
-    { status: 'succeeded', deletedBabyId: babyId },
+    { status: 'succeeded', deletedBabyId: babyId, autoDissolved },
     state.totalCleared
   );
   await logger.succeed(finalResult);

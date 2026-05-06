@@ -25,6 +25,9 @@ class AuthService {
     return instance;
   }
 
+  /** [v4.3.2 FR-A13] 重置单例（用于退出登录/家庭解散后清理） */
+  static resetInstance() { instance = null; }
+
   /**
    * 获取或创建用户信息
    * @returns {Promise<Object>} 用户信息
@@ -75,10 +78,12 @@ class AuthService {
    */
   async updateUserInfo(userId, data) {
     try {
+      // [v4.3.2 FR-7] 补 updatedAtTs 双时间戳，与其他集合写入对齐
       await this.userCollection.doc(userId).update({
         data: {
           ...data,
-          updatedAt: this.db.serverDate()
+          updatedAt: this.db.serverDate(),
+          updatedAtTs: Date.now()
         }
       });
     } catch (error) {

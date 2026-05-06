@@ -43,8 +43,8 @@ Page({
     return;
 
     this._lastShowTime = 0;
-    this.quotaService = new QuotaService();
-    this.contentFilter = new ContentFilterService();
+    this.quotaService = QuotaService.getInstance();
+    this.contentFilter = ContentFilterService.getInstance();
     
     // FR-14: 记录是否需要生成预置消息
     if (options.presetMsg === 'true') {
@@ -90,7 +90,7 @@ Page({
         const familyInfo = StorageUtil.getFamilyInfo();
         
         if (familyInfo && familyInfo._id) {
-          const babyService = new BabyService();
+          const babyService = BabyService.getInstance();
           const babies = await babyService.getBabiesByFamilyId(familyInfo._id);
           
           if (babies.length > 0) {
@@ -254,7 +254,7 @@ Page({
 
     try {
       // 创建AI服务实例
-      const aiService = new AIService();
+      const aiService = AIService.getInstance();
       
       // 构建系统提示词
       const context = this.buildSystemContext();

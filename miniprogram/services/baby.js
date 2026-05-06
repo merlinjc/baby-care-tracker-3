@@ -28,6 +28,9 @@ class BabyService {
     return instance;
   }
 
+  /** [v4.3.2 FR-A13] 重置单例（用于退出登录/家庭解散后清理） */
+  static resetInstance() { instance = null; }
+
   /**
    * 创建宝宝档案
    * @param {string} familyId 家庭 ID
@@ -262,21 +265,41 @@ class BabyService {
    * @param {string} familyId 家庭 ID
    */
   async deleteBaby(babyId, familyId) {
-    try {
-      const res = await wx.cloud.callFunction({
-        name: 'familyOperation',
-        data: {
-          action: 'deleteBaby',
-          params: { babyId, familyId }
+    // [v4.3.2 FR-3] 支持 status='in_progress' 续传循环；透传 autoDissolved
+    const MAX_CHUNKS = 20;
+    let cursor = null;
+    let lastData = null;
+
+    for (let i = 0; i < MAX_CHUNKS; i++) {
+      try {
+        const res = await wx.cloud.callFunction({
+          name: 'familyOperation',
+          data: {
+            action: 'deleteBaby',
+            params: { babyId, familyId, cursor }
+          }
+        });
+        const result = res.result;
+        if (!result || !result.success) {
+          const err = new Error((result && result.error && result.error.message) || '删除宝宝失败');
+          if (result && result.error && result.error.code) err.code = result.error.code;
+          throw err;
         }
-      });
-      const result = res.result;
-      if (!result.success) throw new Error(result.error?.message || '删除宝宝失败');
-      return result.data;
-    } catch (error) {
-      console.error('删除宝宝档案失败:', error);
-      throw error;
+        lastData = result.data;
+        if (lastData.status === 'in_progress' && lastData.cursor) {
+          cursor = lastData.cursor;
+          continue;
+        }
+        // 完成：返回含 autoDissolved 的完整结果
+        return lastData;
+      } catch (error) {
+        console.error('删除宝宝档案失败:', error);
+        throw error;
+      }
     }
+    // 超出分片上限仍未完成：保留已清理数据，提示用户下次继续
+    console.warn('[babyService.deleteBaby] 超出 MAX_CHUNKS 仍未完成，返回中间结果');
+    return lastData || { status: 'in_progress' };
   }
 }
 

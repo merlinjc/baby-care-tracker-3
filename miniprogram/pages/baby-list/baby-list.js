@@ -152,8 +152,34 @@ Page({
             // [v4.2] 通过 babyService 走云函数删除，同步维护 families.babies
             const babyService = BabyService.getInstance();
             const familyInfo = StorageUtil.getFamilyInfo();
-            await babyService.deleteBaby(id, familyInfo._id);
-            
+            const deleteResult = await babyService.deleteBaby(id, familyInfo._id);
+
+            // [v4.3.2 FR-3] 自动解散分支：admin 单人家庭删完最后 baby → 家庭自动解散
+            // 此时需清空本地状态、重置服务单例、跳回登录页
+            if (deleteResult && deleteResult.autoDissolved) {
+              wx.showModal({
+                title: '已删除最后一个宝宝',
+                content: '家庭已自动解散，点击确定返回登录页重新创建或加入家庭。',
+                showCancel: false,
+                success: () => {
+                  StorageUtil.clear();
+                  const app = getApp();
+                  if (app && typeof app.resetAllServices === 'function') {
+                    // FR-A13 全局服务单例清理（M4 阶段实现）
+                    try { app.resetAllServices(); } catch (_) { /* 静默 */ }
+                  }
+                  if (app && app.globalData) {
+                    app.globalData.userInfo = null;
+                    app.globalData.familyInfo = null;
+                    app.globalData.familyRole = null;
+                    app.globalData.currentBaby = null;
+                  }
+                  wx.reLaunch({ url: '/pages/auth/auth' });
+                }
+              });
+              return;
+            }
+
             // BUG-13: 如果删除的是当前宝宝，清理本地存储并切换
             const currentBaby = StorageUtil.getCurrentBaby();
             if (currentBaby && currentBaby._id === id) {

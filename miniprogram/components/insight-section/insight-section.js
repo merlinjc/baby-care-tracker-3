@@ -80,7 +80,7 @@ Component({
       this.setData({ loading: true });
 
       try {
-        const trendService = new TrendService();
+        const trendService = TrendService.getInstance();
         const { trendData, trendPeriod } = await trendService.getTrendData(this.data.babyId);
 
         // 获取月龄

@@ -1,0 +1,115 @@
+/**
+ * themes.css - Web 版三态主题变量集（FR-G1）
+ *
+ * 设计决策（design.md §10 决策 6）：
+ * - 使用 `[data-theme="..."]` 而非 Tailwind dark: 前缀，支持暖夜独立色板
+ * - 三态：light / warm-night / system
+ * - system 模式通过媒体查询 prefers-color-scheme: dark 自动切换为暖夜
+ *
+ * 此文件作为 globals.css 的补充：globals.css 已经包含 `:root` 和 `.dark`
+ * 两套变量；此处通过 `[data-theme="warm-night"]` 别名映射到 `.dark` 变量集，
+ * 保持向后兼容（旧代码继续用 .dark，新代码用 data-theme）。
+ */
+
+/* warm-night 模式：复用 globals.css `.dark` 的所有变量 */
+:root[data-theme='warm-night'] {
+  --bg-primary: #1e1a16;
+  --bg-secondary: #2a2420;
+  --bg-card: #2e2824;
+  --bg-elevated: #363030;
+  --border: #3d3632;
+  --border-light: #332e2a;
+  --text-primary: #e8e0d8;
+  --text-secondary: #b0a898;
+  --text-hint: #7a7068;
+
+  --primary: #c8a880;
+  --primary-light: #3d3632;
+  --primary-dark: #e8dcc8;
+  --accent: #8cb88c;
+
+  --feeding: #7caf7c;
+  --sleep: #9488b4;
+  --diaper: #b4a888;
+  --temperature: #b48888;
+  --growth: #6b99b9;
+
+  --success: #6bb940;
+  --danger: #d44444;
+  --warning: #c47830;
+
+  --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.3);
+  --shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.2);
+  --shadow-popup: 0 4px 24px rgba(0, 0, 0, 0.4);
+  --shadow-elevated: 0 8px 32px rgba(0, 0, 0, 0.5);
+
+  --mask: rgba(0, 0, 0, 0.6);
+  --mask-dark: rgba(0, 0, 0, 0.75);
+}
+
+/* system 模式 + 系统暗色：自动切换为暖夜 */
+@media (prefers-color-scheme: dark) {
+  :root[data-theme='system'] {
+    --bg-primary: #1e1a16;
+    --bg-secondary: #2a2420;
+    --bg-card: #2e2824;
+    --bg-elevated: #363030;
+    --border: #3d3632;
+    --border-light: #332e2a;
+    --text-primary: #e8e0d8;
+    --text-secondary: #b0a898;
+    --text-hint: #7a7068;
+    --primary: #c8a880;
+    --primary-light: #3d3632;
+    --primary-dark: #e8dcc8;
+    --accent: #8cb88c;
+    --feeding: #7caf7c;
+    --sleep: #9488b4;
+    --diaper: #b4a888;
+    --temperature: #b48888;
+    --growth: #6b99b9;
+    --success: #6bb940;
+    --danger: #d44444;
+    --warning: #c47830;
+    --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.3);
+    --shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.2);
+    --shadow-popup: 0 4px 24px rgba(0, 0, 0, 0.4);
+    --shadow-elevated: 0 8px 32px rgba(0, 0, 0, 0.5);
+    --mask: rgba(0, 0, 0, 0.6);
+    --mask-dark: rgba(0, 0, 0, 0.75);
+  }
+}
+
+/* 状态胶囊呼吸动画（FR-A1） */
+@keyframes recPulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.85);
+  }
+}
+
+@keyframes capsuleTransition {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 进度条增长动画（FR-A3） */
+@keyframes progressGrow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}

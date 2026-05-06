@@ -232,7 +232,7 @@ App({
   },
   
   globalData: {
-    version: 'v4.3.1',       // 当前版本号（Release 时同步更新）
+    version: 'v4.3.2',       // 当前版本号（Release 时同步更新）
     versionCodename: 'Milo',  // 当前版本代号
     userInfo: null,
     currentBaby: null,
@@ -240,6 +240,46 @@ App({
     familyRole: null,    // 当前用户的家庭角色缓存
     systemInfo: null,    // 全局缓存 wx.getSystemInfoSync() 结果
     syncService: null,
-    initPromise: null  // app.initUser() 的 Promise，页面可 await 等待
+    initPromise: null,  // app.initUser() 的 Promise，页面可 await 等待
+    // [v4.3.2 FR-1] fallback 开关已关闭：所有 getFamilyDetail 请求走云函数，不再降级直连
+    featureFlags: {
+      directReadFamilyFallback: false  // T+7 已关闭，下个版本移除 fallback 代码
+    }
+  },
+
+  /**
+   * [v4.3.2 FR-A13] 重置所有 Service 单例 + globalData
+   * 用于退出登录、家庭解散后清理，防止旧单例持有过期状态
+   */
+  resetAllServices() {
+    try {
+      const AuthService = require('./services/auth');
+      const FamilyService = require('./services/family');
+      const RecordService = require('./services/record');
+      const BabyService = require('./services/baby');
+      const SyncService = require('./services/sync');
+      const QuotaService = require('./services/quota');
+      const TodoService = require('./services/todo');
+      const AIService = require('./services/ai');
+      const TrendService = require('./services/trendService');
+
+      AuthService.resetInstance();
+      FamilyService.resetInstance();
+      RecordService.resetInstance();
+      BabyService.resetInstance();
+      SyncService.resetInstance();
+      QuotaService.resetInstance();
+      TodoService.resetInstance();
+      AIService.resetInstance();
+      TrendService.resetInstance();
+    } catch (e) {
+      console.warn('[resetAllServices] Service 重置异常:', e);
+    }
+
+    this.globalData.userInfo = null;
+    this.globalData.familyInfo = null;
+    this.globalData.familyRole = null;
+    this.globalData.currentBaby = null;
+    this.globalData.syncService = null;
   }
 }); 

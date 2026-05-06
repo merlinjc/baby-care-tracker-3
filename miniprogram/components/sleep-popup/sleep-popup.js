@@ -1,12 +1,19 @@
 /**
  * 睡眠记录弹窗组件
  * 支持日间/夜间睡眠记录，智能判断睡眠类型
+ *
+ * [v4.3.2 FR-A2] 接入 swipe-close behavior
+ * WXML 已绑定 bindtouchstart/move/end 但 JS 未实现 → 触发微信
+ * "Component method not found" warning，下滑关闭手势失效。
  */
 
 const RecordService = require('../../services/record');
 const StorageUtil = require('../../utils/storage');
+const swipeCloseBehavior = require('../../behaviors/swipe-close');
 
 Component({
+  behaviors: [swipeCloseBehavior],
+
   properties: {
     show: {
       type: Boolean,
@@ -37,8 +44,7 @@ Component({
   },
 
   data: {
-    popupTranslateY: 0, // 弹窗滑动偏移量
-    touchStartY: 0, // 触摸起始Y坐标
+    // [v4.3.2 FR-A2] popupTranslateY 由 swipe-close behavior 提供；touchStartY 改为实例属性 _touchStartY
     sleepMode: 'record', // record: 记录模式, tracking: 追踪模式（正在睡眠）
     sleepType: '', // night | nap - 留空表示自动判断
     sleepTypes: [
@@ -293,7 +299,7 @@ Component({
 
       try {
         const currentBaby = StorageUtil.getCurrentBaby();
-        const recordService = new RecordService();
+        const recordService = RecordService.getInstance();
 
         // 基于累计时长计算开始和结束时间（结束时间为当前时间）
         const now = new Date();

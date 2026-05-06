@@ -1,0 +1,10 @@
+packages:
+  - 'client'
+  - 'server'
+  - 'shared'
+onlyBuiltDependencies:
+  - "@prisma/client"
+  - "@prisma/engines"
+  - prisma
+  - esbuild
+  - sharp

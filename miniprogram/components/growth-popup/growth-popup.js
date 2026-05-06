@@ -82,11 +82,15 @@ Component({
     stopPropagation() {},
 
     // v4.0: 加载上次生长数据
+    // [v4.3.2 FR-A1] 修复：RecordService.getRecords 是实例方法，必须通过 getInstance() 调用
+    // 旧代码把原型方法当类静态方法调用，导致首次打开弹窗时抛 TypeError: RecordService.getRecords is not a function
+    // → "上次生长数据"展示区永久为空（被外层 try/catch 静默）
     async _loadLastGrowthData() {
       try {
         const babyId = this.data.babyId || StorageUtil.getCurrentBaby()?._id;
         if (!babyId) return;
-        const records = await RecordService.getRecords(babyId, {
+        const recordService = RecordService.getInstance();
+        const records = await recordService.getRecords(babyId, {
           recordType: 'growth', limit: 1, orderBy: 'startTimeTs', order: 'desc'
         });
         if (records && records.length > 0) {

@@ -1,0 +1,85 @@
+# =============================================================================
+#  Baby Care Tracker Web - 生产环境编排
+#  服务器：152.136.125.185
+#  使用：docker compose --env-file .env -f docker/docker-compose.yml up -d
+# =============================================================================
+name: baby-care
+
+services:
+  # ------- Node.js 后端 -------
+  server:
+    image: ${IMAGE_REGISTRY:-baby-care-tracker-web}:${IMAGE_TAG:-latest}
+    container_name: baby-care-server
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: ${DATABASE_URL:-file:/app/data/prod.db}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET is required}
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      # AI (OpenAI 兼容：TokenHub · hy3-preview)
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://tokenhub.tencentmaas.com/v1}
+      OPENAI_MODEL: ${OPENAI_MODEL:-hy3-preview}
+      AI_DAILY_QUOTA: ${AI_DAILY_QUOTA:-100}
+      AI_FETCH_TIMEOUT_MS: ${AI_FETCH_TIMEOUT_MS:-30000}
+      PATROL_ENABLED: ${PATROL_ENABLED:-false}
+    volumes:
+      # SQLite 数据 / 上传文件持久化（切换 MySQL 后可移除 data 卷）
+      - server_data:/app/data
+      - server_uploads:/app/uploads
+    expose:
+      - "3000"
+    networks:
+      - baby_net
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # ------- Nginx 反向代理 + 静态托管 -------
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: baby-care-nginx
+    restart: unless-stopped
+    depends_on:
+      server:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      # - "443:443"  # 绑定域名后启用
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - client_dist:/usr/share/nginx/html:ro
+      # - ./ssl:/etc/nginx/ssl:ro  # HTTPS 证书目录
+    networks:
+      - baby_net
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1/healthz"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  # ------- 前端静态产物搬运者（一次性容器） -------
+  # 把 client-dist 阶段的静态文件灌进 nginx 共享卷，启动后退出
+  client-dist:
+    image: ${IMAGE_REGISTRY:-baby-care-tracker-web}:${IMAGE_TAG:-latest}-client
+    container_name: baby-care-client-dist
+    command: sh -c "cp -r /dist/. /shared/ && echo 'client dist published'"
+    volumes:
+      - client_dist:/shared
+    depends_on:
+      - server
+    restart: "no"
+
+volumes:
+  server_data:
+  server_uploads:
+  client_dist:
+
+networks:
+  baby_net:
+    driver: bridge

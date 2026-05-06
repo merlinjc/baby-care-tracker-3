@@ -33,6 +33,9 @@ class SyncService {
     return instance;
   }
 
+  /** [v4.3.2 FR-A13] 重置单例（用于退出登录/家庭解散后清理） */
+  static resetInstance() { instance = null; }
+
   /**
    * 初始化网络监听器
    */
@@ -298,23 +301,67 @@ class SyncService {
         // 更新记录
         // [v4.3.1 FR-7] 补 updatedAtTs 双时间戳，与 RecordService.updateRecord 对齐，
         // 修复 mergeRecords 按 updatedAtTs 比较失效（云端永远是旧值）
-        await this.db.collection(collection).doc(recordId).update({
-          data: {
-            ...data,
-            updatedAt: this.db.serverDate(),
-            updatedAtTs: Date.now()
-          }
-        });
+        // [v4.3.2 FR-2] 通过云函数路径执行，无论是否跨归属：
+        //   - 保证 admin 离线期间编辑他人记录的 update 在同步时被允许
+        //   - 云函数内有字段白名单与权限再校验，安全性更强
+        //   - 同步频率低（通常仅在离线→在线切换时），额外 RTT 可接受
+        if (collection === 'records') {
+          await this._callRecordCloudFn('updateRecord', {
+            recordId,
+            data: { ...data, updatedAtTs: Date.now() }
+          });
+        } else {
+          await this.db.collection(collection).doc(recordId).update({
+            data: {
+              ...data,
+              updatedAt: this.db.serverDate(),
+              updatedAtTs: Date.now()
+            }
+          });
+        }
         break;
         
       case 'delete':
         // 删除记录
-        await this.db.collection(collection).doc(recordId).remove();
+        // [v4.3.2 FR-2] 同上，通过云函数路径执行
+        if (collection === 'records') {
+          await this._callRecordCloudFn('deleteRecord', { recordId });
+        } else {
+          await this.db.collection(collection).doc(recordId).remove();
+        }
         break;
         
       default:
         throw new Error(`未知操作类型: ${type}`);
     }
+  }
+
+  /**
+   * [v4.3.2 FR-2] 通过云函数执行记录写操作（离线队列同步路径）
+   *
+   * 幂等处理：deleteRecord 返回 RECORD_NOT_FOUND 视为成功（目标已删）
+   * 错误传播：其他失败抛 Error，供调用方（syncOfflineQueue）按 MAX_RETRY_COUNT 重试/丢弃
+   *
+   * @private
+   * @param {'updateRecord'|'deleteRecord'} action
+   * @param {Object} params
+   */
+  async _callRecordCloudFn(action, params) {
+    const familyId = require('../utils/family-context').resolve();
+    const res = await wx.cloud.callFunction({
+      name: 'familyOperation',
+      data: { action, params: { ...params, familyId } }
+    });
+    const result = res && res.result;
+    if (result && result.success) return result.data;
+    const code = result && result.error && result.error.code;
+    // deleteRecord 幂等：目标已不存在视为成功
+    if (action === 'deleteRecord' && code === 'RECORD_NOT_FOUND') {
+      return { alreadyDeleted: true };
+    }
+    const err = new Error((result && result.error && result.error.message) || `${action} 失败`);
+    if (code) err.code = code;
+    throw err;
   }
 
   /**
@@ -346,26 +393,60 @@ class SyncService {
 
   /**
    * 更新记录 ID（离线记录同步后）
+   *
+   * [v4.3.2 FR-A7] 同步翻新离线队列中残留的 update/delete 操作
+   * 根因：离线 create → update → update → online sync 场景下：
+   *   1. syncCreate 成功后 tempId 翻新为 realId（仅本地缓存）
+   *   2. 队列里还有 { type:'update'|'delete', recordId: 'temp_xxx' } 残留
+   *   3. 后续 executeOperation 用旧 tempId 调 doc('temp_xxx').update()
+   *      → 云端 INVALID_DOC_ID → 重试 3 次后丢弃
+   *   4. 用户离线期间做的所有编辑/删除永久丢失
+   * 修复：翻新本地缓存的同时，同步翻新队列里所有同 tempId 的操作。
+   *
+   * 并发安全：syncOfflineQueue 持 syncInProgress=true 防重入；当前循环的
+   * queue 是方法开头快照，翻新在 Storage 层写入，下次循环自然读到最新。
+   *
    * @param {string} tempId 临时 ID
    * @param {string} realId 真实 ID
    */
   updateRecordId(tempId, realId) {
-    // 遍历所有宝宝的缓存，找到临时记录并更新
+    // 1. 原逻辑：翻新本地 records 缓存
     const familyInfo = StorageUtil.getFamilyInfo();
     
-    if (!familyInfo || !familyInfo.babies) return;
+    if (familyInfo && familyInfo.babies) {
+      familyInfo.babies.forEach(babyId => {
+        const key = `records_${babyId}`;
+        const records = StorageUtil.get(key) || [];
+        const index = records.findIndex(r => r._id === tempId);
+        
+        if (index >= 0) {
+          records[index]._id = realId;
+          records[index]._offline = false;
+          StorageUtil.set(key, records);
+        }
+      });
+    }
 
-    familyInfo.babies.forEach(babyId => {
-      const key = `records_${babyId}`;
-      const records = StorageUtil.get(key) || [];
-      const index = records.findIndex(r => r._id === tempId);
-      
-      if (index >= 0) {
-        records[index]._id = realId;
-        records[index]._offline = false;
-        StorageUtil.set(key, records);
+    // 2. [v4.3.2 FR-A7] 同步翻新离线队列中残留的 update/delete 操作
+    try {
+      const queue = StorageUtil.getOfflineQueue();
+      let mutated = false;
+      const newQueue = queue.map(op => {
+        if (op && op.recordId === tempId) {
+          mutated = true;
+          return Object.assign({}, op, { recordId: realId });
+        }
+        return op;
+      });
+      if (mutated) {
+        StorageUtil.set('offline_queue', newQueue);
+        console.log(`[sync] 翻新队列：tempId=${tempId} → realId=${realId}`);
       }
-    });
+    } catch (e) {
+      // 翻新失败不影响主流程（本地缓存已翻新，队列残留项会因 INVALID_DOC_ID
+      // 最终被 MAX_RETRY_COUNT 丢弃；只是丢用户编辑，与原行为一致）
+      console.warn('[sync.updateRecordId] 翻新队列失败:', e);
+    }
   }
 
   /**

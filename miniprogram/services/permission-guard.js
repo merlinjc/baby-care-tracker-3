@@ -59,6 +59,11 @@ class PermissionGuard {
 
   /**
    * 要求能够删除指定记录（考虑 admin 可删他人、editor 仅能删自己）
+   *
+   * [v4.3.2 FR-4] 新增防御：record 缺归属字段（createdBy / creatorId / _openid 全空）时直接拒绝
+   * 避免历史脏数据绕过 PermissionUtil.canDeleteRecord 的隐式"当作他人记录"判定，
+   * 导致 editor 能跨 owner 删除归属不明的记录。
+   *
    * @param {Object} record 记录对象（需含 createdBy 或 creatorId）
    * @throws {PermissionError}
    */
@@ -69,6 +74,21 @@ class PermissionGuard {
     if (!userId || !family) {
       throw new PermissionError('用户或家庭信息缺失', 'record.delete');
     }
+
+    // [v4.3.2 FR-4] 归属字段防御
+    if (!record) {
+      throw new PermissionError('记录信息缺失', 'record.delete');
+    }
+    const hasOwner = !!(
+      (record.createdBy && record.createdBy.userId)
+      || record.creatorId
+      || record._openid
+    );
+    if (!hasOwner) {
+      console.warn('[PermissionGuard] record 缺归属字段，拒绝删除:', record._id);
+      throw new PermissionError('记录归属异常，请联系管理员', 'record.delete');
+    }
+
     if (!PermissionUtil.canDeleteRecord(userId, family, record)) {
       throw new PermissionError('您没有权限删除该记录', 'record.delete');
     }

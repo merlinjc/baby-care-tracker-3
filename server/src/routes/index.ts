@@ -1,0 +1,20 @@
+import { Router } from 'express';
+import authRoutes from './auth';
+import recordRoutes from './records';
+import familyRoutes from './families';
+import babyRoutes from './babies';
+import vaccineRoutes from './vaccines';
+import aiRoutes from './ai';
+import exportRoutes from './export';
+
+const router = Router();
+
+router.use('/auth', authRoutes);
+router.use('/records', recordRoutes);
+router.use('/families', familyRoutes);
+router.use('/babies', babyRoutes);
+router.use('/babies', vaccineRoutes); // vaccine/milestone/trend routes under /babies/:id/...
+router.use('/ai', aiRoutes);
+router.use('/export', exportRoutes);
+
+export default router;

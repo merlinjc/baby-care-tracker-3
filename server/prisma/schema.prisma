@@ -1,0 +1,225 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String?  @unique
+  phone        String?  @unique
+  passwordHash String?
+  nickname     String
+  avatar       String?
+  familyId     String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  records           Record[]
+  vaccineRecords    VaccineRecord[]
+  milestoneRecords  MilestoneRecord[]
+  familyMemberships FamilyMember[]
+  createdFamilies   Family[]         @relation("FamilyCreator")
+}
+
+model Family {
+  id               String   @id @default(cuid())
+  name             String
+  creatorId        String
+  inviteCode       String   @unique
+  inviteCodeExpiry DateTime
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  creator User          @relation("FamilyCreator", fields: [creatorId], references: [id])
+  members FamilyMember[]
+  babies  Baby[]
+}
+
+model FamilyMember {
+  id          String   @id @default(cuid())
+  familyId    String
+  userId      String
+  role        String   @default("editor") // admin | editor | viewer
+  relation    String?
+  displayName String?  // 用户在家庭中的昵称（API spec §4.1/§4.5 nickname）
+  version     Int      @default(0) // 乐观锁版本号
+  joinedAt    DateTime @default(now())
+
+  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([familyId, userId])
+  @@index([familyId])
+  @@index([userId])
+}
+
+model Baby {
+  id        String   @id @default(cuid())
+  familyId  String
+  name      String
+  gender    String   // male | female
+  birthDate DateTime
+  avatar    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  family           Family           @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  records          Record[]
+  vaccineRecords   VaccineRecord[]
+  milestoneRecords MilestoneRecord[]
+
+  @@index([familyId])
+}
+
+model Record {
+  id         String   @id @default(cuid())
+  babyId     String
+  familyId   String
+  recordType String   // feeding | sleep | diaper | temperature | growth
+  startTime  DateTime
+  endTime    DateTime?
+  note       String?
+  createdBy  String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  baby            Baby              @relation(fields: [babyId], references: [id], onDelete: Cascade)
+  creator         User              @relation(fields: [createdBy], references: [id])
+  feedingData     FeedingRecord?
+  sleepData       SleepRecord?
+  diaperData      DiaperRecord?
+  temperatureData TemperatureRecord?
+  growthData      GrowthRecord?
+
+  @@index([babyId, familyId, recordType])
+  @@index([babyId, startTime])
+  @@index([familyId])
+}
+
+model FeedingRecord {
+  id          String @id @default(cuid())
+  recordId    String @unique
+  feedingType String // breast | formula | solid
+  amount      Float?
+  duration    Int?
+  breastSide  String? // left | right | both
+
+  record Record @relation(fields: [recordId], references: [id], onDelete: Cascade)
+}
+
+model SleepRecord {
+  id        String @id @default(cuid())
+  recordId  String @unique
+  sleepType String // night | nap
+  duration  Int
+  location  String?
+
+  record Record @relation(fields: [recordId], references: [id], onDelete: Cascade)
+}
+
+model DiaperRecord {
+  id          String @id @default(cuid())
+  recordId    String @unique
+  diaperType  String // pee | poop | both
+  consistency String? // watery | soft | formed | hard
+  color       String? // normal | yellow | green | black | red
+
+  record Record @relation(fields: [recordId], references: [id], onDelete: Cascade)
+}
+
+model TemperatureRecord {
+  id          String @id @default(cuid())
+  recordId    String @unique
+  temperature Float
+  method      String? // oral | axillary | rectal | ear
+
+  record Record @relation(fields: [recordId], references: [id], onDelete: Cascade)
+}
+
+model GrowthRecord {
+  id                String @id @default(cuid())
+  recordId          String @unique
+  height            Float?
+  weight            Float?
+  headCircumference Float?
+
+  record Record @relation(fields: [recordId], references: [id], onDelete: Cascade)
+}
+
+model VaccineRecord {
+  id             String   @id @default(cuid())
+  babyId         String
+  familyId       String
+  name           String
+  dose           String
+  vaccinatedDate DateTime
+  note           String?
+  createdBy      String
+  createdAt      DateTime @default(now())
+
+  baby    Baby @relation(fields: [babyId], references: [id], onDelete: Cascade)
+  creator User  @relation(fields: [createdBy], references: [id])
+
+  @@index([babyId, familyId])
+}
+
+model MilestoneRecord {
+  id           String   @id @default(cuid())
+  babyId       String
+  familyId     String
+  name         String
+  category     String
+  achievedDate DateTime
+  note         String?
+  createdBy    String
+  createdAt    DateTime @default(now())
+
+  baby    Baby @relation(fields: [babyId], references: [id], onDelete: Cascade)
+  creator User  @relation(fields: [createdBy], references: [id])
+
+  @@index([babyId, familyId])
+}
+
+model OperationLog {
+  id         String   @id @default(cuid())
+  action     String
+  userId     String?
+  openid     String?
+  context    String?  // JSON string for SQLite
+  status     String   // started | succeeded | partial | failed
+  steps      String?  // JSON string for SQLite
+  result     String?  // JSON string for SQLite
+  reason     String?
+  error      String?  // JSON string for SQLite
+  startedAt  DateTime
+  finishedAt DateTime?
+
+  @@index([action])
+  @@index([status])
+}
+
+model RateLimit {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  count       Int      @default(1)
+  windowStart DateTime
+  expireAt    DateTime
+
+  @@index([windowStart])
+}
+
+model AIQuota {
+  id        String   @id @default(cuid())
+  userId    String
+  date      String // YYYY-MM-DD
+  count     Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@index([userId, date])
+  @@index([date])
+}

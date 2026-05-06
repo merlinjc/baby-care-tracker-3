@@ -471,6 +471,8 @@ Page({
 
           // status: 'ok' | 'dissolved' | 'family_not_found' | 'not_member' 均视为退出成功
           StorageUtil.clear();
+          // [v4.3.2 FR-A13] 清除 Service 单例，防止旧状态残留
+          getApp().resetAllServices();
           wx.hideLoading();
 
           if (result.status === 'dissolved') {
@@ -547,6 +549,8 @@ Page({
       }
 
       StorageUtil.clear();
+      // [v4.3.2 FR-A13] 清除 Service 单例
+      getApp().resetAllServices();
       wx.hideLoading();
       wx.reLaunch({ url: '/pages/auth/auth' });
     } catch (error) {
@@ -577,6 +581,8 @@ Page({
             );
 
             StorageUtil.clear();
+            // [v4.3.2 FR-A13] 清除 Service 单例
+            getApp().resetAllServices();
             wx.hideLoading();
             wx.reLaunch({ url: '/pages/auth/auth' });
           } catch (error) {
