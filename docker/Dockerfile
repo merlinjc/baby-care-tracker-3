@@ -1,7 +1,13 @@
 # ==============================================================================
-#  Baby Care Tracker Web - 多阶段构建
-#  目标产物：单容器同时承载已构建的 React 静态文件 + Node.js 后端
+#  Baby Care Tracker Web - 多阶段构建（v2，仅做安全的层顺序优化）
+#  目标产物：runtime（Node 后端） + client-dist（静态资源 sidecar）
 #  Nginx 作为同伴容器统一对外（见 docker-compose.yml）
+#
+#  v2 vs v1（保守版）：
+#   ✅ COPY 粒度从"整目录"拆为"先 config 后 src"，业务代码改动不再吹掉所有层
+#   ✅ pnpm store 用 BuildKit cache mount（本地 build 受益；GHA 上不影响）
+#   ❌ 暂不引入"独立 prisma-generator 阶段"——pnpm hoisting 路径在 alpine 下不稳
+#       仍沿用"runtime 阶段重新跑 prisma generate"的已知可用方案
 # ==============================================================================
 
 # ---------- Stage 1: 共享依赖安装 ----------
@@ -11,21 +17,31 @@ WORKDIR /workspace
 # 启用 pnpm（Node 20 内置 corepack）
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 
-# 复制依赖清单
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
+# 仅复制依赖清单（lock + 各 workspace package.json）
+# ⭐ lock 与 package.json 改动才会失效本层
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY client/package.json ./client/
 COPY server/package.json ./server/
-COPY shared/package.json* ./shared/
+COPY shared/package.json ./shared/
 
 # 安装全部 workspace 依赖（构建期需要 devDeps）
-RUN pnpm install --frozen-lockfile=false
+# ⭐ BuildKit cache mount 让 pnpm store 跨构建持久复用（本地受益；GHA runner 一次性无影响）
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile=false
 
 
 # ---------- Stage 2: 构建前端 ----------
 FROM deps AS client-builder
 WORKDIR /workspace
+# ⭐ 先拷不变的配置文件（变动频率低）
+COPY client/tsconfig.json client/tsconfig.app.json client/tsconfig.node.json \
+     client/vite.config.ts client/index.html client/components.json \
+     client/eslint.config.js \
+     ./client/
+COPY client/public ./client/public
 COPY shared ./shared
-COPY client ./client
+# ⭐ 业务源码放最后（变动频率最高）
+COPY client/src ./client/src
 RUN pnpm --filter client build
 # 产物在 /workspace/client/dist
 
@@ -33,10 +49,13 @@ RUN pnpm --filter client build
 # ---------- Stage 3: 构建后端 + 生成 Prisma Client ----------
 FROM deps AS server-builder
 WORKDIR /workspace
-COPY shared ./shared
-COPY server ./server
-# 生成 Prisma Client（prisma 已声明在 server 依赖里）
+# ⭐ 先 prisma schema（变动频率约月级）
+COPY server/prisma ./server/prisma
 RUN cd server && npx prisma generate
+# ⭐ 再 tsconfig 和源码
+COPY shared ./shared
+COPY server/tsconfig.json ./server/
+COPY server/src ./server/src
 # 编译 TS -> JS
 RUN pnpm --filter server build
 # 产物在 /workspace/server/dist
@@ -55,17 +74,20 @@ RUN apk add --no-cache tzdata curl && \
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 
 # 仅安装 server 的 production 依赖
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY server/package.json ./server/
-COPY shared/package.json* ./shared/
-RUN pnpm install --prod --frozen-lockfile=false --filter server...
+COPY shared/package.json ./shared/
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
+    pnpm install --prod --frozen-lockfile=false --filter server...
 
 # 拷贝构建产物
-COPY --from=server-builder /workspace/server/dist ./server/dist
+# ⭐ prisma 相关放前面（schema 变动频率低于业务代码）
 COPY server/prisma ./server/prisma
 COPY shared ./shared
+COPY --from=server-builder /workspace/server/dist ./server/dist
 
 # 在 runtime 层重新生成 Prisma Client（避免跨阶段拷贝依赖 pnpm hoisting 路径）
+# 注：未来若验证通过 hoisting 路径稳定，可改为 COPY --from=server-builder 直接复用
 WORKDIR /app/server
 RUN npx prisma generate
 WORKDIR /app
