@@ -1,5 +1,7 @@
 # =============================================================================
 #  Baby Care Tracker Web - 持续部署
+#  流程：构建 → push 到 ghcr.io → 服务器 pull
+#  优势：跨境只传元数据，镜像走 ghcr 国际 CDN，比 scp 快 5-10 倍
 #  触发：
 #    - master / main 分支推送（自动部署到生产）
 #    - 手动触发（指定 tag）
@@ -19,13 +21,20 @@ on:
 
 concurrency:
   group: deploy-prod
-  cancel-in-progress: false   # 部署不并发取消，避免拉到一半中断
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}   # merlinjc/baby-care-tracker-3
 
 jobs:
   build-and-deploy:
     name: Build & Deploy
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write       # 允许推到 ghcr.io
     environment:
       name: production
       url: http://152.136.125.185
@@ -44,40 +53,42 @@ jobs:
             TAG="${GITHUB_SHA::7}"
           fi
           echo "tag=$TAG" >> $GITHUB_OUTPUT
+          # ghcr.io 要求小写仓库名
+          IMAGE_LC=$(echo "${{ env.IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]')
+          echo "image_lc=$IMAGE_LC" >> $GITHUB_OUTPUT
 
-      - name: Build runtime image
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push runtime image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: docker/Dockerfile
           target: runtime
+          push: true
           tags: |
-            baby-care-tracker-web:${{ steps.tag.outputs.tag }}
-            baby-care-tracker-web:latest
-          load: true
+            ${{ env.REGISTRY }}/${{ steps.tag.outputs.image_lc }}:${{ steps.tag.outputs.tag }}
+            ${{ env.REGISTRY }}/${{ steps.tag.outputs.image_lc }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Build client-dist image
+      - name: Build & push client-dist image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: docker/Dockerfile
           target: client-dist
+          push: true
           tags: |
-            baby-care-tracker-web:${{ steps.tag.outputs.tag }}-client
-            baby-care-tracker-web:latest-client
-          load: true
+            ${{ env.REGISTRY }}/${{ steps.tag.outputs.image_lc }}:${{ steps.tag.outputs.tag }}-client
+            ${{ env.REGISTRY }}/${{ steps.tag.outputs.image_lc }}:latest-client
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      - name: Save & compress images
-        run: |
-          docker save \
-            baby-care-tracker-web:${{ steps.tag.outputs.tag }} \
-            baby-care-tracker-web:${{ steps.tag.outputs.tag }}-client \
-            | gzip -1 > baby-care.tar.gz
-          ls -lh baby-care.tar.gz
 
       - name: Setup SSH
         run: |
@@ -86,22 +97,14 @@ jobs:
           chmod 600 ~/.ssh/id_deploy
           ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Upload image & config (with rsync, resumable)
+      - name: Upload config files
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
           USER: ${{ secrets.DEPLOY_USER }}
           PATH_REMOTE: ${{ secrets.DEPLOY_PATH }}
         run: |
           ssh -o ConnectTimeout=30 -i ~/.ssh/id_deploy $USER@$HOST \
-            "mkdir -p $PATH_REMOTE/docker && which rsync || (yum install -y rsync || apt-get install -y rsync)"
-
-          # 镜像 tar：rsync + 压缩 + 可断点续传
-          rsync -avz --partial --progress \
-            -e "ssh -o ConnectTimeout=30 -o ServerAliveInterval=30 -i ~/.ssh/id_deploy" \
-            baby-care.tar.gz \
-            $USER@$HOST:$PATH_REMOTE/baby-care.tar.gz
-
-          # 配置文件：小，直接 scp
+            "mkdir -p $PATH_REMOTE/docker"
           scp -C -o ConnectTimeout=30 -i ~/.ssh/id_deploy \
             docker/docker-compose.yml docker/nginx.conf \
             $USER@$HOST:$PATH_REMOTE/docker/
@@ -112,10 +115,11 @@ jobs:
           USER: ${{ secrets.DEPLOY_USER }}
           PATH_REMOTE: ${{ secrets.DEPLOY_PATH }}
           TAG: ${{ steps.tag.outputs.tag }}
+          IMAGE_LC: ${{ steps.tag.outputs.image_lc }}
         run: |
           ssh -o ConnectTimeout=30 -i ~/.ssh/id_deploy $USER@$HOST bash -s <<EOF
           cat > $PATH_REMOTE/docker/.env <<ENV
-          IMAGE_REGISTRY=baby-care-tracker-web
+          IMAGE_REGISTRY=ghcr.io/$IMAGE_LC
           IMAGE_TAG=$TAG
           DATABASE_URL=${{ secrets.DATABASE_URL }}
           JWT_SECRET=${{ secrets.JWT_SECRET }}
@@ -131,24 +135,25 @@ jobs:
           chmod 600 $PATH_REMOTE/docker/.env
           EOF
 
-      - name: Load image & restart services
+      - name: Pull & restart services on server
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
           USER: ${{ secrets.DEPLOY_USER }}
           PATH_REMOTE: ${{ secrets.DEPLOY_PATH }}
+          TAG: ${{ steps.tag.outputs.tag }}
+          IMAGE_LC: ${{ steps.tag.outputs.image_lc }}
         run: |
-          ssh -o ConnectTimeout=30 -i ~/.ssh/id_deploy $USER@$HOST bash -s <<EOF
+          ssh -o ConnectTimeout=30 -i ~/.ssh/id_deploy $USER@$HOST bash -s <<'EOF'
           set -euo pipefail
-          cd $PATH_REMOTE
-          echo '  -> 解压并加载镜像'
-          gunzip -c baby-care.tar.gz | docker load
-          rm -f baby-care.tar.gz
+          cd ${{ secrets.DEPLOY_PATH }}/docker
+
+          echo '  -> pull 最新镜像'
+          docker compose --env-file .env pull
 
           echo '  -> 重启 compose'
-          cd docker
           docker compose --env-file .env up -d --remove-orphans
 
-          echo '  -> 清理 dangling 镜像'
+          echo '  -> 清理历史镜像'
           docker image prune -f
           EOF
 
@@ -166,11 +171,11 @@ jobs:
             sleep 3
           done
           echo "❌ 健康检查超时"
+          echo "查看日志：ssh -i BJ_Baby_Care_Tracker.pem root@$HOST 'cd /opt/baby-care/docker && docker compose logs --tail=100'"
           exit 1
 
       - name: Notify (optional)
         if: always()
         run: |
-          STATUS="${{ job.status }}"
-          echo "部署状态：$STATUS"
+          echo "部署状态：${{ job.status }}"
           # TODO: 接入企业微信 / 飞书 / Slack webhook
