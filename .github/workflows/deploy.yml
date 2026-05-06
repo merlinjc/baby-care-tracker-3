@@ -1,7 +1,7 @@
 # =============================================================================
 #  Baby Care Tracker Web - 持续部署
 #  触发：
-#    - main 分支推送（自动部署到生产）
+#    - master / main 分支推送（自动部署到生产）
 #    - 手动触发（指定 tag）
 #  目标：152.136.125.185 (Lighthouse)
 # =============================================================================
@@ -25,7 +25,7 @@ jobs:
   build-and-deploy:
     name: Build & Deploy
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     environment:
       name: production
       url: http://152.136.125.185
@@ -71,13 +71,13 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Save images to tar
+      - name: Save & compress images
         run: |
           docker save \
             baby-care-tracker-web:${{ steps.tag.outputs.tag }} \
             baby-care-tracker-web:${{ steps.tag.outputs.tag }}-client \
-            -o baby-care.tar
-          ls -lh baby-care.tar
+            | gzip -1 > baby-care.tar.gz
+          ls -lh baby-care.tar.gz
 
       - name: Setup SSH
         run: |
@@ -86,16 +86,25 @@ jobs:
           chmod 600 ~/.ssh/id_deploy
           ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Upload image & config
+      - name: Upload image & config (with rsync, resumable)
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
           USER: ${{ secrets.DEPLOY_USER }}
           PATH_REMOTE: ${{ secrets.DEPLOY_PATH }}
         run: |
-          ssh -i ~/.ssh/id_deploy $USER@$HOST "mkdir -p $PATH_REMOTE/docker"
-          scp -i ~/.ssh/id_deploy baby-care.tar $USER@$HOST:$PATH_REMOTE/
-          scp -i ~/.ssh/id_deploy docker/docker-compose.yml $USER@$HOST:$PATH_REMOTE/docker/
-          scp -i ~/.ssh/id_deploy docker/nginx.conf $USER@$HOST:$PATH_REMOTE/docker/
+          ssh -o ConnectTimeout=30 -i ~/.ssh/id_deploy $USER@$HOST \
+            "mkdir -p $PATH_REMOTE/docker && which rsync || (yum install -y rsync || apt-get install -y rsync)"
+
+          # 镜像 tar：rsync + 压缩 + 可断点续传
+          rsync -avz --partial --progress \
+            -e "ssh -o ConnectTimeout=30 -o ServerAliveInterval=30 -i ~/.ssh/id_deploy" \
+            baby-care.tar.gz \
+            $USER@$HOST:$PATH_REMOTE/baby-care.tar.gz
+
+          # 配置文件：小，直接 scp
+          scp -C -o ConnectTimeout=30 -i ~/.ssh/id_deploy \
+            docker/docker-compose.yml docker/nginx.conf \
+            $USER@$HOST:$PATH_REMOTE/docker/
 
       - name: Render .env on server
         env:
@@ -104,7 +113,7 @@ jobs:
           PATH_REMOTE: ${{ secrets.DEPLOY_PATH }}
           TAG: ${{ steps.tag.outputs.tag }}
         run: |
-          ssh -i ~/.ssh/id_deploy $USER@$HOST bash -s <<EOF
+          ssh -o ConnectTimeout=30 -i ~/.ssh/id_deploy $USER@$HOST bash -s <<EOF
           cat > $PATH_REMOTE/docker/.env <<ENV
           IMAGE_REGISTRY=baby-care-tracker-web
           IMAGE_TAG=$TAG
@@ -112,9 +121,11 @@ jobs:
           JWT_SECRET=${{ secrets.JWT_SECRET }}
           JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}
           CORS_ORIGIN=${{ secrets.CORS_ORIGIN }}
-          HUNYUAN_API_KEY=${{ secrets.HUNYUAN_API_KEY }}
-          TENCENT_SECRET_ID=${{ secrets.TENCENT_SECRET_ID }}
-          TENCENT_SECRET_KEY=${{ secrets.TENCENT_SECRET_KEY }}
+          OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+          OPENAI_BASE_URL=${{ secrets.OPENAI_BASE_URL }}
+          OPENAI_MODEL=${{ secrets.OPENAI_MODEL }}
+          AI_DAILY_QUOTA=${{ secrets.AI_DAILY_QUOTA }}
+          AI_FETCH_TIMEOUT_MS=${{ secrets.AI_FETCH_TIMEOUT_MS }}
           PATROL_ENABLED=${{ secrets.PATROL_ENABLED }}
           ENV
           chmod 600 $PATH_REMOTE/docker/.env
@@ -126,14 +137,18 @@ jobs:
           USER: ${{ secrets.DEPLOY_USER }}
           PATH_REMOTE: ${{ secrets.DEPLOY_PATH }}
         run: |
-          ssh -i ~/.ssh/id_deploy $USER@$HOST bash -s <<EOF
+          ssh -o ConnectTimeout=30 -i ~/.ssh/id_deploy $USER@$HOST bash -s <<EOF
           set -euo pipefail
           cd $PATH_REMOTE
-          docker load -i baby-care.tar
-          rm -f baby-care.tar
+          echo '  -> 解压并加载镜像'
+          gunzip -c baby-care.tar.gz | docker load
+          rm -f baby-care.tar.gz
+
+          echo '  -> 重启 compose'
           cd docker
           docker compose --env-file .env up -d --remove-orphans
-          # 清理 dangling 镜像
+
+          echo '  -> 清理 dangling 镜像'
           docker image prune -f
           EOF
 
@@ -141,14 +156,14 @@ jobs:
         env:
           HOST: ${{ secrets.DEPLOY_HOST }}
         run: |
-          for i in $(seq 1 30); do
+          for i in $(seq 1 60); do
             if curl -fsS http://$HOST/api/health; then
               echo ""
               echo "✅ 部署成功"
               exit 0
             fi
-            echo "等待健康检查... ($i/30)"
-            sleep 2
+            echo "等待健康检查... ($i/60)"
+            sleep 3
           done
           echo "❌ 健康检查超时"
           exit 1
