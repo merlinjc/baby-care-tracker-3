@@ -50,11 +50,11 @@ services:
         condition: service_healthy
     ports:
       - "80:80"
-      # - "443:443"  # 绑定域名后启用
+      - "443:443"  # HTTPS（证书挂载在 ./ssl）
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - client_dist:/usr/share/nginx/html:ro
-      # - ./ssl:/etc/nginx/ssl:ro  # HTTPS 证书目录
+      - ./ssl:/etc/nginx/ssl:ro  # HTTPS 证书目录（fullchain.pem + privkey.pem）
     networks:
       - baby_net
     healthcheck:

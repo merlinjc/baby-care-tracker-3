@@ -28,9 +28,12 @@ npm-debug.log*
 .env.*.local
 docker/.env
 
-# Secrets / SSH keys
+# Secrets / SSH keys / TLS 证书
 *.pem
 *.key
+*.crt
+*.csr
+neo3.cn_nginx/
 
 # Archives
 *.zip
