@@ -1,0 +1,67 @@
+# Baby Care Tracker Web - Docker 构建上下文忽略清单
+# 排除不需要进入镜像的大文件/敏感文件
+
+# Git
+.git
+.gitignore
+
+# Node
+**/node_modules
+**/npm-debug.log
+**/.npm
+
+# 构建产物（docker 内会重新构建）
+**/dist
+**/build
+**/.next
+**/.turbo
+**/.vite
+
+# 环境与密钥（docker/.env 通过外挂传入，不入镜像）
+.env
+.env.local
+.env.*.local
+**/.env
+**/.env.local
+**/.env.*.local
+*.pem
+*.key
+
+# 测试 / 覆盖率
+coverage
+**/__tests__/__snapshots__
+playwright-report
+test-results
+
+# IDE & OS
+.vscode
+.idea
+.codebuddy
+.DS_Store
+Thumbs.db
+
+# 文档 / spec（不需要进镜像，减少上下文）
+docs
+specs
+rules
+miniprogram
+cloudfunctions
+e2e
+scripts/deploy.sh
+scripts/remote.sh
+*.md
+!server/prisma/**/*.md
+
+# 微信小程序相关（后端镜像用不到）
+project.config.json
+project.private.config.json
+miniprogram/**
+cloudfunctions/**
+
+# SQLite 本地测试库
+**/*.db
+**/*.db-journal
+
+# 备份
+备案参考代码
+备案图标.png

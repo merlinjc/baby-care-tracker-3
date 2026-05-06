@@ -62,10 +62,13 @@ RUN pnpm install --prod --frozen-lockfile=false --filter server...
 
 # 拷贝构建产物
 COPY --from=server-builder /workspace/server/dist ./server/dist
-COPY --from=server-builder /workspace/server/node_modules/.prisma ./server/node_modules/.prisma
-COPY --from=server-builder /workspace/server/node_modules/@prisma ./server/node_modules/@prisma
 COPY server/prisma ./server/prisma
 COPY shared ./shared
+
+# 在 runtime 层重新生成 Prisma Client（避免跨阶段拷贝依赖 pnpm hoisting 路径）
+WORKDIR /app/server
+RUN npx prisma generate
+WORKDIR /app
 
 # 持久化目录（运行时挂载，存放 SQLite/上传文件等）
 RUN mkdir -p /app/data /app/uploads
