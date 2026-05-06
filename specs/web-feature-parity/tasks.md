@@ -42,66 +42,14 @@
 
 ### 阶段三：前端 P0 组件（M3）
 
-- [ ] **T-3.1** family-store 升级为 FamilyDetail
-  - `client/src/stores/family-store.ts` 类型从 `Family` 改为 `FamilyDetail`
-  - 补齐 8 个方法：loadFamily / refreshInviteCode / updateMemberRole / removeMember / transferAdmin / leaveFamily / dissolveFamily / isCurrentUserAdmin
-  - `client/src/services/family.ts` 补齐对应 8 个方法（指向后端真实端点）
-  - 验收：HomePage 等读 `family.id/name` 不破坏；FamilyPage 可读 members
-  - _依赖：T-1.1 | 涉及：FR-C_
-
-- [ ] **T-3.2** 客户端 PermissionGuard + axios 错误映射
-  - 新建 `client/src/lib/permission-guard.ts`：`require / requireCanDelete / PermissionError class`
-  - 新建 `client/src/lib/api-error.ts`：在 axios 拦截器把 `403 PERMISSION_DENIED` 映射为 `PermissionError`
-  - 改造 `usePermission()` hook 同步 `useAuthStore.currentRole`
-  - 验收：viewer 用户调 createRecord 立即抛错，不发 API
-  - _涉及：FR-C6_
-
-- [ ] **T-3.3** useActiveSleep hook + StatusCapsule 组件
-  - 新建 `client/src/hooks/use-active-sleep.ts`（含 PermissionGuard 调用）
-  - 新建 `client/src/components/status-capsule.tsx`（4 种态：none/sleeping/feeding_ago/sleep_abnormal）
-  - 新建 `client/src/lib/capsule-state.ts`（computeCapsuleState 算法）
-  - 新增 keyframes `recPulse`（1.5s 呼吸）、`capsuleTransition`
-  - 验收：手动 setData mock activeSleep，胶囊正确渲染 4 种态
-  - _依赖：T-1.1 / T-2.2 / T-3.2 | 涉及：FR-A1_
-
-- [ ] **T-3.4** BabySwitcher + TodaySummary + 骨架屏
-  - 新建 `client/src/components/baby-switcher.tsx`（多宝头像组）
-  - 新建 `client/src/components/today-summary.tsx`（4 列大数字 + 进度条）
-  - 新建 `client/src/lib/age-goals.ts`（按月龄计算 sleep 目标）
-  - 新建 `client/src/components/home-skeleton.tsx`（骨架屏组合）
-  - 验收：3 个宝宝场景显示 2 头像 + 「+1」；feeding 数值带进度条；体温 ≥38.5 整列变红
-  - _依赖：T-1.2 / T-1.1 | 涉及：FR-A2 / FR-A3 / FR-A5_
-
-- [ ] **T-3.5** AI 洞察折叠态 + InsightFallback
-  - 新建 `client/src/lib/insight-fallback.ts`（buildFallbackInsight 规则引擎）
-  - 新建 `client/src/hooks/use-local-storage-state.ts`
-  - HomePage 改造：折叠/展开切换 + 持久化 + 降级文案标识
-  - 验收：AI 服务关闭时仍展示规则引擎产出的摘要
-  - _依赖：T-3.4 / T-2.5 | 涉及：FR-A4 / FR-F2_
-
-- [ ] **T-3.6** InsightSection 趋势组件
-  - 新建 `client/src/components/insight-section.tsx`（4 张卡片，4 行结构）
-  - 新建 `client/src/components/range-bar.tsx`（迷你范围条）
-  - 新建 `client/src/lib/trend-tips.ts`（提示语规则引擎，规则同 S20 §FR-4 表）
-  - 新建 `client/src/hooks/use-weekly-trend.ts`
-  - 集成到 RecordPage 顶部
-  - 验收：3 个月龄边界范围条定位点正确；4 种状态颜色对齐；提示语正确
-  - _依赖：T-2.3 / T-1.2 | 涉及：FR-B_
-
-- [ ] **T-3.7** 家庭协作 4 个 Dialog 组件
-  - 新建 `client/src/components/family/role-edit-dialog.tsx`（RadioGroup 三选一 + SOLE_ADMIN 拦截）
-  - 新建 `client/src/components/family/transfer-admin-dialog.tsx`（候选成员列表 + 确认）
-  - 新建 `client/src/components/family/remove-member-confirm.tsx`（输入「确认移除」字样才能继续）
-  - 新建 `client/src/components/family/invite-section.tsx`（倒计时 + 复制 + 分享 + 刷新）
-  - 新建 `client/src/components/family/members-section.tsx`（成员列表 + 三点菜单）
-  - 集成到 `client/src/pages/family/index.tsx`，按角色显隐
-  - 验收：admin 看到管理菜单；editor/viewer 仅看列表；leaveFamily 4 种状态分支处理
-  - _依赖：T-3.1 / T-3.2 / T-1.2 | 涉及：FR-C1~C5_
-
-- [ ] **T-3.8** HomePage / RecordPage 集成
-  - HomePage 集成：Greeting + BabySwitcher + StatusCapsule + TodaySummary + InsightSection + Timeline + 骨架屏
-  - 验收：刷新数据 / 切换宝宝 / 开始结束睡眠全链路通畅
-  - _依赖：T-3.3 / T-3.4 / T-3.5 / T-3.6 | 涉及：FR-A_
+- [x] **T-3.1** ✅ family-store 升级为 FamilyDetail + LeaveFamilyResult 状态机
+- [x] **T-3.2** ✅ 客户端 PermissionGuard + axios 错误映射（mapAxiosError → ApiError 子类）
+- [x] **T-3.3** ✅ useActiveSleep hook + StatusCapsule 组件（4 种态 + 双层防护）
+- [x] **T-3.4** ✅ BabySwitcher + TodaySummary + HomeSkeleton + computeDailyGoals
+- [x] **T-3.5** ✅ AI 洞察折叠态 + buildFallbackInsight + use-local-storage-state
+- [x] **T-3.6** ✅ InsightSection 趋势组件（4 卡片 + RangeBar + useWeeklyTrend）
+- [x] **T-3.7** ✅ 家庭协作 5 个组件（RoleEditDialog / TransferAdminDialog / RemoveMemberConfirm / InviteSection / MembersSection）
+- [x] **T-3.8** ✅ HomePage 与 FamilyPage 集成（含 leaveFamily 状态机分支）
 
 ### 阶段四：P1 增强（M4）
 
