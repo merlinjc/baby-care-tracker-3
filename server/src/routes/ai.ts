@@ -11,6 +11,17 @@ const router = Router();
 // All routes require authentication
 router.use(authenticate);
 
+const ROLE_VALUES = [
+  'mom',
+  'dad',
+  'grandma_m',
+  'grandma_p',
+  'grandpa_m',
+  'grandpa_p',
+  'nanny',
+  'other',
+] as const;
+
 const chatSchema = z.object({
   messages: z
     .array(
@@ -21,10 +32,12 @@ const chatSchema = z.object({
     )
     .min(1, '至少一条消息'),
   babyId: z.string().optional(),
+  role: z.enum(ROLE_VALUES).optional(),
 });
 
 const dailyInsightSchema = z.object({
   babyId: z.string().min(1, '宝宝ID不能为空'),
+  role: z.enum(ROLE_VALUES).optional(),
 });
 
 // POST /api/ai/chat — FR-F1 同步对话
@@ -33,8 +46,8 @@ router.post(
   aiRateLimit,
   validateBody(chatSchema),
   asyncHandler(async (req: Request, res: Response) => {
-    const { messages, babyId } = req.body;
-    const result = await aiService.chat(req.userId!, messages, babyId);
+    const { messages, babyId, role } = req.body;
+    const result = await aiService.chat(req.userId!, messages, babyId, role);
     res.json({
       success: true,
       data: { content: result.content },
@@ -48,7 +61,7 @@ router.post(
   aiRateLimit,
   validateBody(chatSchema),
   asyncHandler(async (req: Request, res: Response) => {
-    const { messages, babyId } = req.body;
+    const { messages, babyId, role } = req.body;
 
     res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache');
@@ -61,9 +74,15 @@ router.post(
     };
 
     try {
-      await aiService.chatStream(req.userId!, messages, babyId, (delta) => {
-        writeEvent({ type: 'chunk', content: delta });
-      });
+      await aiService.chatStream(
+        req.userId!,
+        messages,
+        babyId,
+        (delta) => {
+          writeEvent({ type: 'chunk', content: delta });
+        },
+        role,
+      );
       writeEvent({ type: 'done' });
       res.end();
     } catch (err) {
@@ -78,7 +97,7 @@ router.post(
   }),
 );
 
-// GET /api/ai/insight/daily — FR-F2 每日洞察
+// GET /api/ai/insight/daily — FR-F2 每日洞察（支持 role 视角）
 router.get(
   '/insight/daily',
   asyncHandler(async (req: Request, res: Response) => {
@@ -90,7 +109,11 @@ router.get(
       });
       return;
     }
-    const insight = await aiService.dailyInsight(req.userId!, babyId);
+    const roleRaw = req.query.role as string | undefined;
+    const role = roleRaw && (ROLE_VALUES as readonly string[]).includes(roleRaw)
+      ? (roleRaw as (typeof ROLE_VALUES)[number])
+      : undefined;
+    const insight = await aiService.dailyInsight(req.userId!, babyId, role);
     res.json({
       success: true,
       data: { insight, date: new Date().toISOString() },
@@ -103,7 +126,7 @@ router.post(
   '/daily-insight',
   validateBody(dailyInsightSchema),
   asyncHandler(async (req: Request, res: Response) => {
-    const insight = await aiService.dailyInsight(req.userId!, req.body.babyId);
+    const insight = await aiService.dailyInsight(req.userId!, req.body.babyId, req.body.role);
     res.json({
       success: true,
       data: { insight, date: new Date().toISOString() },

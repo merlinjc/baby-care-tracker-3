@@ -36,6 +36,7 @@ export type {
   DailyInsight,
   AIQuotaStatus,
   ChatStreamEvent,
+  CareRole,
 } from '@shared/types/index';
 
 export {

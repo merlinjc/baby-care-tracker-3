@@ -23,7 +23,7 @@ import { prisma } from '../config/database';
 import { ForbiddenError, ErrorCodes } from '../types/errors';
 import { recordService } from './record.service';
 import { startOfDay } from '../utils/date';
-import type { ChatMessage, DailyInsight, AIQuotaStatus } from '../types';
+import type { ChatMessage, DailyInsight, AIQuotaStatus, CareRole } from '../types';
 
 const DAILY_LIMIT = parseInt(process.env.AI_DAILY_QUOTA ?? '100', 10);
 
@@ -52,10 +52,11 @@ class AIService {
     userId: string,
     messages: ChatMessage[],
     babyId?: string,
+    role?: CareRole,
   ): Promise<{ content: string }> {
     await this.consumeQuota(userId);
     try {
-      const fullMessages = await this.buildFullMessages(userId, messages, babyId);
+      const fullMessages = await this.buildFullMessages(userId, messages, babyId, role);
       const content = await this.callOpenAI(fullMessages);
       return { content };
     } catch (err) {
@@ -75,10 +76,11 @@ class AIService {
     messages: ChatMessage[],
     babyId: string | undefined,
     onChunk: (delta: string) => void,
+    role?: CareRole,
   ): Promise<{ content: string }> {
     await this.consumeQuota(userId);
     try {
-      const fullMessages = await this.buildFullMessages(userId, messages, babyId);
+      const fullMessages = await this.buildFullMessages(userId, messages, babyId, role);
 
       // 无凭证 → 直接 mock 流式
       if (!this.hasCredentials) {
@@ -99,9 +101,10 @@ class AIService {
     }
   }
 
-  async dailyInsight(userId: string, babyId: string): Promise<DailyInsight> {
+  async dailyInsight(userId: string, babyId: string, role?: CareRole): Promise<DailyInsight> {
     const today = formatDate(new Date());
-    const cacheKey = `daily_insight:${babyId}:${today}`;
+    // 缓存 key 额外区分 role：不同视角的洞察内容不同，不能共用缓存
+    const cacheKey = `daily_insight:${babyId}:${today}:${role ?? 'default'}`;
     const cached = this.getCache(cacheKey);
     if (cached) return cached;
 
@@ -121,9 +124,15 @@ class AIService {
         return buildFallbackInsight(stats);
       }
 
-      const prompt = buildInsightPrompt(baby.name, baby.ageMonths, stats);
+      const prompt = buildInsightPrompt(baby.name, baby.ageMonths, stats, role);
+      const systemPrompt = buildRoleSystemPrompt(role, {
+        babyName: baby.name,
+        ageMonths: baby.ageMonths,
+        insightMode: true,
+      });
+
       const content = await this.callOpenAI([
-        { role: 'system', content: '你是一位专业育儿顾问，请用简洁温暖的中文回复，控制在 80 字以内。' },
+        { role: 'system', content: systemPrompt },
         { role: 'user', content: prompt },
       ]);
 
@@ -195,9 +204,14 @@ class AIService {
     userId: string,
     messages: ChatMessage[],
     babyId?: string,
+    role?: CareRole,
   ): Promise<ChatMessage[]> {
     const baby = babyId ? await this.getBabyContext(userId, babyId) : null;
-    const systemPrompt = baby ? buildSystemPrompt(baby.name, baby.ageMonths) : '你是一位专业育儿顾问';
+    const systemPrompt = buildRoleSystemPrompt(role, {
+      babyName: baby?.name,
+      ageMonths: baby?.ageMonths,
+      insightMode: false,
+    });
     return [{ role: 'system', content: systemPrompt }, ...messages];
   }
 
@@ -423,14 +437,84 @@ function buildSystemPrompt(babyName: string, ageMonths: number): string {
   return `你是一位专业育儿顾问。当前用户的宝宝：${babyName}，${ageMonths}个月。请用简洁温暖的中文回答家长的育儿问题，避免过长，避免使用医疗诊断结论。`;
 }
 
+/**
+ * 角色映射到「你是谁 + 你会怎么说话」的视角描述。
+ * 不同角色关注点不同，语气 / 称呼 / 建议侧重也不同：
+ *  - mom  ：妈妈视角，兼顾宝宝与自身产后/哺乳
+ *  - dad  ：爸爸视角，鼓励分担、夜间协作、情感支持
+ *  - 祖辈 ：尊重经验，同时用温和语气补充现代科学育儿观点
+ *  - nanny：专业护理人员视角，强调交接要点 / 观察指标
+ *  - other/未提供：中立育儿顾问
+ */
+function getRolePersona(role?: CareRole): string {
+  switch (role) {
+    case 'mom':
+      return '你面向的是宝宝的妈妈。回答时兼顾宝宝护理和妈妈自身的恢复/喂奶体验；在涉及母乳、产后情绪、频繁夜醒等话题时给出共情式建议，语气温暖亲切，可以使用"妈妈"作为称呼。';
+    case 'dad':
+      return '你面向的是宝宝的爸爸。回答时强调如何主动分担（换尿布 / 夜间陪睡 / 哄睡）、如何支持伴侣和理解宝宝信号；语气平实、行动导向、避免说教，可使用"爸爸"作为称呼。';
+    case 'grandma_m':
+    case 'grandma_p':
+      return '你面向的是宝宝的奶奶 / 外婆。回答时尊重祖辈的经验，同时在必要时用温和方式补充现代科学育儿建议（如不要过度包被、夜奶处理、辅食安全等），语气温和，避免评判；可使用"奶奶"或"您"作为称呼。';
+    case 'grandpa_m':
+    case 'grandpa_p':
+      return '你面向的是宝宝的爷爷 / 外公。回答时侧重「可以动手帮什么」、如何与年轻父母配合、避免传统做法带来的风险；语气平实稳重，可使用"爷爷"或"您"作为称呼。';
+    case 'nanny':
+      return '你面向的是专业月嫂 / 育儿嫂。回答时以专业护理视角展开，侧重可观察指标（吃睡拉量化、体温曲线、异常信号识别）与和家属的交接要点；语气客观中立、条目化。';
+    case 'other':
+    default:
+      return '你是一位中立的专业育儿顾问。请用简洁温暖的中文回答，避免医疗诊断结论。';
+  }
+}
+
+/**
+ * 统一的 system prompt 构造器
+ * - insightMode=true ：用于每日洞察（限制 80 字以内）
+ * - insightMode=false：用于自由对话
+ */
+function buildRoleSystemPrompt(
+  role: CareRole | undefined,
+  ctx: { babyName?: string; ageMonths?: number; insightMode: boolean },
+): string {
+  const persona = getRolePersona(role);
+  const babyLine =
+    ctx.babyName && typeof ctx.ageMonths === 'number'
+      ? `当前宝宝：${ctx.babyName}，${ctx.ageMonths}个月。`
+      : '';
+  const styleLine = ctx.insightMode
+    ? '请用简洁温暖的中文回复，控制在 80 字以内，避免使用医疗诊断结论。'
+    : '回答请简洁实用，避免过长，避免使用医疗诊断结论。';
+  return [persona, babyLine, styleLine].filter(Boolean).join(' ');
+}
+
 function buildInsightPrompt(
   babyName: string,
   ageMonths: number,
   stats: Awaited<ReturnType<typeof recordService.getTodayStats>>,
+  role?: CareRole,
 ): string {
   const sleepH = Math.floor(stats.sleep.totalDuration / 3600);
   const sleepM = Math.round((stats.sleep.totalDuration % 3600) / 60);
-  return `宝宝 ${babyName}，${ageMonths}个月。今日数据：喂养 ${stats.feeding.count} 次（共 ${stats.feeding.totalAmount}ml）、睡眠 ${sleepH}h${sleepM}m（共 ${stats.sleep.count} 次）、换尿布 ${stats.diaper.count} 次、最新体温 ${stats.temperature.latestValue ?? '--'}°C。请用 80 字内的自然句子总结今日状态。`;
+  const audienceHint = getInsightAudienceHint(role);
+  return `宝宝 ${babyName}，${ageMonths}个月。今日数据：喂养 ${stats.feeding.count} 次（共 ${stats.feeding.totalAmount}ml）、睡眠 ${sleepH}h${sleepM}m（共 ${stats.sleep.count} 次）、换尿布 ${stats.diaper.count} 次、最新体温 ${stats.temperature.latestValue ?? '--'}°C。${audienceHint}请用 80 字内的自然句子总结今日状态。`;
+}
+
+/** 根据阅读对象给出一句话的内容侧重提示（可拼接到 user prompt 中） */
+function getInsightAudienceHint(role?: CareRole): string {
+  switch (role) {
+    case 'mom':
+      return '请用「妈妈」视角评价宝宝并附一条对妈妈自身的关怀建议。';
+    case 'dad':
+      return '请用「爸爸」视角总结，并给一条爸爸今晚可以分担的具体动作。';
+    case 'grandma_m':
+    case 'grandma_p':
+    case 'grandpa_m':
+    case 'grandpa_p':
+      return '请用祖辈能听懂的温和语言总结，并温和地附一条现代科学育儿小贴士。';
+    case 'nanny':
+      return '请以专业护理视角总结，并点出一条明日需要重点观察的指标。';
+    default:
+      return '';
+  }
 }
 
 /**

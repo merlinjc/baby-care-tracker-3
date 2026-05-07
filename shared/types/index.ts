@@ -306,6 +306,24 @@ export interface WeeklyTrendData {
   ageMonths: number;
 }
 
+// ============ Care Role (育儿角色，用于 AI 个性化) ============
+/**
+ * 家庭成员在育儿中的角色，用于 AI 洞察 / 对话的人设分支。
+ * - 妈妈 / 爸爸：父母视角，侧重喂养作息 + 情感支持
+ * - 外婆 / 奶奶 / 外公 / 爷爷：祖辈视角，强调代际差异科学育儿、避免传统误区
+ * - 月嫂 / 育儿嫂：专业护理视角，侧重技巧 + 交接要点
+ * - 其他 / 未设置：中立顾问视角
+ */
+export type CareRole =
+  | 'mom'
+  | 'dad'
+  | 'grandma_m'
+  | 'grandma_p'
+  | 'grandpa_m'
+  | 'grandpa_p'
+  | 'nanny'
+  | 'other';
+
 // ============ AI Types ============
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -315,6 +333,8 @@ export interface ChatMessage {
 export interface AIChatRequest {
   messages: ChatMessage[];
   babyId?: string;
+  /** 可选：以某个育儿角色的视角生成回复（不传则使用中立顾问视角） */
+  role?: CareRole;
 }
 
 export interface AIChatResponse {
