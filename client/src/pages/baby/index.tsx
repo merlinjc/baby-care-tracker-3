@@ -7,7 +7,14 @@ import { usePermission } from '@/hooks/use-permission'
 import { recordService } from '@/services/record'
 import { useConfirm } from '@/components/ui/confirm-dialog'
 import { PageHeader } from '@/components/page-header'
-import { HeaderAction } from '@/components/header-action'
+import { Button } from '@/components/ui/button'
+import { IconButton } from '@/components/ui/icon-button'
+import { Card } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Alert } from '@/components/ui/alert'
+import { Input } from '@/components/ui/input'
+import { FormField } from '@/components/ui/form-field'
+import { SegmentedControl } from '@/components/ui/segmented-control'
 import type { TodayStats } from '@/types'
 
 function getAgeDisplay(birthDate: string): string {
@@ -114,28 +121,31 @@ export function BabyPage() {
         }).catch(() => {})
       }
     })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [babies])
 
   return (
-    <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-4 animate-fade-in-up">
+    <div className="space-y-5 animate-fade-in-up">
       <PageHeader
         title="宝宝管理"
         backTo="/profile"
         action={
           !isFormOpen && isAdmin && family?.id ? (
-            <HeaderAction
+            <Button
               variant="primary"
-              icon={<Plus className="h-3.5 w-3.5" />}
-              label="添加"
+              size="sm"
+              leftIcon={<Plus className="h-3.5 w-3.5" />}
               onClick={() => { resetForm(); setShowAdd(true) }}
-            />
+            >
+              添加
+            </Button>
           ) : null
         }
       />
 
       {/* No Family: 引导用户去创建/加入家庭 */}
       {!family?.id && !isFormOpen && (
-        <div className="card-base flex items-center gap-3">
+        <Card padding="sm" className="flex items-center gap-3">
           <div
             className="icon-circle icon-circle--md"
             style={{ backgroundColor: 'color-mix(in srgb, var(--sleep) 12%, transparent)' }}
@@ -150,87 +160,77 @@ export function BabyPage() {
           </div>
           <Link
             to="/family"
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[var(--text-xs)] font-medium transition-colors"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
             style={{ color: 'var(--primary)' }}
           >
             前往
             <ChevronRight className="h-3.5 w-3.5" />
           </Link>
-        </div>
+        </Card>
       )}
 
       {/* Add/Edit Form */}
       {isFormOpen && (
-        <form onSubmit={editingId ? handleUpdate : handleAdd} className="card space-y-4 animate-slide-up">
-          <div className="flex items-center justify-between">
-            <h2 className="heading-sm text-[var(--text-primary)]">
-              {editingId ? '编辑宝宝' : '添加宝宝'}
-            </h2>
-            <button type="button" onClick={resetForm} className="p-1 rounded-lg text-[var(--text-hint)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] transition-colors">
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-
-          <div>
-            <label className="label-base">姓名</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              placeholder="宝宝的小名"
-              className="input-base"
-            />
-          </div>
-
-          <div>
-            <label className="label-base">性别</label>
-            <div className="flex gap-2 mt-1">
-              {([
-                { value: 'male' as const, label: '男孩', Icon: Mars },
-                { value: 'female' as const, label: '女孩', Icon: Venus },
-              ]).map(({ value, label, Icon }) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setGender(value)}
-                  className={`chip flex-1 justify-center ${gender === value ? 'chip--active' : 'chip--inactive'}`}
-                  style={gender === value ? { backgroundColor: 'var(--primary)' } : undefined}
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                  {label}
-                </button>
-              ))}
+        <Card as="section" className="animate-slide-up">
+          <form onSubmit={editingId ? handleUpdate : handleAdd} className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="heading-sm text-[var(--text-primary)]">
+                {editingId ? '编辑宝宝' : '添加宝宝'}
+              </h2>
+              <IconButton
+                variant="ghost"
+                size="sm"
+                icon={<X className="h-5 w-5" />}
+                onClick={resetForm}
+                aria-label="关闭"
+              />
             </div>
-          </div>
 
-          <div>
-            <label className="label-base">出生日期</label>
-            <input
-              type="date"
-              value={birthDate}
-              onChange={(e) => setBirthDate(e.target.value)}
-              required
-              className="input-base"
-            />
-          </div>
+            <FormField label="姓名" htmlFor="baby-name" required>
+              <Input
+                id="baby-name"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                placeholder="宝宝的小名"
+              />
+            </FormField>
 
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="btn-primary w-full"
-          >
-            {isSubmitting ? '保存中...' : '保存'}
-          </button>
-        </form>
+            <FormField label="性别">
+              <SegmentedControl<'male' | 'female'>
+                value={gender}
+                onChange={setGender}
+                accentColor="var(--primary)"
+                options={[
+                  { value: 'male', label: '👦 男孩' },
+                  { value: 'female', label: '👧 女孩' },
+                ]}
+              />
+            </FormField>
+
+            <FormField label="出生日期" htmlFor="baby-birth" required>
+              <Input
+                id="baby-birth"
+                type="date"
+                value={birthDate}
+                onChange={(e) => setBirthDate(e.target.value)}
+                required
+              />
+            </FormField>
+
+            <Button type="submit" block loading={isSubmitting}>
+              {isSubmitting ? '保存中...' : '保存'}
+            </Button>
+          </form>
+        </Card>
       )}
 
       {/* Viewer notice */}
       {isViewer && (
-        <div className="notice-info">
-          <Lock className="h-3.5 w-3.5 shrink-0" />
+        <Alert variant="info" size="compact" icon={<Lock className="h-3.5 w-3.5" />}>
           您是查看者，无法添加或修改宝宝信息
-        </div>
+        </Alert>
       )}
 
       {/* Baby List */}
@@ -255,22 +255,30 @@ export function BabyPage() {
             const stats = babyStats[baby.id]
             const GenderIcon = baby.gender === 'male' ? Mars : Venus
             return (
-              <div
+              <Card
                 key={baby.id}
-                className="card-base flex items-center gap-3 cursor-pointer transition-colors"
-                style={{
-                  outline: isCurrent ? '2px solid var(--primary)' : 'none',
-                  outlineOffset: '-1px',
-                  backgroundColor: isCurrent ? 'color-mix(in srgb, var(--primary) 4%, var(--bg-card))' : undefined,
-                }}
+                as="article"
+                variant="interactive"
+                padding="sm"
                 onClick={() => selectBaby(baby.id)}
+                className="flex items-center gap-3"
+                style={
+                  isCurrent
+                    ? {
+                        outline: '2px solid var(--primary)',
+                        outlineOffset: '-1px',
+                        backgroundColor: 'color-mix(in srgb, var(--primary) 4%, var(--bg-card))',
+                      }
+                    : undefined
+                }
               >
                 <div
                   className="icon-circle icon-circle--md"
                   style={{
-                    backgroundColor: baby.gender === 'male'
-                      ? 'color-mix(in srgb, var(--sleep) 12%, transparent)'
-                      : 'color-mix(in srgb, var(--temperature) 12%, transparent)',
+                    backgroundColor:
+                      baby.gender === 'male'
+                        ? 'color-mix(in srgb, var(--sleep) 12%, transparent)'
+                        : 'color-mix(in srgb, var(--temperature) 12%, transparent)',
                   }}
                 >
                   <Baby
@@ -282,15 +290,9 @@ export function BabyPage() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="body-md font-medium text-[var(--text-primary)]">{baby.name}</p>
                     {isCurrent && (
-                      <span
-                        className="badge-mini"
-                        style={{
-                          backgroundColor: 'color-mix(in srgb, var(--primary) 15%, transparent)',
-                          color: 'var(--primary)',
-                        }}
-                      >
+                      <Badge size="xs" variant="primary">
                         当前
-                      </span>
+                      </Badge>
                     )}
                   </div>
                   <div className="flex items-center gap-1.5 caption">
@@ -303,62 +305,44 @@ export function BabyPage() {
                   {stats && (stats.feeding.count > 0 || stats.sleep.count > 0 || stats.diaper.count > 0) && (
                     <div className="flex items-center gap-1 mt-1.5 flex-wrap">
                       {stats.feeding.count > 0 && (
-                        <span
-                          className="badge-mini"
-                          style={{
-                            backgroundColor: 'color-mix(in srgb, var(--feeding) 12%, transparent)',
-                            color: 'var(--feeding)',
-                          }}
-                        >
+                        <Badge size="xs" variant="feeding">
                           喂养·{stats.feeding.count}
-                        </span>
+                        </Badge>
                       )}
                       {stats.sleep.count > 0 && (
-                        <span
-                          className="badge-mini"
-                          style={{
-                            backgroundColor: 'color-mix(in srgb, var(--sleep) 12%, transparent)',
-                            color: 'var(--sleep)',
-                          }}
-                        >
+                        <Badge size="xs" variant="sleep">
                           睡眠·{stats.sleep.count}
-                        </span>
+                        </Badge>
                       )}
                       {stats.diaper.count > 0 && (
-                        <span
-                          className="badge-mini"
-                          style={{
-                            backgroundColor: 'color-mix(in srgb, var(--diaper) 12%, transparent)',
-                            color: 'var(--diaper)',
-                          }}
-                        >
+                        <Badge size="xs" variant="diaper">
                           换尿布·{stats.diaper.count}
-                        </span>
+                        </Badge>
                       )}
                     </div>
                   )}
                 </div>
                 <div className="flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
                   {isAdmin && (
-                    <button
+                    <IconButton
+                      variant="ghost"
+                      size="sm"
+                      icon={<Pencil className="h-3.5 w-3.5" />}
                       onClick={() => handleEdit(baby)}
-                      className="icon-btn"
-                      title="编辑"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
+                      aria-label="编辑"
+                    />
                   )}
                   {isAdmin && (
-                    <button
+                    <IconButton
+                      variant="danger-ghost"
+                      size="sm"
+                      icon={<Trash2 className="h-3.5 w-3.5" />}
                       onClick={() => handleDelete(baby.id)}
-                      className="icon-btn icon-btn--danger"
-                      title="删除"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                      aria-label="删除"
+                    />
                   )}
                 </div>
-              </div>
+              </Card>
             )
           })}
         </div>

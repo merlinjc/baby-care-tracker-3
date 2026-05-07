@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Ruler } from 'lucide-react'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { FormField } from '@/components/ui/form-field'
+import { NoteTagPicker } from '@/components/note-tag-picker'
 import { toDateTimeLocalValue, fromDateTimeLocalValue } from '@/lib/date'
 import type { CareRecord } from '@/types'
 import type { RecordDialogMeta } from './feeding-dialog'
@@ -90,66 +93,64 @@ export function GrowthDialog({ open, onClose, onSubmit, editRecord }: GrowthDial
         />
       }
     >
-      <form id={formId} onSubmit={handleSubmit} className="space-y-4">
-        {!hasAnyMeasurement && !isEdit && (
-          <p className="caption">请至少填写身高、体重或头围中的一项</p>
-        )}
-        <div>
-          <label className="label-base">身高 (cm)</label>
-          <input
+      <form id={formId} onSubmit={handleSubmit} data-dialog-form className="space-y-5">
+        <FormField
+          label="身高"
+          htmlFor="growth-height"
+          hint={!hasAnyMeasurement && !isEdit ? '请至少填写身高、体重或头围中的一项' : undefined}
+        >
+          <Input
+            id="growth-height"
             type="number"
             step="0.1"
             value={height}
             onChange={(e) => setHeight(e.target.value)}
             placeholder="如：70.5"
-            className="input-base"
+            rightIcon={<span className="text-xs">cm</span>}
           />
-        </div>
+        </FormField>
 
-        <div>
-          <label className="label-base">体重 (kg)</label>
-          <input
+        <FormField label="体重" htmlFor="growth-weight">
+          <Input
+            id="growth-weight"
             type="number"
             step="0.01"
             value={weight}
             onChange={(e) => setWeight(e.target.value)}
             placeholder="如：8.5"
-            className="input-base"
+            rightIcon={<span className="text-xs">kg</span>}
           />
-        </div>
+        </FormField>
 
-        <div>
-          <label className="label-base">头围 (cm)</label>
-          <input
+        <FormField label="头围" htmlFor="growth-head">
+          <Input
+            id="growth-head"
             type="number"
             step="0.1"
             value={headCircumference}
             onChange={(e) => setHeadCircumference(e.target.value)}
             placeholder="如：45.0"
-            className="input-base"
+            rightIcon={<span className="text-xs">cm</span>}
           />
-        </div>
+        </FormField>
 
-        <div>
-          <label className="label-base">测量时间</label>
-          <input
+        <FormField label="测量时间" htmlFor="growth-time">
+          <Input
+            id="growth-time"
             type="datetime-local"
             value={recordTime}
             onChange={(e) => setRecordTime(e.target.value)}
-            className="input-base"
           />
-        </div>
+        </FormField>
 
-        <div>
-          <label className="label-base">备注</label>
-          <input
-            type="text"
+        <FormField label="备注">
+          <NoteTagPicker
             value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="添加备注"
-            className="input-base"
+            onChange={setNote}
+            recordType="growth"
+            accentColor="var(--growth)"
           />
-        </div>
+        </FormField>
       </form>
     </Dialog>
   )

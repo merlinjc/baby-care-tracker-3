@@ -6,9 +6,13 @@
  * - variant='badge'：紧凑徽章 —— 嵌入 header 右上角
  *
  * 剩余 < 5 时变橙；剩余 0 时变红 + 提示
+ *
+ * v5.0.1 Batch 3：badge 模式用 <Badge>，bar 模式用 <Progress accentColor>。
  */
 import { Sparkles } from 'lucide-react'
 import type { AIQuotaStatus } from '@/types'
+import { Badge } from '@/components/ui/badge'
+import { Progress } from '@/components/ui/progress'
 
 interface QuotaBarProps {
   quota: AIQuotaStatus | null
@@ -20,10 +24,9 @@ export function QuotaBar({ quota, isLoading, variant = 'bar' }: QuotaBarProps) {
   if (isLoading || !quota) {
     if (variant === 'badge') {
       return (
-        <span className="inline-flex items-center gap-1 text-[11px] text-[var(--text-hint)]">
-          <Sparkles className="h-3 w-3" />
+        <Badge size="sm" variant="ghost" icon={<Sparkles className="h-3 w-3" />}>
           配额…
-        </span>
+        </Badge>
       )
     }
     return (
@@ -34,7 +37,8 @@ export function QuotaBar({ quota, isLoading, variant = 'bar' }: QuotaBarProps) {
     )
   }
 
-  const percent = quota.dailyLimit > 0 ? Math.max(0, quota.remaining) / quota.dailyLimit : 0
+  const percent =
+    quota.dailyLimit > 0 ? Math.max(0, quota.remaining) / quota.dailyLimit : 0
   const isLow = quota.remaining < 5
   const isExhausted = quota.remaining === 0
   const color = isExhausted
@@ -45,20 +49,21 @@ export function QuotaBar({ quota, isLoading, variant = 'bar' }: QuotaBarProps) {
 
   if (variant === 'badge') {
     return (
-      <span
-        className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
-        style={{
-          backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)`,
-          color,
-        }}
-        title={isExhausted ? '今日配额已用完，请明天再试' : `今日剩余 ${quota.remaining} / ${quota.dailyLimit}`}
+      <Badge
+        size="sm"
+        accentColor={color}
+        icon={<Sparkles className="h-3 w-3" />}
+        title={
+          isExhausted
+            ? '今日配额已用完，请明天再试'
+            : `今日剩余 ${quota.remaining} / ${quota.dailyLimit}`
+        }
       >
-        <Sparkles className="h-3 w-3" />
         <span className="number-display">
           {quota.remaining}
           <span className="opacity-70">/{quota.dailyLimit}</span>
         </span>
-      </span>
+      </Badge>
     )
   }
 
@@ -84,15 +89,13 @@ export function QuotaBar({ quota, isLoading, variant = 'bar' }: QuotaBarProps) {
             </span>
           )}
         </div>
-        <div className="mt-1.5 h-1 rounded-full" style={{ backgroundColor: 'var(--bg-elevated)' }}>
-          <div
-            className="h-full rounded-full transition-all"
-            style={{
-              width: `${Math.round(percent * 100)}%`,
-              backgroundColor: color,
-            }}
-          />
-        </div>
+        <Progress
+          value={Math.round(percent * 100)}
+          max={100}
+          size="sm"
+          accentColor={color}
+          className="mt-1.5"
+        />
       </div>
     </div>
   )

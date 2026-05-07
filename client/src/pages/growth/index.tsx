@@ -7,7 +7,8 @@ import { useDialog } from '@/hooks/use-dialog'
 import { recordService } from '@/services/record'
 import { getWHOReferenceLines } from '@/lib/who-standards'
 import { PageHeader } from '@/components/page-header'
-import { HeaderAction } from '@/components/header-action'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { ChartSkeleton } from '@/components/ui/chart-skeleton'
 import type { TrendType, TrendDataPoint, Baby } from '@/types'
 
@@ -130,18 +131,20 @@ export function GrowthPage() {
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-4 animate-fade-in-up">
+    <div className="space-y-5 animate-fade-in-up">
       <PageHeader
         title="生长曲线"
         backTo="/discover"
         action={
-          <HeaderAction
+          <Button
             variant="primary"
-            icon={<Plus className="h-3.5 w-3.5" />}
-            label="记录"
+            size="sm"
+            leftIcon={<Plus className="h-3.5 w-3.5" />}
             accentColor="var(--growth)"
             onClick={growthDialog.openDialog}
-          />
+          >
+            记录
+          </Button>
         }
       />
 
@@ -181,7 +184,7 @@ export function GrowthPage() {
       {isLoading ? (
         <ChartSkeleton chartHeight={200} rows={4} />
       ) : (
-        <div className="card-base">
+        <Card padding="sm">
           {points.length === 0 && !showWHO ? (
             <div className="empty-state">
               <TrendingUp className="h-12 w-12 empty-state__icon" />
@@ -296,18 +299,18 @@ export function GrowthPage() {
             </div>
           </div>
           )}
-        </div>
+        </Card>
       )}
 
       {/* WHO Info */}
       {showWHO && (
-        <div className="card-base flex items-start gap-2">
+        <Card padding="sm" className="flex items-start gap-2">
           <Info className="h-4 w-4 shrink-0 mt-0.5" style={{ color: 'var(--growth)' }} />
           <div className="caption space-y-1">
             <p>WHO 参考线基于世界卫生组织儿童生长标准。P50 为中位数，P3-P97 为正常范围。</p>
             <p>超出 P3-P97 范围不代表异常，请咨询医生进行专业评估。</p>
           </div>
-        </div>
+        </Card>
       )}
 
       <GrowthDialog

@@ -9,13 +9,14 @@
  * - 分页加载 / 局部刷新 → spinner
  */
 import { Skeleton } from './skeleton'
+import { Card } from './card'
 
 interface ListSkeletonProps {
   /** 占位条数量，默认 5 */
   count?: number
   /** 是否显示右侧操作占位（pencil/trash 按钮区域），默认 true */
   showActions?: boolean
-  /** 单条卡片是否使用左侧色条样式（card-base + borderLeft） */
+  /** 单条卡片是否使用左侧色条样式 */
   withAccent?: boolean
 }
 
@@ -27,9 +28,10 @@ export function ListSkeleton({
   return (
     <div className="space-y-2" aria-busy="true" aria-label="加载中">
       {Array.from({ length: count }).map((_, i) => (
-        <div
+        <Card
           key={i}
-          className="card-base flex items-center gap-3"
+          padding="sm"
+          className="flex items-center gap-3"
           style={
             withAccent
               ? { borderLeft: '3px solid var(--border)' }
@@ -50,7 +52,7 @@ export function ListSkeleton({
               <Skeleton className="h-6 w-6 rounded-md" />
             </div>
           )}
-        </div>
+        </Card>
       ))}
     </div>
   )

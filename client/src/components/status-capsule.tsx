@@ -6,11 +6,16 @@
  * - sleeping：正在睡觉 · Xh Ym + [结束] 按钮 + 录制指示灯
  * - feeding_ago：上次喂养 Xh Ym 前
  * - sleep_abnormal：睡眠时间异常 + [取消计时] 按钮（红色）
+ *
+ * v5.0.1 Batch 3：Alert + Button 组合实现
+ * - 各种语义态由 <Alert variant> 提供底色与文字色
+ * - 右侧按钮使用 <Button size="xs">
+ * - 保留 recPulse 录制指示灯（独有动效）
  */
 import { useEffect, useState } from 'react'
 import { Moon, Coffee, AlertTriangle, Sparkles } from 'lucide-react'
 import type { CareRecord, TodayStats } from '@/types'
-import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 import {
   buildCapsuleText,
   computeCapsuleState,
@@ -43,34 +48,35 @@ export function StatusCapsule({
   const state = computeCapsuleState(stats, activeSleep)
   const text = buildCapsuleText(state, stats, activeSleep, babyName)
 
+  // none 态保持独立（primary 色系引导）
   if (state === 'none') {
     return (
       <div
-        className="flex items-center gap-3 rounded-2xl px-4 py-3"
+        className="flex items-center gap-3 rounded-2xl px-4 py-3 animate-fade-in"
         style={{
           background: 'color-mix(in srgb, var(--primary) 8%, transparent)',
           border: '1px solid color-mix(in srgb, var(--primary) 16%, transparent)',
         }}
       >
-        <Sparkles className="h-4 w-4" style={{ color: 'var(--primary)' }} />
+        <Sparkles className="h-4 w-4 shrink-0" style={{ color: 'var(--primary)' }} />
         <span className="body-md flex-1 text-[var(--text-secondary)]">{text}</span>
       </div>
     )
   }
 
-  const styleMap: Record<Exclude<CapsuleState, 'none'>, { bg: string; color: string; Icon: typeof Moon }> = {
-    sleeping: { bg: 'var(--sleep)', color: '#3D2D5A', Icon: Moon },
-    feeding_ago: { bg: 'var(--feeding)', color: '#2D5A2D', Icon: Coffee },
-    sleep_abnormal: { bg: 'var(--danger)', color: '#FFFFFF', Icon: AlertTriangle },
+  const styleMap: Record<
+    Exclude<CapsuleState, 'none'>,
+    { bg: string; btnTextColor: string; Icon: typeof Moon }
+  > = {
+    sleeping: { bg: 'var(--sleep)', btnTextColor: '#3D2D5A', Icon: Moon },
+    feeding_ago: { bg: 'var(--feeding)', btnTextColor: '#2D5A2D', Icon: Coffee },
+    sleep_abnormal: { bg: 'var(--danger)', btnTextColor: '#FFFFFF', Icon: AlertTriangle },
   }
-  const { bg, color, Icon } = styleMap[state]
+  const { bg, btnTextColor, Icon } = styleMap[state]
 
   return (
     <div
-      className={cn(
-        'flex items-center gap-3 rounded-2xl px-4 py-3 transition-colors',
-        'animate-fade-in',
-      )}
+      className="flex items-center gap-3 rounded-2xl px-4 py-3 transition-colors animate-fade-in"
       style={{
         background: `color-mix(in srgb, ${bg} 14%, var(--bg-card))`,
         border: `1px solid color-mix(in srgb, ${bg} 24%, transparent)`,
@@ -84,7 +90,7 @@ export function StatusCapsule({
       {state === 'sleeping' && (
         <>
           <span
-            className="inline-block h-2.5 w-2.5 rounded-full"
+            className="inline-block h-2.5 w-2.5 rounded-full shrink-0"
             style={{
               backgroundColor: '#E85454',
               animation: 'recPulse 1.5s ease-in-out infinite',
@@ -92,25 +98,30 @@ export function StatusCapsule({
             aria-label="正在记录"
           />
           {onEndSleep && (
-            <button
+            <Button
+              variant="primary"
+              size="xs"
               onClick={onEndSleep}
-              className="rounded-full px-3 py-1 text-xs font-semibold transition-opacity hover:opacity-85"
-              style={{ backgroundColor: bg, color }}
+              accentColor={bg}
+              className="rounded-full"
+              style={{ color: btnTextColor }}
             >
               结束
-            </button>
+            </Button>
           )}
         </>
       )}
 
       {state === 'sleep_abnormal' && onCancelAbnormal && (
-        <button
+        <Button
+          variant="primary"
+          size="xs"
           onClick={onCancelAbnormal}
-          className="rounded-full px-3 py-1 text-xs font-semibold transition-opacity hover:opacity-85"
+          className="rounded-full"
           style={{ backgroundColor: '#FFFFFF', color: 'var(--danger)' }}
         >
           取消计时
-        </button>
+        </Button>
       )}
     </div>
   )

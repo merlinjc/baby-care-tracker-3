@@ -5,6 +5,7 @@
  * 形状：标题占位 + 图表区占位（高度 200px）+ 下方 2 行数据条目占位。
  */
 import { Skeleton } from './skeleton'
+import { Card } from './card'
 
 interface ChartSkeletonProps {
   /** 图表区高度（px），默认 200 */
@@ -15,8 +16,9 @@ interface ChartSkeletonProps {
 
 export function ChartSkeleton({ chartHeight = 200, rows = 4 }: ChartSkeletonProps) {
   return (
-    <div
-      className="card-base space-y-3"
+    <Card
+      padding="sm"
+      className="space-y-3"
       aria-busy="true"
       aria-label="加载中"
     >
@@ -36,6 +38,6 @@ export function ChartSkeleton({ chartHeight = 200, rows = 4 }: ChartSkeletonProp
           </div>
         ))}
       </div>
-    </div>
+    </Card>
   )
 }

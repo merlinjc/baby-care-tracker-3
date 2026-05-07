@@ -1,24 +1,26 @@
 import api from './api'
-import type { ChatMessage, DailyInsight, ApiResponse, AIQuotaStatus, ChatStreamEvent } from '@/types'
+import type { ChatMessage, DailyInsight, ApiResponse, AIQuotaStatus, ChatStreamEvent, CareRole } from '@/types'
 import { useAuthStore } from '@/stores/auth-store'
 
 export const aiService = {
-  /** FR-F1：同步对话 */
+  /** FR-F1：同步对话（可选 role 注入"视角" prompt） */
   async chat(
     messages: ChatMessage[],
     babyId?: string,
+    role?: CareRole,
   ): Promise<{ content: string; usage?: { promptTokens: number; completionTokens: number } }> {
     const res = await api.post<
       ApiResponse<{ content: string; usage?: { promptTokens: number; completionTokens: number } }>
     >('/ai/chat', {
       messages,
       babyId,
+      role,
     })
     return res.data.data!
   },
 
   /** FR-F4：流式对话（SSE）—— 返回原始 Response，由调用方读取 ReadableStream */
-  async chatStream(messages: ChatMessage[], babyId?: string): Promise<Response> {
+  async chatStream(messages: ChatMessage[], babyId?: string, role?: CareRole): Promise<Response> {
     const token = useAuthStore.getState().token
     const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api'
     return fetch(`${baseUrl}/ai/chat/stream`, {
@@ -28,7 +30,7 @@ export const aiService = {
         Accept: 'text/event-stream',
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ messages, babyId }),
+      body: JSON.stringify({ messages, babyId, role }),
       credentials: 'include',
     })
   },
@@ -89,11 +91,11 @@ export const aiService = {
     }
   },
 
-  /** FR-F2：每日洞察（带后端缓存） */
-  async getDailyInsight(babyId: string): Promise<{ insight: DailyInsight; date: string }> {
+  /** FR-F2：每日洞察（带后端缓存；可选 role 注入"视角"） */
+  async getDailyInsight(babyId: string, role?: CareRole): Promise<{ insight: DailyInsight; date: string }> {
     const res = await api.get<ApiResponse<{ insight: DailyInsight; date: string }>>(
       '/ai/insight/daily',
-      { params: { babyId } },
+      { params: { babyId, role } },
     )
     return res.data.data!
   },

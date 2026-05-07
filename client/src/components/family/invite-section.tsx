@@ -8,6 +8,8 @@ import { useEffect, useState } from 'react'
 import { Copy, RefreshCw, Share2, Clock } from 'lucide-react'
 import { useFamilyStore } from '@/stores/family-store'
 import { toast } from '@/components/ui/toast'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 
 interface InviteSectionProps {
   inviteCode: string
@@ -108,7 +110,7 @@ export function InviteSection({ inviteCode, inviteCodeExpiry, canRefresh }: Invi
   }
 
   return (
-    <div className="card space-y-3">
+    <Card className="space-y-3">
       <div className="flex items-center justify-between">
         <span className="caption">邀请码</span>
         <span
@@ -130,21 +132,24 @@ export function InviteSection({ inviteCode, inviteCodeExpiry, canRefresh }: Invi
         {inviteCode}
       </div>
       <div className="grid grid-cols-3 gap-2">
-        <button onClick={handleCopy} className="btn-secondary justify-center">
-          <Copy className="h-4 w-4" />
+        <Button variant="secondary" onClick={handleCopy} block leftIcon={<Copy className="h-4 w-4" />}>
           复制
-        </button>
-        <button onClick={handleShare} className="btn-secondary justify-center">
-          <Share2 className="h-4 w-4" />
+        </Button>
+        <Button variant="secondary" onClick={handleShare} block leftIcon={<Share2 className="h-4 w-4" />}>
           分享
-        </button>
+        </Button>
         {canRefresh && (
-          <button onClick={handleRefresh} className="btn-secondary justify-center" disabled={refreshing}>
-            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+          <Button
+            variant="secondary"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            block
+            leftIcon={<RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />}
+          >
             刷新
-          </button>
+          </Button>
         )}
       </div>
-    </div>
+    </Card>
   )
 }

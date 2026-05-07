@@ -2,6 +2,10 @@ import { useEffect, useState } from 'react'
 import { Baby } from 'lucide-react'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { SegmentedControl } from '@/components/ui/segmented-control'
+import { Input } from '@/components/ui/input'
+import { FormField } from '@/components/ui/form-field'
+import { Button } from '@/components/ui/button'
+import { NoteTagPicker } from '@/components/note-tag-picker'
 import { toDateTimeLocalValue, fromDateTimeLocalValue } from '@/lib/date'
 import type { FeedingType, BreastSide, CareRecord } from '@/types'
 
@@ -108,10 +112,9 @@ export function FeedingDialog({ open, onClose, onSubmit, editRecord }: FeedingDi
         />
       }
     >
-      <form id={formId} onSubmit={handleSubmit} className="space-y-4">
+      <form id={formId} onSubmit={handleSubmit} data-dialog-form className="space-y-5">
         {/* Type */}
-        <div>
-          <label className="label-base">类型</label>
+        <FormField label="类型">
           <SegmentedControl<FeedingType>
             value={feedingType}
             onChange={setFeedingType}
@@ -122,32 +125,39 @@ export function FeedingDialog({ open, onClose, onSubmit, editRecord }: FeedingDi
               { value: 'solid', label: '辅食' },
             ]}
           />
-        </div>
+        </FormField>
 
         {/* Amount (formula/solid) */}
         {(feedingType === 'formula' || feedingType === 'solid') && (
-          <div>
-            <label className="label-base">量 (ml)</label>
-            <input
+          <FormField label="量" htmlFor="feeding-amount">
+            <Input
+              id="feeding-amount"
               type="number"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="输入量"
-              className="input-base"
+              rightIcon={<span className="text-xs">ml</span>}
             />
             {/* FR-A6：配方奶快捷用量（双模式：直接设值 / 累加） */}
             {feedingType === 'formula' && (
               <div className="mt-2 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="caption">快捷用量</span>
-                  <div className="inline-flex rounded-md p-0.5" style={{ backgroundColor: 'var(--bg-elevated)' }}>
+                  <div
+                    className="inline-flex rounded-md p-0.5"
+                    style={{ backgroundColor: 'var(--bg-elevated)' }}
+                  >
                     <button
                       type="button"
                       onClick={() => setQuickMode('set')}
                       className="px-2 py-0.5 rounded text-[11px] font-medium transition-colors"
                       style={{
-                        backgroundColor: quickMode === 'set' ? 'var(--bg-card)' : 'transparent',
-                        color: quickMode === 'set' ? 'var(--text-primary)' : 'var(--text-hint)',
+                        backgroundColor:
+                          quickMode === 'set' ? 'var(--bg-card)' : 'transparent',
+                        color:
+                          quickMode === 'set'
+                            ? 'var(--text-primary)'
+                            : 'var(--text-hint)',
                       }}
                       aria-pressed={quickMode === 'set'}
                     >
@@ -158,8 +168,12 @@ export function FeedingDialog({ open, onClose, onSubmit, editRecord }: FeedingDi
                       onClick={() => setQuickMode('add')}
                       className="px-2 py-0.5 rounded text-[11px] font-medium transition-colors"
                       style={{
-                        backgroundColor: quickMode === 'add' ? 'var(--bg-card)' : 'transparent',
-                        color: quickMode === 'add' ? 'var(--text-primary)' : 'var(--text-hint)',
+                        backgroundColor:
+                          quickMode === 'add' ? 'var(--bg-card)' : 'transparent',
+                        color:
+                          quickMode === 'add'
+                            ? 'var(--text-primary)'
+                            : 'var(--text-hint)',
                       }}
                       aria-pressed={quickMode === 'add'}
                     >
@@ -169,9 +183,11 @@ export function FeedingDialog({ open, onClose, onSubmit, editRecord }: FeedingDi
                 </div>
                 <div className="grid grid-cols-4 gap-2">
                   {[10, 30, 60, 90, 120, 150, 180, 210].map((q) => (
-                    <button
-                      type="button"
+                    <Button
                       key={q}
+                      type="button"
+                      variant="outline"
+                      size="xs"
                       onClick={() => {
                         if (quickMode === 'set') {
                           setAmount(String(q))
@@ -179,34 +195,28 @@ export function FeedingDialog({ open, onClose, onSubmit, editRecord }: FeedingDi
                           setAmount(String(Number(amount || 0) + q))
                         }
                       }}
-                      className="rounded-lg py-1.5 text-xs font-medium transition-colors"
-                      style={{
-                        backgroundColor: 'var(--bg-elevated)',
-                        color: 'var(--text-secondary)',
-                        border: '1px solid var(--border-light)',
-                      }}
                     >
                       {quickMode === 'set' ? `${q}` : `+${q}`}
-                    </button>
+                    </Button>
                   ))}
                 </div>
-                <button
+                <Button
                   type="button"
+                  variant="link"
+                  size="xs"
+                  block
                   onClick={() => setAmount('')}
-                  className="w-full rounded-lg py-1 text-xs"
-                  style={{ color: 'var(--text-hint)' }}
                 >
                   清空
-                </button>
+                </Button>
               </div>
             )}
-          </div>
+          </FormField>
         )}
 
         {/* Breast side */}
         {feedingType === 'breast' && (
-          <div>
-            <label className="label-base">哺乳侧</label>
+          <FormField label="哺乳侧">
             <SegmentedControl<BreastSide>
               value={breastSide}
               onChange={setBreastSide}
@@ -217,43 +227,41 @@ export function FeedingDialog({ open, onClose, onSubmit, editRecord }: FeedingDi
                 { value: 'both', label: '两侧' },
               ]}
             />
-          </div>
+          </FormField>
         )}
 
         {/* Duration */}
-        <div>
-          <label className="label-base">时长 (分钟)</label>
-          <input
+        <FormField label="时长" htmlFor="feeding-duration">
+          <Input
+            id="feeding-duration"
             type="number"
             value={duration}
             onChange={(e) => setDuration(e.target.value)}
             placeholder="输入时长"
-            className="input-base"
+            rightIcon={<span className="text-xs">分钟</span>}
           />
-        </div>
+        </FormField>
 
         {/* Time */}
-        <div>
-          <label className="label-base">记录时间</label>
-          <input
+        <FormField label="记录时间" htmlFor="feeding-time">
+          <Input
+            id="feeding-time"
             type="datetime-local"
             value={recordTime}
             onChange={(e) => setRecordTime(e.target.value)}
-            className="input-base"
           />
-        </div>
+        </FormField>
 
         {/* Note */}
-        <div>
-          <label className="label-base">备注</label>
-          <input
-            type="text"
+        <FormField label="备注">
+          <NoteTagPicker
             value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="添加备注"
-            className="input-base"
+            onChange={setNote}
+            recordType="feeding"
+            accentColor="var(--feeding)"
+            placeholder="补充说明（如实际场景）"
           />
-        </div>
+        </FormField>
       </form>
     </Dialog>
   )

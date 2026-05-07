@@ -1,10 +1,16 @@
 import { useNavigate } from 'react-router-dom'
-import { Users, Baby, Settings, ChevronRight, LogOut, Download } from 'lucide-react'
+import { Users, Baby, Settings, ChevronRight, LogOut, Download, Palette, Type } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth-store'
 import { useBabyStore } from '@/stores/baby-store'
 import { useFamilyStore } from '@/stores/family-store'
 import { authService } from '@/services/auth'
 import { useConfirm } from '@/components/ui/confirm-dialog'
+import { Card } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { UserAvatar } from '@/components/ui/avatar'
+import { ThemeSelector } from '@/components/theme-selector'
+import { FontScaleSelector } from '@/components/font-scale-selector'
 import { useState } from 'react'
 
 export function ProfilePage() {
@@ -34,8 +40,6 @@ export function ProfilePage() {
       setIsLoggingOut(false)
     }
   }
-
-  const initial = (user?.nickname || user?.email || '?').charAt(0).toUpperCase()
 
   /** 快捷入口配置 */
   const menuItems: {
@@ -74,24 +78,12 @@ export function ProfilePage() {
   ]
 
   return (
-    <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-5 animate-fade-in-up">
+    // v5.0.0+：用 data-profile-stack 作为 CSS 兜底钩子，避免 Tailwind 4 JIT
+    // 偶发漏扫导致 space-y-* 失效时各模块挤在一起（与 MainLayout 同样的防御思路）。
+    <div data-profile-stack className="space-y-6 animate-fade-in-up">
       {/* 用户卡（放大版） */}
-      <div className="card flex items-center gap-4">
-        <div
-          className="rounded-full flex items-center justify-center shrink-0"
-          style={{
-            width: 64,
-            height: 64,
-            backgroundColor: 'var(--primary)',
-          }}
-        >
-          <span
-            className="text-white font-display font-semibold"
-            style={{ fontSize: 'var(--text-2xl)' }}
-          >
-            {initial}
-          </span>
-        </div>
+      <Card className="flex items-center gap-4">
+        <UserAvatar user={{ nickname: user?.nickname, avatar: null }} size="xl" />
         <div className="flex-1 min-w-0">
           <h2 className="heading-md text-[var(--text-primary)] truncate">
             {user?.nickname || '未登录'}
@@ -99,46 +91,27 @@ export function ProfilePage() {
           <p className="body-sm text-[var(--text-hint)] truncate">{user?.email || ''}</p>
           {currentBaby && (
             <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-              <span
-                className="badge-mini"
-                style={{
-                  backgroundColor: 'color-mix(in srgb, var(--primary) 12%, transparent)',
-                  color: 'var(--primary)',
-                }}
-              >
-                <Baby className="h-3 w-3" />
+              <Badge size="xs" variant="primary" icon={<Baby className="h-3 w-3" />}>
                 {currentBaby.name}
-              </span>
+              </Badge>
               {family && (
-                <span
-                  className="badge-mini"
-                  style={{
-                    backgroundColor: 'color-mix(in srgb, var(--sleep) 12%, transparent)',
-                    color: 'var(--sleep)',
-                  }}
-                >
+                <Badge size="xs" variant="sleep">
                   {family.name}
-                </span>
+                </Badge>
               )}
             </div>
           )}
         </div>
-      </div>
+      </Card>
 
       {/* 快捷入口分组列表（iOS 分组 Cell 风格） */}
-      <div
-        className="rounded-2xl overflow-hidden"
-        style={{
-          backgroundColor: 'var(--bg-card)',
-          border: '1px solid var(--border-light)',
-        }}
-      >
+      <Card padding="none" className="overflow-hidden">
         {menuItems.map((item, idx) => (
           <button
             key={item.to}
             type="button"
             onClick={() => navigate(item.to)}
-            className="w-full flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--bg-elevated)]"
+            className="w-full flex items-center gap-3.5 px-4 py-3.5 transition-colors hover:bg-[var(--bg-elevated)]"
             style={{
               borderTop: idx === 0 ? undefined : '1px solid var(--border-light)',
             }}
@@ -162,17 +135,55 @@ export function ProfilePage() {
             <ChevronRight className="h-4 w-4 shrink-0" style={{ color: 'var(--text-hint)' }} />
           </button>
         ))}
-      </div>
+      </Card>
+
+      {/* 外观（主题 + 字体大小）—— 放在"我的"直接可见可改，避免再跳设置页 */}
+      <Card as="section" className="space-y-4">
+        <div className="flex items-center gap-2">
+          <div
+            className="icon-circle icon-circle--sm"
+            style={{ backgroundColor: 'color-mix(in srgb, var(--primary) 12%, transparent)' }}
+          >
+            <Palette className="h-4 w-4" style={{ color: 'var(--primary)' }} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="heading-sm" style={{ color: 'var(--text-primary)' }}>
+              主题外观
+            </h3>
+            <p className="caption mt-0.5">深夜照顾宝宝时建议切换为暖夜模式</p>
+          </div>
+        </div>
+        <ThemeSelector />
+      </Card>
+
+      <Card as="section" className="space-y-4">
+        <div className="flex items-center gap-2">
+          <div
+            className="icon-circle icon-circle--sm"
+            style={{ backgroundColor: 'color-mix(in srgb, var(--primary) 12%, transparent)' }}
+          >
+            <Type className="h-4 w-4" style={{ color: 'var(--primary)' }} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="heading-sm" style={{ color: 'var(--text-primary)' }}>
+              字体大小
+            </h3>
+            <p className="caption mt-0.5">"特大"档位专为老年人 / 低视力场景优化</p>
+          </div>
+        </div>
+        <FontScaleSelector />
+      </Card>
 
       {/* Logout */}
-      <button
+      <Button
+        variant="danger-outline"
+        block
         onClick={handleLogout}
-        disabled={isLoggingOut}
-        className="btn-danger-outline w-full"
+        loading={isLoggingOut}
+        leftIcon={<LogOut className="h-4 w-4" />}
       >
-        <LogOut className="h-4 w-4" />
         {isLoggingOut ? '退出中...' : '退出登录'}
-      </button>
+      </Button>
     </div>
   )
 }

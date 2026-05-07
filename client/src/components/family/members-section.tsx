@@ -2,15 +2,29 @@
  * MembersSection - 家庭成员列表（FR-C1）
  *
  * 显示头像 / 昵称 / 角色标签 / 加入时间
- * admin 可对其他成员显示三点菜单（编辑权限 / 移除）
+ * admin 可对其他成员显示三点菜单（编辑权限 / 移除 / 转让管理员）
+ *
+ * v5.0.1 Batch 2：⋮ 菜单重构为基于 <DropdownMenu> (radix)，
+ * 由 radix 负责点击外部/Esc 关闭、focus trap、键盘 ↑↓ 导航 / Tab 循环 / return-focus。
  */
 import { useState } from 'react'
 import { MoreVertical, Crown, Edit3, Eye, UserCog, UserX, ArrowRightLeft } from 'lucide-react'
 import { useFamilyStore } from '@/stores/family-store'
 import { useAuthStore } from '@/stores/auth-store'
+import { IconButton } from '@/components/ui/icon-button'
+import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
+import { UserAvatar } from '@/components/ui/avatar'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu'
 import { RoleEditDialog } from './role-edit-dialog'
 import { RemoveMemberConfirm } from './remove-member-confirm'
 import { TransferAdminDialog } from './transfer-admin-dialog'
+import { relationToCareRole, getCareRoleMeta } from '@/lib/care-role'
 import type { FamilyMember, FamilyRole } from '@/types'
 
 const ROLE_LABEL: Record<FamilyRole, string> = {
@@ -37,7 +51,6 @@ export function MembersSection() {
   const family = useFamilyStore((s) => s.family)
   const isCurrentUserAdmin = useFamilyStore((s) => s.isCurrentUserAdmin)
   const currentUserId = useAuthStore((s) => s.user?.id)
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [editTarget, setEditTarget] = useState<FamilyMember | null>(null)
   const [removeTarget, setRemoveTarget] = useState<FamilyMember | null>(null)
   const [transferOpen, setTransferOpen] = useState(false)
@@ -59,34 +72,44 @@ export function MembersSection() {
           const isMe = m.userId === currentUserId
           const isCreator = family.creatorId === m.userId
           const RoleIcon = ROLE_ICON[m.role]
-          const showMenu = openMenuId === m.id
+          const careRole = relationToCareRole(m.relation)
+          const careRoleMeta = careRole ? getCareRoleMeta(careRole) : null
 
           return (
-            <div key={m.id} className="card flex items-center gap-3 relative">
+            <Card key={m.id} className="flex items-center gap-3">
               {/* 头像 */}
-              {m.user?.avatar ? (
-                <img
-                  src={m.user.avatar}
-                  alt={m.user.nickname}
-                  className="h-12 w-12 rounded-full object-cover shrink-0"
-                />
-              ) : (
-                <div
-                  className="h-12 w-12 rounded-full flex items-center justify-center text-white font-semibold shrink-0"
-                  style={{ backgroundColor: 'var(--primary)' }}
-                >
-                  {m.user?.nickname?.charAt(0) ?? '?'}
-                </div>
-              )}
+              <UserAvatar user={{ nickname: m.user?.nickname, avatar: m.user?.avatar }} size="lg" />
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="body-md font-medium truncate">{m.user?.nickname ?? '成员'}</span>
+                  <span className="body-md font-medium truncate">
+                    {m.user?.nickname ?? '成员'}
+                  </span>
                   {isMe && (
-                    <span className="type-badge type-badge--feeding text-xs">我</span>
+                    <Badge size="xs" variant="feeding">
+                      我
+                    </Badge>
                   )}
                   {isCreator && (
-                    <span className="type-badge type-badge--diaper text-xs">创建者</span>
+                    <Badge size="xs" variant="diaper">
+                      创建者
+                    </Badge>
+                  )}
+                  {careRoleMeta && (
+                    <span
+                      className="inline-flex items-center gap-1 rounded-full"
+                      style={{
+                        padding: '1px 6px',
+                        fontSize: 'var(--text-xs)',
+                        lineHeight: 1.4,
+                        backgroundColor: 'color-mix(in srgb, var(--sleep) 10%, transparent)',
+                        color: 'var(--sleep)',
+                      }}
+                      title="AI 每日洞察使用的身份视角"
+                    >
+                      <span aria-hidden>{careRoleMeta.emoji}</span>
+                      <span>{careRoleMeta.label}</span>
+                    </span>
                   )}
                 </div>
                 <div className="flex items-center gap-1.5 mt-0.5">
@@ -99,71 +122,44 @@ export function MembersSection() {
 
               {/* 三点菜单（admin 可见，且不是自己） */}
               {isAdmin && !isMe && (
-                <div className="relative shrink-0">
-                  <button
-                    onClick={() => setOpenMenuId(showMenu ? null : m.id)}
-                    aria-label="操作菜单"
-                    className="p-2 rounded-lg hover:bg-[var(--bg-elevated)] transition-colors"
-                  >
-                    <MoreVertical className="h-4 w-4" style={{ color: 'var(--text-hint)' }} />
-                  </button>
-                  {showMenu && (
-                    <>
-                      {/* 点击外部关闭 */}
-                      <div
-                        className="fixed inset-0 z-10"
-                        onClick={() => setOpenMenuId(null)}
-                      />
-                      <div
-                        className="absolute right-0 top-full mt-1 z-20 min-w-32 rounded-lg shadow-lg overflow-hidden"
-                        style={{
-                          backgroundColor: 'var(--bg-card)',
-                          border: '1px solid var(--border-light)',
-                        }}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <IconButton
+                      variant="ghost"
+                      size="sm"
+                      aria-label="操作菜单"
+                      icon={<MoreVertical className="h-4 w-4" />}
+                    />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="min-w-[160px]">
+                    {/* 修改权限：对 admin 也允许操作（降级为 editor/viewer）；
+                        服务端 `SOLE_ADMIN` 会兜底拦截"最后一个 admin 不能降级" */}
+                    <DropdownMenuItem onSelect={() => setEditTarget(m)}>
+                      <UserCog className="h-3.5 w-3.5" />
+                      <span>修改权限</span>
+                    </DropdownMenuItem>
+                    {/* 转让管理员：目标必须是非 admin（服务端 `INVALID_PARAMS`
+                        拒绝把已是 admin 的人再次"转让"为 admin） */}
+                    {m.role !== 'admin' && (
+                      <DropdownMenuItem onSelect={() => setTransferOpen(true)}>
+                        <ArrowRightLeft className="h-3.5 w-3.5" />
+                        <span>转让管理员</span>
+                      </DropdownMenuItem>
+                    )}
+                    {/* 移除成员：admin 之间不能互踢（服务端 `CANNOT_REMOVE_ADMIN`） */}
+                    {m.role !== 'admin' && (
+                      <DropdownMenuItem
+                        variant="danger"
+                        onSelect={() => setRemoveTarget(m)}
                       >
-                        {m.role !== 'admin' && (
-                          <button
-                            onClick={() => {
-                              setEditTarget(m)
-                              setOpenMenuId(null)
-                            }}
-                            className="w-full px-3 py-2 flex items-center gap-2 text-left text-sm hover:bg-[var(--bg-elevated)]"
-                          >
-                            <UserCog className="h-3.5 w-3.5" />
-                            修改权限
-                          </button>
-                        )}
-                        {m.role !== 'admin' && (
-                          <button
-                            onClick={() => {
-                              setOpenMenuId(null)
-                              setTransferOpen(true)
-                            }}
-                            className="w-full px-3 py-2 flex items-center gap-2 text-left text-sm hover:bg-[var(--bg-elevated)]"
-                          >
-                            <ArrowRightLeft className="h-3.5 w-3.5" />
-                            转让管理员
-                          </button>
-                        )}
-                        {m.role !== 'admin' && (
-                          <button
-                            onClick={() => {
-                              setRemoveTarget(m)
-                              setOpenMenuId(null)
-                            }}
-                            className="w-full px-3 py-2 flex items-center gap-2 text-left text-sm hover:bg-[var(--bg-elevated)]"
-                            style={{ color: 'var(--danger)' }}
-                          >
-                            <UserX className="h-3.5 w-3.5" />
-                            移除成员
-                          </button>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
+                        <UserX className="h-3.5 w-3.5" />
+                        <span>移除成员</span>
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
-            </div>
+            </Card>
           )
         })}
       </div>

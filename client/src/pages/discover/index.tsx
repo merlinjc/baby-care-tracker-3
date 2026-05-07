@@ -1,11 +1,22 @@
 import { Link } from 'react-router-dom'
-import { TrendingUp, Syringe, Trophy, Bot, Compass, AlertTriangle, Sparkles, Clock } from 'lucide-react'
+import {
+  TrendingUp,
+  Syringe,
+  Trophy,
+  Bot,
+  Compass,
+  AlertTriangle,
+  Sparkles,
+  Clock,
+  Sun,
+  BookOpen,
+} from 'lucide-react'
 import { useBabyStore } from '@/stores/baby-store'
 import { vaccineService, milestoneService } from '@/services/baby-extra'
 import { PageHeader } from '@/components/page-header'
 import { FocusCard } from '@/components/focus-card'
-import { WeeklyTrendOverview } from '@/components/weekly-trend-overview'
-import { useWeeklyTrend } from '@/hooks/use-weekly-trend'
+import { Card } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { useState, useEffect } from 'react'
 
 interface VaccineStats {
@@ -20,6 +31,11 @@ interface MilestoneStats {
   achieved: number
 }
 
+/**
+ * 功能入口定义（v5.0.0+ 更新）
+ * - 原「成长报告」独占一张大卡，现收敛到此 Grid 里，与其他入口并列
+ * - 顺序：疫苗 / 里程碑 / 生长趋势 / 成长报告 / 黄疸记录 / AI 助手
+ */
 const features = [
   {
     icon: Syringe,
@@ -43,6 +59,20 @@ const features = [
     color: 'var(--growth)',
   },
   {
+    icon: BookOpen,
+    title: '成长报告',
+    desc: '周报 / 月报汇总',
+    to: '/report',
+    color: 'var(--primary)',
+  },
+  {
+    icon: Sun,
+    title: '黄疸记录',
+    desc: '观察范围 / 胆红素趋势',
+    to: '/jaundice',
+    color: 'var(--warning)',
+  },
+  {
     icon: Bot,
     title: 'AI 助手',
     desc: '智能护理咨询',
@@ -55,7 +85,6 @@ export function DiscoverPage() {
   const currentBaby = useBabyStore((s) => s.currentBaby)
   const [vaccineStats, setVaccineStats] = useState<VaccineStats | null>(null)
   const [milestoneStats, setMilestoneStats] = useState<MilestoneStats | null>(null)
-  const { data: weeklyTrend, isLoading: trendLoading } = useWeeklyTrend(currentBaby?.id)
 
   useEffect(() => {
     if (!currentBaby) return
@@ -113,7 +142,7 @@ export function DiscoverPage() {
   })()
 
   return (
-    <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-5 animate-fade-in-up">
+    <div className="space-y-6 animate-fade-in-up">
       <PageHeader
         title="发现"
         variant="tab"
@@ -133,12 +162,12 @@ export function DiscoverPage() {
         />
       )}
 
-      {/* 4 入口 Grid（移动 2 列 / 桌面 4 列），带进度 badge */}
+      {/* 功能入口 Grid（移动 2 列 / 平板 3 列 / 桌面 3 列，6 入口两行） */}
       <div>
         <div className="section-header">
           <span className="section-header__title">功能</span>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 stagger-children">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 stagger-children">
           {features.map((feature) => {
             let badge: string | null = null
             if (feature.to === '/vaccine' && vaccineStats && vaccineStats.total > 0) {
@@ -147,57 +176,43 @@ export function DiscoverPage() {
               badge = `${Math.round((milestoneStats.achieved / milestoneStats.total) * 100)}%`
             }
             return (
-              <Link
-                key={feature.title}
-                to={feature.to}
-                className="card-interactive flex flex-col items-center text-center gap-2 py-5 relative"
-              >
-                {badge && (
-                  <span
-                    className="badge-mini absolute top-2 right-2 font-semibold"
+              <Link key={feature.title} to={feature.to} className="block">
+                <Card
+                  as="article"
+                  variant="interactive"
+                  padding="md"
+                  className="flex flex-col items-center text-center gap-2 relative h-full"
+                >
+                  {badge && (
+                    <Badge
+                      size="xs"
+                      accentColor={feature.color}
+                      className="absolute top-2 right-2 font-semibold"
+                    >
+                      {badge}
+                    </Badge>
+                  )}
+                  <div
+                    className="icon-circle icon-circle--lg"
                     style={{
-                      backgroundColor: `color-mix(in srgb, ${feature.color} 15%, transparent)`,
-                      color: feature.color,
+                      backgroundColor: `color-mix(in srgb, ${feature.color} 12%, transparent)`,
+                      borderRadius: 'var(--radius-md)',
                     }}
                   >
-                    {badge}
-                  </span>
-                )}
-                <div
-                  className="icon-circle icon-circle--lg"
-                  style={{
-                    backgroundColor: `color-mix(in srgb, ${feature.color} 12%, transparent)`,
-                    borderRadius: 'var(--radius-md)',
-                  }}
-                >
-                  <feature.icon className="h-5 w-5" style={{ color: feature.color }} />
-                </div>
-                <div>
-                  <h3 className="body-md font-medium text-[var(--text-primary)]">
-                    {feature.title}
-                  </h3>
-                  <p className="caption mt-0.5">{feature.desc}</p>
-                </div>
+                    <feature.icon className="h-5 w-5" style={{ color: feature.color }} />
+                  </div>
+                  <div>
+                    <h3 className="body-md font-medium text-[var(--text-primary)]">
+                      {feature.title}
+                    </h3>
+                    <p className="caption mt-0.5">{feature.desc}</p>
+                  </div>
+                </Card>
               </Link>
             )
           })}
         </div>
       </div>
-
-      {/* 上周 vs 本周 趋势对比（与记录页精细卡差异化） */}
-      {currentBaby && (
-        <div>
-          <div className="section-header">
-            <span className="section-header__title">趋势对比</span>
-          </div>
-          <WeeklyTrendOverview
-            trend={weeklyTrend ?? null}
-            isLoading={trendLoading}
-            detailUrl="/record"
-            babyName={currentBaby.name}
-          />
-        </div>
-      )}
     </div>
   )
 }

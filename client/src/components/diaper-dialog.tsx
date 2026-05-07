@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { Droplets } from 'lucide-react'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { SegmentedControl } from '@/components/ui/segmented-control'
+import { Input } from '@/components/ui/input'
+import { FormField } from '@/components/ui/form-field'
+import { NoteTagPicker } from '@/components/note-tag-picker'
 import { toDateTimeLocalValue, fromDateTimeLocalValue } from '@/lib/date'
 import type { DiaperType, Consistency, DiaperColor, CareRecord } from '@/types'
 import type { RecordDialogMeta } from './feeding-dialog'
@@ -89,9 +92,8 @@ export function DiaperDialog({ open, onClose, onSubmit, editRecord }: DiaperDial
         />
       }
     >
-      <form id={formId} onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="label-base">类型</label>
+      <form id={formId} onSubmit={handleSubmit} data-dialog-form className="space-y-5">
+        <FormField label="类型">
           <SegmentedControl<DiaperType>
             value={diaperType}
             onChange={setDiaperType}
@@ -102,12 +104,11 @@ export function DiaperDialog({ open, onClose, onSubmit, editRecord }: DiaperDial
               { value: 'both', label: '都有' },
             ]}
           />
-        </div>
+        </FormField>
 
         {(diaperType === 'poop' || diaperType === 'both') && (
           <>
-            <div>
-              <label className="label-base">性状</label>
+            <FormField label="性状">
               <SegmentedControl<Consistency>
                 value={consistency || null}
                 onChange={(v) => setConsistency(v || '')}
@@ -121,10 +122,9 @@ export function DiaperDialog({ open, onClose, onSubmit, editRecord }: DiaperDial
                   { value: 'hard', label: '硬便' },
                 ]}
               />
-            </div>
+            </FormField>
 
-            <div>
-              <label className="label-base">颜色</label>
+            <FormField label="颜色">
               <SegmentedControl<DiaperColor>
                 value={color || null}
                 onChange={(v) => setColor(v || '')}
@@ -139,30 +139,27 @@ export function DiaperDialog({ open, onClose, onSubmit, editRecord }: DiaperDial
                   { value: 'red', label: '红色' },
                 ]}
               />
-            </div>
+            </FormField>
           </>
         )}
 
-        <div>
-          <label className="label-base">记录时间</label>
-          <input
+        <FormField label="记录时间" htmlFor="diaper-time">
+          <Input
+            id="diaper-time"
             type="datetime-local"
             value={recordTime}
             onChange={(e) => setRecordTime(e.target.value)}
-            className="input-base"
           />
-        </div>
+        </FormField>
 
-        <div>
-          <label className="label-base">备注</label>
-          <input
-            type="text"
+        <FormField label="备注">
+          <NoteTagPicker
             value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="添加备注"
-            className="input-base"
+            onChange={setNote}
+            recordType="diaper"
+            accentColor="var(--diaper)"
           />
-        </div>
+        </FormField>
       </form>
     </Dialog>
   )

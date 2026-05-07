@@ -24,10 +24,13 @@ import { HomeSkeleton } from '@/components/home-skeleton'
 import { EasterEggDisplay } from '@/components/easter-egg-display'
 import { toast } from '@/components/ui/toast'
 import { useConfirm } from '@/components/ui/confirm-dialog'
+import { Card } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { buildFallbackInsight, isInsightEmpty } from '@/lib/insight-fallback'
 import { detectAll, type EggResult } from '@/lib/easter-egg'
 import { ApiError } from '@/lib/api-error'
-import type { TodayStats, RecordType, CareRecord, DailyInsight } from '@/types'
+import { relationToCareRole } from '@/lib/care-role'
+import type { TodayStats, RecordType, CareRecord, DailyInsight, CareRole } from '@/types'
 
 const defaultStats: TodayStats = {
   feeding: { count: 0, totalAmount: 0, lastTime: null, lastTimeTs: null },
@@ -98,11 +101,20 @@ export function HomePage() {
   const [dailyInsight, setDailyInsight] = useState<DailyInsight | null>(null)
   const [insightLoading, setInsightLoading] = useState(false)
 
+  // FR-F 扩展：AI 视角（妈妈 / 爸爸 / 祖辈 / 月嫂 等）
+  // v5.0.0+：角色完全由家庭成员的 relation 字段决定（在创建 / 加入家庭时选定），
+  // 首页不再提供手动切换入口；如需修改请到家庭页更新身份。
+  const careRole: CareRole = useMemo(() => {
+    const currentUserId = user?.id
+    const me = family?.members?.find((m) => m.userId === currentUserId)
+    return relationToCareRole(me?.relation ?? null) ?? 'other'
+  }, [family, user?.id])
+
   const fetchDailyInsight = useCallback(async () => {
     if (!currentBaby) return
     setInsightLoading(true)
     try {
-      const result = await aiService.getDailyInsight(currentBaby.id)
+      const result = await aiService.getDailyInsight(currentBaby.id, careRole)
       setDailyInsight(result.insight)
     } catch (err) {
       // 配额耗尽不降级
@@ -117,7 +129,7 @@ export function HomePage() {
     } finally {
       setInsightLoading(false)
     }
-  }, [currentBaby, stats])
+  }, [currentBaby, stats, careRole])
 
   // ========== 初始化 ==========
   useEffect(() => {
@@ -277,17 +289,17 @@ export function HomePage() {
   const isInsightFromAI = dailyInsight?.source === 'ai'
 
   return (
-    <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-5 animate-fade-in-up">
+    <div className="space-y-6 animate-fade-in-up">
       {/* FR-G2：彩蛋（banner 在顶部，popup/toast 全局渲染） */}
       <EasterEggDisplay results={eggResults} onConsume={handleEggConsume} />
 
       {/* Greeting + 多宝切换 */}
-      <div className="flex items-start justify-between gap-3 pt-2">
+      <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <h1 className="heading-xl text-[var(--text-primary)] truncate">
+          <h1 className="display-sm text-[var(--text-primary)] truncate">
             {getGreeting()}，{user?.nickname || '用户'}
           </h1>
-          <p className="body-md text-[var(--text-hint)] mt-1">
+          <p className="body-md text-[var(--text-hint)] mt-1.5">
             {currentBaby ? `${currentBaby.name} · 今日记录` : '尚未添加宝宝'}
           </p>
         </div>
@@ -296,7 +308,7 @@ export function HomePage() {
 
       {/* No family prompt */}
       {!family && (
-        <div className="card text-center py-10">
+        <Card padding="lg" className="text-center">
           <div
             className="icon-circle icon-circle--lg mx-auto mb-4"
             style={{ backgroundColor: 'color-mix(in srgb, var(--primary) 12%, transparent)' }}
@@ -304,10 +316,10 @@ export function HomePage() {
             <Plus className="h-6 w-6" style={{ color: 'var(--primary)' }} />
           </div>
           <p className="body-md text-[var(--text-secondary)] mb-4">您还未加入家庭</p>
-          <Link to="/family" className="btn-primary">
-            创建或加入家庭
+          <Link to="/family" className="inline-block">
+            <Button>创建或加入家庭</Button>
           </Link>
-        </div>
+        </Card>
       )}
 
       {/* FR-A1：状态胶囊 */}
@@ -338,36 +350,53 @@ export function HomePage() {
       {currentBaby && !isInsightEmpty(insightToShow) && (
         <div>
           <div className="section-header">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4" style={{ color: 'var(--sleep)' }} />
-              <span className="section-header__title">AI 每日洞察</span>
+            <div className="flex items-center gap-2 min-w-0">
+              <Sparkles className="h-4 w-4 shrink-0" style={{ color: 'var(--sleep)' }} />
+              <span className="section-header__title shrink-0">AI 每日洞察</span>
               {!isInsightFromAI && (
-                <span className="caption text-[var(--text-hint)]">· 快速模式</span>
+                <span className="caption text-[var(--text-hint)] shrink-0">· 快速模式</span>
               )}
             </div>
-            <button
-              onClick={fetchDailyInsight}
-              disabled={insightLoading}
-              className="section-header__action"
-              title="重新生成"
-            >
-              <RefreshCw className={`h-3 w-3 ${insightLoading ? 'animate-spin' : ''}`} />
-              刷新
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={fetchDailyInsight}
+                disabled={insightLoading}
+                className="section-header__action"
+                title="重新生成"
+              >
+                <RefreshCw className={`h-3 w-3 ${insightLoading ? 'animate-spin' : ''}`} />
+                刷新
+              </button>
+            </div>
           </div>
           {insightCollapsed ? (
-            <button
+            <Card
+              as="article"
+              variant="interactive"
+              padding="sm"
+              role="button"
+              tabIndex={0}
               onClick={() => setInsightCollapsed(false)}
-              className="card-base w-full flex items-center gap-2 text-left transition-colors hover:border-[var(--sleep)]"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  setInsightCollapsed(false)
+                }
+              }}
+              className="w-full flex items-center gap-2 text-left hover:border-[var(--sleep)]"
             >
               <Lightbulb className="h-4 w-4 shrink-0" style={{ color: 'var(--sleep)' }} />
               <span className="body-md flex-1 truncate text-[var(--text-secondary)]">
                 {insightToShow.summary}
               </span>
               <ChevronDown className="h-4 w-4 shrink-0" style={{ color: 'var(--text-hint)' }} />
-            </button>
+            </Card>
           ) : (
-            <div className="card-base space-y-3" style={{ borderTop: '3px solid var(--sleep)' }}>
+            <Card
+              padding="sm"
+              className="space-y-3"
+              style={{ borderTop: '3px solid var(--sleep)' }}
+            >
               <div className="flex items-start justify-between gap-2">
                 <p className="body-md text-[var(--text-primary)] flex-1">{insightToShow.summary}</p>
                 <button
@@ -410,7 +439,7 @@ export function HomePage() {
                   </ul>
                 </div>
               )}
-            </div>
+            </Card>
           )}
         </div>
       )}
@@ -425,14 +454,14 @@ export function HomePage() {
               查看全部
             </Link>
           </div>
-          <div className="card">
+          <Card>
             <Timeline records={todayRecords.slice(0, 5)} />
             {todayRecords.length > 5 && (
               <Link to="/record" className="section-header__action mt-3 justify-center w-full">
                 查看全部 {todayRecords.length} 条今日记录 ›
               </Link>
             )}
-          </div>
+          </Card>
         </div>
       )}
 

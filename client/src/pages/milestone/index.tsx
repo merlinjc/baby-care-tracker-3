@@ -5,7 +5,13 @@ import { milestoneService } from '@/services/baby-extra'
 import { MILESTONE_DEFINITIONS, getCategoryKey, getCategoryLabel } from '@/lib/milestone-defs'
 import { useConfirm } from '@/components/ui/confirm-dialog'
 import { PageHeader } from '@/components/page-header'
-import { HeaderAction } from '@/components/header-action'
+import { Button } from '@/components/ui/button'
+import { IconButton } from '@/components/ui/icon-button'
+import { Card } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { FormField } from '@/components/ui/form-field'
+import { Label } from '@/components/ui/label'
 import { ListSkeleton } from '@/components/ui/list-skeleton'
 import type { MilestoneItem } from '@/lib/milestone-defs'
 import type { MilestoneRecord, Baby } from '@/types'
@@ -180,25 +186,29 @@ export function MilestonePage() {
     : standardMilestones.filter((m) => m.categoryKey === categoryFilter)
 
   return (
-    <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-4 animate-fade-in-up">
+    <div className="space-y-5 animate-fade-in-up">
       <PageHeader
         title="里程碑"
         backTo="/discover"
         action={
           <div className="flex items-center gap-2">
-            <HeaderAction
+            <Button
               variant="ghost"
-              icon={<ListChecks className="h-3.5 w-3.5" />}
-              label="标准推荐"
+              size="sm"
+              leftIcon={<ListChecks className="h-3.5 w-3.5" />}
               onClick={() => setShowRecommend(true)}
-            />
+            >
+              标准推荐
+            </Button>
             {!showAdd && (
-              <HeaderAction
+              <Button
                 variant="primary"
-                icon={<Plus className="h-3.5 w-3.5" />}
-                label="记录"
+                size="sm"
+                leftIcon={<Plus className="h-3.5 w-3.5" />}
                 onClick={() => setShowAdd(true)}
-              />
+              >
+                记录
+              </Button>
             )}
           </div>
         }
@@ -212,79 +222,112 @@ export function MilestonePage() {
           { label: '需关注', value: stats.warning, color: 'var(--danger)' },
           { label: '待发育', value: stats.total - stats.achieved - stats.inWindow - stats.warning, color: 'var(--text-hint)' },
         ].map((s) => (
-          <div key={s.label} className="card-base text-center" style={{ borderTop: `2px solid ${s.color}` }}>
-            <p className="heading-md number-display" style={{ color: s.color }}>{s.value}</p>
+          <Card
+            key={s.label}
+            padding="sm"
+            className="text-center"
+            style={{ borderTop: `2px solid ${s.color}` }}
+          >
+            <p className="heading-md number-display" style={{ color: s.color }}>
+              {s.value}
+            </p>
             <p className="caption mt-0.5">{s.label}</p>
-          </div>
+          </Card>
         ))}
       </div>
 
       {/* Category Filter */}
       <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-        <button
+        <Button
+          variant="ghost"
+          size="sm"
+          active={categoryFilter === 'all'}
           onClick={() => setCategoryFilter('all')}
-          className={`chip ${categoryFilter === 'all' ? 'chip--active' : 'chip--inactive'}`}
-          style={categoryFilter === 'all' ? { backgroundColor: 'var(--primary)' } : undefined}
+          accentColor="var(--primary)"
+          className="rounded-full"
         >
           全部
-        </button>
+        </Button>
         {Object.entries(categoryColors).map(([key, color]) => (
-          <button
+          <Button
             key={key}
+            variant="ghost"
+            size="sm"
+            active={categoryFilter === key}
             onClick={() => setCategoryFilter(key)}
-            className={`chip ${categoryFilter === key ? 'chip--active' : 'chip--inactive'}`}
-            style={categoryFilter === key ? { backgroundColor: color } : undefined}
+            accentColor={color}
+            className="rounded-full"
           >
             {getCategoryLabel(key)}
-          </button>
+          </Button>
         ))}
       </div>
 
       {/* Add Form */}
       {showAdd && (
-        <form onSubmit={handleAdd} className="card space-y-4 animate-slide-up">
-          <div className="flex items-center justify-between">
-            <h2 className="heading-sm text-[var(--text-primary)]">记录里程碑</h2>
-            <button
-              type="button"
-              onClick={() => setShowAdd(false)}
-              className="p-1 rounded-lg text-[var(--text-hint)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] transition-colors"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-          <div>
-            <label className="label-base">里程碑名称</label>
-            <input type="text" value={name} onChange={(e) => setName(e.target.value)} required placeholder="如：第一次翻身" className="input-base" />
-          </div>
-          <div>
-            <label className="label-base">类别</label>
-            <div className="flex gap-2 flex-wrap mt-1">
-              {Object.entries(categoryColors).map(([key, color]) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setCategory(key)}
-                  className={`chip ${category === key ? 'chip--active' : 'chip--inactive'}`}
-                  style={category === key ? { backgroundColor: color } : undefined}
-                >
-                  {getCategoryLabel(key)}
-                </button>
-              ))}
+        <Card as="section" className="animate-slide-up">
+          <form onSubmit={handleAdd} className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="heading-sm text-[var(--text-primary)]">记录里程碑</h2>
+              <IconButton
+                variant="ghost"
+                size="sm"
+                icon={<X className="h-5 w-5" />}
+                onClick={() => setShowAdd(false)}
+                aria-label="关闭"
+              />
             </div>
-          </div>
-          <div>
-            <label className="label-base">达成日期</label>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required className="input-base" />
-          </div>
-          <div>
-            <label className="label-base">备注</label>
-            <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="可选" className="input-base" />
-          </div>
-          <button type="submit" disabled={isSubmitting} className="btn-primary w-full">
-            {isSubmitting ? '保存中...' : '保存'}
-          </button>
-        </form>
+            <FormField label="里程碑名称" htmlFor="ms-name" required>
+              <Input
+                id="ms-name"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                placeholder="如：第一次翻身"
+              />
+            </FormField>
+            <FormField label="类别">
+              <div className="flex gap-2 flex-wrap">
+                {Object.entries(categoryColors).map(([key, color]) => (
+                  <Button
+                    key={key}
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    active={category === key}
+                    accentColor={color}
+                    onClick={() => setCategory(key)}
+                    className="rounded-full"
+                  >
+                    {getCategoryLabel(key)}
+                  </Button>
+                ))}
+              </div>
+            </FormField>
+            <FormField label="达成日期" htmlFor="ms-date" required>
+              <Input
+                id="ms-date"
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                required
+              />
+            </FormField>
+            <FormField label="备注" htmlFor="ms-note">
+              <Input
+                id="ms-note"
+                type="text"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="可选"
+              />
+            </FormField>
+            <Button type="submit" block loading={isSubmitting}>
+              {isSubmitting ? '保存中...' : '保存'}
+            </Button>
+          </form>
+        </Card>
       )}
 
       {/* Milestone List */}
@@ -300,7 +343,7 @@ export function MilestonePage() {
         Object.entries(grouped).map(([cat, items]) => {
           const color = categoryColors[cat] || 'var(--primary)'
           return (
-            <div key={cat} className="card-base">
+            <Card key={cat} padding="md">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="heading-sm" style={{ color }}>
                   {getCategoryLabel(cat)} · {items.length}
@@ -315,18 +358,18 @@ export function MilestonePage() {
                       <p className="caption">{new Date(m.achievedDate).toLocaleDateString('zh-CN')}</p>
                     </div>
                     {m.note && <p className="caption truncate max-w-[100px]">{m.note}</p>}
-                    <button
+                    <IconButton
+                      variant="danger-ghost"
+                      size="sm"
+                      icon={<Trash2 className="h-3.5 w-3.5" />}
                       onClick={() => handleDelete(m.id)}
                       disabled={deletingId === m.id}
-                      className="p-1 rounded text-[var(--text-hint)] hover:text-[var(--danger)] transition-colors shrink-0"
-                      title="删除"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                      aria-label="删除"
+                    />
                   </div>
                 ))}
               </div>
-            </div>
+            </Card>
           )
         })
       )}
@@ -353,12 +396,13 @@ export function MilestonePage() {
             <div className="p-4 sticky top-0 z-10" style={{ backgroundColor: 'var(--bg-card)' }}>
               <div className="flex items-center justify-between">
                 <h3 className="heading-sm text-[var(--text-primary)]">发育里程碑标准（WHO/CDC）</h3>
-                <button
+                <IconButton
+                  variant="ghost"
+                  size="sm"
+                  icon={<X className="h-5 w-5" />}
                   onClick={() => setShowRecommend(false)}
-                  className="p-1 rounded-lg text-[var(--text-hint)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] transition-colors"
-                >
-                  <X className="h-5 w-5" />
-                </button>
+                  aria-label="关闭"
+                />
               </div>
               <p className="caption mt-1">当前：{ageMonths}月龄</p>
             </div>
@@ -375,13 +419,22 @@ export function MilestonePage() {
                   m.status === 'in_window' ? color : 'var(--text-hint)'
 
                 return (
-                  <button
+                  <Card
                     key={i}
+                    as="article"
+                    variant="interactive"
+                    padding="sm"
                     onClick={() => setDetailItem(m)}
-                    className="card-interactive text-left flex flex-col gap-2 p-3"
-                    style={{
-                      opacity: m.status === 'achieved' ? 0.55 : 1,
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setDetailItem(m)
+                      }
                     }}
+                    className="text-left flex flex-col gap-2"
+                    style={{ opacity: m.status === 'achieved' ? 0.55 : 1 }}
                   >
                     <div className="flex items-center gap-2">
                       <div
@@ -390,18 +443,15 @@ export function MilestonePage() {
                       >
                         <StatusIcon className="h-3.5 w-3.5" style={{ color: statusColor }} />
                       </div>
-                      <span
-                        className="badge-mini"
-                        style={{ backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)`, color }}
-                      >
+                      <Badge size="xs" accentColor={color}>
                         {getCategoryLabel(m.categoryKey)}
-                      </span>
+                      </Badge>
                     </div>
                     <div>
                       <p className="body-md font-medium text-[var(--text-primary)] line-clamp-1">{m.item.name}</p>
                       <p className="caption mt-0.5 line-clamp-2">{m.item.window}</p>
                     </div>
-                  </button>
+                  </Card>
                 )
               })}
             </div>
@@ -430,21 +480,22 @@ export function MilestonePage() {
                 <h3 className="heading-sm text-[var(--text-primary)]">{detailItem.item.name}</h3>
                 <p className="caption mt-0.5">{detailItem.category} · 窗口期 {detailItem.item.window}</p>
               </div>
-              <button
+              <IconButton
+                variant="ghost"
+                size="sm"
+                icon={<X className="h-5 w-5" />}
                 onClick={() => setDetailItem(null)}
-                className="p-1 rounded-lg text-[var(--text-hint)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
+                aria-label="关闭"
+              />
             </div>
 
             <div className="space-y-3">
               <div>
-                <p className="label-base">描述</p>
+                <Label>描述</Label>
                 <p className="body-md text-[var(--text-secondary)]">{detailItem.item.description}</p>
               </div>
               <div>
-                <p className="label-base">参考标准</p>
+                <Label>参考标准</Label>
                 <p className="body-md text-[var(--text-secondary)]">{detailItem.item.standard}</p>
                 <p className="caption mt-0.5">{detailItem.item.whoWindow}</p>
               </div>
@@ -460,17 +511,17 @@ export function MilestonePage() {
                 </div>
               )}
               <div>
-                <p className="label-base">如何帮助</p>
+                <Label>如何帮助</Label>
                 <p className="body-md text-[var(--text-secondary)]">{detailItem.item.howToHelp}</p>
               </div>
               {detailItem.status !== 'achieved' && (
-                <button
+                <Button
                   onClick={() => handleQuickAddFromDef(detailItem.item, detailItem.categoryKey)}
                   disabled={isSubmitting}
-                  className="btn-primary w-full"
+                  block
                 >
                   {isSubmitting ? '保存中...' : '标记已达成'}
-                </button>
+                </Button>
               )}
             </div>
           </div>

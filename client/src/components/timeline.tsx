@@ -3,6 +3,8 @@ import { Baby, Moon, Droplets, Thermometer, Ruler, Clock, User, MessageSquare } 
 import { useAuthStore } from '@/stores/auth-store'
 import { formatDuration } from '@/lib/date'
 import { getRecordSummary } from '@/lib/record'
+import { parseNote } from '@/lib/note-tags'
+import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 
 const recordTypeIcon: { [K in RecordType]: typeof Baby } = {
@@ -142,10 +144,13 @@ export function Timeline({ records, className }: TimelineProps) {
           record.creator && record.creator.id !== currentUserId
             ? record.creator.nickname
             : null
+        const noteParsed = parseNote(record.note)
+        const hasNoteTags = noteParsed.tags.length > 0
+        const hasNoteFreeText = noteParsed.freeText.length > 0
 
         // 是否渲染辅助信息行（时长 / 创建者 / 备注）
         const hasAuxLine =
-          elapsedMin !== null || !!creatorName || !!record.note
+          elapsedMin !== null || !!creatorName || hasNoteTags || hasNoteFreeText
 
         return (
           <div key={record.id} className="flex gap-3 relative group">
@@ -173,26 +178,14 @@ export function Timeline({ records, className }: TimelineProps) {
                   {label}
                 </span>
                 {badge && (
-                  <span
-                    className="caption font-semibold px-1.5 py-0.5 rounded-full number-display"
-                    style={{
-                      color: badge.color,
-                      backgroundColor: `color-mix(in srgb, ${badge.color} 12%, transparent)`,
-                    }}
-                  >
+                  <Badge size="xs" accentColor={badge.color}>
                     {badge.text}
-                  </span>
+                  </Badge>
                 )}
                 {tempAlert && (
-                  <span
-                    className="badge-mini font-semibold"
-                    style={{
-                      color: tempAlert.color,
-                      backgroundColor: `color-mix(in srgb, ${tempAlert.color} 14%, transparent)`,
-                    }}
-                  >
+                  <Badge size="xs" accentColor={tempAlert.color}>
                     {tempAlert.text}
-                  </span>
+                  </Badge>
                 )}
                 <span className="caption number-display ml-auto shrink-0">
                   {new Date(record.startTime).toLocaleTimeString('zh-CN', {
@@ -207,9 +200,9 @@ export function Timeline({ records, className }: TimelineProps) {
                 {summary}
               </p>
 
-              {/* 第三行：时长 / 创建者 / 备注 */}
+              {/* 第三行：时长 / 创建者 / 备注（标签化） */}
               {hasAuxLine && (
-                <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 mt-1">
+                <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mt-1">
                   {elapsedMin !== null && (
                     <span className="caption flex items-center gap-1 text-[var(--text-hint)]">
                       <Clock className="h-3 w-3" />
@@ -224,10 +217,16 @@ export function Timeline({ records, className }: TimelineProps) {
                       {creatorName}
                     </span>
                   )}
-                  {record.note && (
+                  {hasNoteTags &&
+                    noteParsed.tags.map((tag) => (
+                      <Badge key={tag} size="xs" accentColor={color}>
+                        #{tag}
+                      </Badge>
+                    ))}
+                  {hasNoteFreeText && (
                     <span className="caption flex items-center gap-1 min-w-0 text-[var(--text-hint)]">
                       <MessageSquare className="h-3 w-3 shrink-0" />
-                      <span className="truncate">{record.note}</span>
+                      <span className="truncate">{noteParsed.freeText}</span>
                     </span>
                   )}
                 </div>

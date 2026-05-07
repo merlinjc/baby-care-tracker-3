@@ -2,6 +2,11 @@ import { useEffect, useState } from 'react'
 import { Thermometer } from 'lucide-react'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { SegmentedControl } from '@/components/ui/segmented-control'
+import { Input } from '@/components/ui/input'
+import { FormField } from '@/components/ui/form-field'
+import { Slider } from '@/components/ui/slider'
+import { Alert } from '@/components/ui/alert'
+import { NoteTagPicker } from '@/components/note-tag-picker'
 import { toDateTimeLocalValue, fromDateTimeLocalValue } from '@/lib/date'
 import type { TempMethod, CareRecord } from '@/types'
 import type { RecordDialogMeta } from './feeding-dialog'
@@ -70,6 +75,13 @@ export function TemperatureDialog({ open, onClose, onSubmit, editRecord }: Tempe
   const isFever = temperature !== '' && tempNum >= 37.5
   const isHighFever = temperature !== '' && tempNum >= 38.5
 
+  const inputVariant = isHighFever ? 'danger' : isFever ? 'warning' : 'default'
+  const sliderAccent = isHighFever
+    ? 'var(--danger)'
+    : isFever
+      ? 'var(--warning)'
+      : 'var(--temperature)'
+
   const formId = 'temperature-dialog-form'
 
   return (
@@ -89,57 +101,47 @@ export function TemperatureDialog({ open, onClose, onSubmit, editRecord }: Tempe
         />
       }
     >
-      <form id={formId} onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="label-base">体温 (°C)</label>
-          <input
+      <form id={formId} onSubmit={handleSubmit} data-dialog-form className="space-y-5">
+        <FormField label="体温" htmlFor="temp-value" required>
+          <Input
+            id="temp-value"
             type="number"
             step="0.1"
             value={temperature}
             onChange={(e) => setTemperature(e.target.value)}
             required
             placeholder="36.5"
-            className="input-base"
-            style={
-              isFever
-                ? {
-                    borderColor: isHighFever ? 'var(--danger)' : 'var(--warning)',
-                    color: isHighFever ? 'var(--danger)' : 'var(--warning)',
-                  }
-                : undefined
-            }
+            variant={inputVariant}
+            rightIcon={<span className="text-xs">°C</span>}
           />
           {/* 滑块（35.0–42.0），与数字输入双向绑定 */}
           <div className="mt-3">
-            <input
-              type="range"
+            <Slider
               min={35}
               max={42}
               step={0.1}
-              value={temperature || 36.5}
-              onChange={(e) => setTemperature(e.target.value)}
-              aria-label="体温滑块"
-              className="w-full"
-              style={{ accentColor: isHighFever ? 'var(--danger)' : isFever ? 'var(--warning)' : 'var(--temperature)' }}
+              value={[temperature ? tempNum : 36.5]}
+              onValueChange={([v]) => setTemperature(v != null ? String(v) : '')}
+              accentColor={sliderAccent}
+              showLabels={{
+                left: '35.0',
+                center: '正常 36.0–37.2',
+                right: '42.0',
+              }}
             />
-            <div className="flex justify-between caption mt-1 number-display">
-              <span>35.0</span>
-              <span>正常 36.0–37.2</span>
-              <span>42.0</span>
-            </div>
           </div>
           {isFever && (
-            <p
-              className="caption mt-1"
-              style={{ color: isHighFever ? 'var(--danger)' : 'var(--warning)' }}
+            <Alert
+              variant={isHighFever ? 'danger' : 'warning'}
+              size="compact"
+              className="mt-2"
             >
               {isHighFever ? '高烧 · 建议就医' : '低烧 · 注意观察'}
-            </p>
+            </Alert>
           )}
-        </div>
+        </FormField>
 
-        <div>
-          <label className="label-base">测量方式</label>
+        <FormField label="测量方式">
           <SegmentedControl<TempMethod>
             value={method || null}
             onChange={(v) => setMethod(v || '')}
@@ -153,28 +155,25 @@ export function TemperatureDialog({ open, onClose, onSubmit, editRecord }: Tempe
               { value: 'ear', label: '耳温' },
             ]}
           />
-        </div>
+        </FormField>
 
-        <div>
-          <label className="label-base">测量时间</label>
-          <input
+        <FormField label="测量时间" htmlFor="temp-time">
+          <Input
+            id="temp-time"
             type="datetime-local"
             value={recordTime}
             onChange={(e) => setRecordTime(e.target.value)}
-            className="input-base"
           />
-        </div>
+        </FormField>
 
-        <div>
-          <label className="label-base">备注</label>
-          <input
-            type="text"
+        <FormField label="备注">
+          <NoteTagPicker
             value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="添加备注"
-            className="input-base"
+            onChange={setNote}
+            recordType="temperature"
+            accentColor="var(--temperature)"
           />
-        </div>
+        </FormField>
       </form>
     </Dialog>
   )

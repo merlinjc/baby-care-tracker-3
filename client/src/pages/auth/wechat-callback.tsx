@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '@/stores/auth-store'
 import { authApi } from '@/services/auth'
 import { consumeWechatOauthState } from '@/services/wechat-auth'
+import { Card } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 
 /**
  * 微信扫码登录回调页：/auth/wechat/callback?code=xxx&state=xxx
@@ -53,7 +55,7 @@ export function WechatCallbackPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4" style={{ background: 'var(--bg-primary)' }}>
-      <div className="card max-w-sm w-full text-center space-y-3">
+      <Card padding="md" className="max-w-sm w-full text-center space-y-3">
         {status === 'loading' ? (
           <>
             <div className="spinner mx-auto" />
@@ -63,12 +65,12 @@ export function WechatCallbackPage() {
           <>
             <p className="heading-sm" style={{ color: 'var(--danger)' }}>登录失败</p>
             <p className="body-sm" style={{ color: 'var(--text-secondary)' }}>{errorMsg}</p>
-            <button className="btn-primary w-full" onClick={() => navigate('/login', { replace: true })}>
+            <Button block onClick={() => navigate('/login', { replace: true })}>
               返回登录
-            </button>
+            </Button>
           </>
         )}
-      </div>
+      </Card>
     </div>
   )
 }

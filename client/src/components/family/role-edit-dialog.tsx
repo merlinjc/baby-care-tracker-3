@@ -3,10 +3,14 @@
  *
  * 三选一 RadioGroup（admin/editor/viewer），提交后调 store.updateMemberRole
  * 后端拦截 SOLE_ADMIN 时前端 toast 提示
+ *
+ * v5.0.1 Batch 2：<label> + 原生 radio 组合重构为 <RadioGroup> + <RadioGroupCard>，
+ * 由 radix 负责键盘 ↑↓ 导航、aria-checked、roving tabindex。
  */
 import { useEffect, useState } from 'react'
 import { Shield, Edit, Eye, UserCog } from 'lucide-react'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
+import { RadioGroup, RadioGroupCard } from '@/components/ui/radio-group'
 import { useFamilyStore } from '@/stores/family-store'
 import { toast } from '@/components/ui/toast'
 import { ApiError } from '@/lib/api-error'
@@ -77,36 +81,21 @@ export function RoleEditDialog({ open, onClose, member }: RoleEditDialogProps) {
         />
       }
     >
-      <div className="space-y-2">
-        {OPTIONS.map((opt) => {
-          const isSelected = selected === opt.value
-          return (
-            <label
-              key={opt.value}
-              className="flex items-start gap-3 rounded-lg p-3 cursor-pointer transition-colors"
-              style={{
-                backgroundColor: isSelected ? 'color-mix(in srgb, var(--primary) 8%, transparent)' : 'var(--bg-primary)',
-                border: isSelected ? '1px solid var(--primary)' : '1px solid var(--border-light)',
-              }}
-            >
-              <input
-                type="radio"
-                name="role"
-                value={opt.value}
-                checked={isSelected}
-                onChange={() => setSelected(opt.value)}
-                className="mt-1"
-                style={{ accentColor: 'var(--primary)' }}
-              />
-              <opt.Icon className="h-4 w-4 mt-0.5" style={{ color: 'var(--primary)' }} />
-              <div className="flex-1">
-                <div className="body-md font-medium">{opt.label}</div>
-                <div className="caption mt-0.5">{opt.desc}</div>
-              </div>
-            </label>
-          )
-        })}
-      </div>
+      <RadioGroup
+        value={selected}
+        onValueChange={(v) => setSelected(v as FamilyRole)}
+      >
+        {OPTIONS.map((opt) => (
+          <RadioGroupCard
+            key={opt.value}
+            value={opt.value}
+            label={opt.label}
+            description={opt.desc}
+            icon={<opt.Icon className="h-4 w-4" />}
+            accentColor="var(--primary)"
+          />
+        ))}
+      </RadioGroup>
     </Dialog>
   )
 }

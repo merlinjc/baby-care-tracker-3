@@ -80,6 +80,7 @@ export function Dialog({
         {/* Content wrapper for positioning (bottom on mobile / center on desktop) */}
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center pointer-events-none">
           <DialogPrimitive.Content
+            data-dialog-container
             className={cn(
               'relative w-full flex flex-col pointer-events-auto',
               'max-h-[90vh]',
@@ -105,7 +106,7 @@ export function Dialog({
           >
             {/* Mobile drag indicator */}
             {showDragIndicator && (
-              <div className="flex justify-center pt-2 pb-1 sm:hidden shrink-0">
+              <div className="flex justify-center pt-3 pb-1.5 sm:hidden shrink-0">
                 <div
                   className="w-10 h-1 rounded-full"
                   style={{ backgroundColor: 'var(--border)' }}
@@ -115,7 +116,7 @@ export function Dialog({
             )}
 
             {/* Header */}
-            <div className="flex items-center justify-between px-6 pt-4 pb-2 shrink-0">
+            <div data-dialog-header className="flex items-center justify-between px-6 pt-5 pb-3 shrink-0">
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 {icon && (
                   <div
@@ -146,7 +147,7 @@ export function Dialog({
             </div>
 
             {/* Body (scrollable) */}
-            <div className="px-6 pb-4 pt-2 overflow-y-auto flex-1">
+            <div data-dialog-body className="px-6 pb-5 pt-2 overflow-y-auto flex-1">
               {description && (
                 <DialogPrimitive.Description
                   id="dialog-description"
@@ -161,7 +162,8 @@ export function Dialog({
             {/* Sticky footer */}
             {footer && (
               <div
-                className="px-6 py-3 shrink-0"
+                data-dialog-footer
+                className="px-6 py-4 shrink-0"
                 style={{
                   borderTop: '1px solid var(--border-light)',
                   backgroundColor: 'var(--bg-card)',
@@ -180,6 +182,8 @@ export function Dialog({
 /**
  * Standard double-button footer: [cancel] [confirm], equal width.
  * Use inside <Dialog footer={<DialogFooter ... />}>.
+ *
+ * v5.1.0：内部迁移到 <Button> primitive，不再直接使用 globals.css 的 .btn-primary/.btn-secondary。
  */
 interface DialogFooterProps {
   onCancel: () => void
@@ -198,6 +202,8 @@ interface DialogFooterProps {
   confirmFormId?: string
 }
 
+import { Button } from '@/components/ui/button'
+
 export function DialogFooter({
   onCancel,
   onConfirm,
@@ -209,31 +215,31 @@ export function DialogFooter({
   confirmType = 'button',
   confirmFormId,
 }: DialogFooterProps) {
-  const confirmStyle =
-    variant === 'danger'
-      ? { backgroundColor: 'var(--danger)' }
-      : undefined
-
+  // 使用 grid 布局而非 flex：Button primitive 带有 `shrink-0`（防止图标按钮被压扁），
+  // 若用 flex + `w-full` 会导致两个按钮各自坚持 100% 宽度并溢出容器。
+  // grid grid-cols-2 保证每个按钮严格占据等宽格子。
   return (
-    <div className="flex gap-2">
-      <button
+    <div className="grid grid-cols-2 gap-2">
+      <Button
         type="button"
+        variant="secondary"
         onClick={onCancel}
-        className="btn-secondary flex-1"
         disabled={loading}
+        block
       >
         {cancelText}
-      </button>
-      <button
+      </Button>
+      <Button
         type={confirmType}
         form={confirmFormId}
         onClick={onConfirm}
         disabled={disabled || loading}
-        className="btn-primary flex-1"
-        style={confirmStyle}
+        loading={loading}
+        variant={variant === 'danger' ? 'danger' : 'primary'}
+        block
       >
         {loading ? '处理中...' : confirmText}
-      </button>
+      </Button>
     </div>
   )
 }

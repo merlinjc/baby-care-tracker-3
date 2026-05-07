@@ -12,6 +12,7 @@
 import { useEffect, useState } from 'react'
 import { X, Sparkles } from 'lucide-react'
 import { Dialog } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/toast'
 import type { EggResult } from '@/lib/easter-egg'
 import { markEggShown } from '@/lib/easter-egg'
@@ -101,9 +102,9 @@ export function EasterEggDisplay({ results, onConsume }: EasterEggDisplayProps) 
                 </p>
               )}
             </div>
-            <button onClick={handleClosePopup} className="btn-primary w-full">
+            <Button onClick={handleClosePopup} block>
               我知道了
-            </button>
+            </Button>
           </div>
         </Dialog>
       )}

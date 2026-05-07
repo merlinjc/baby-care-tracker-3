@@ -7,9 +7,15 @@ import { useDialog } from '@/hooks/use-dialog'
 import { useWeeklyTrend } from '@/hooks/use-weekly-trend'
 import { recordService } from '@/services/record'
 import { getRecordSummary, getRecordDetails } from '@/lib/record'
+import { parseNote } from '@/lib/note-tags'
 import { buildTodaySummaryText } from '@/lib/today-summary'
 import { PageHeader } from '@/components/page-header'
-import { HeaderAction } from '@/components/header-action'
+import { Button } from '@/components/ui/button'
+import { IconButton } from '@/components/ui/icon-button'
+import { Card } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Alert } from '@/components/ui/alert'
+import { Input } from '@/components/ui/input'
 import { AddRecordMenu } from '@/components/add-record-menu'
 import { ListSkeleton } from '@/components/ui/list-skeleton'
 import { FeedingDialog } from '@/components/feeding-dialog'
@@ -252,7 +258,7 @@ export function RecordPage() {
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-4">
+    <div className="space-y-5">
       {/* FR-D1：page-header + 今日速览副标题 */}
       <PageHeader
         title="记录"
@@ -262,13 +268,15 @@ export function RecordPage() {
         subtitle={pageSubtitle}
         action={
           <div className="flex items-center gap-2">
-            <HeaderAction
+            <Button
               variant="ghost"
-              icon={<Calendar className="h-3.5 w-3.5" />}
-              label="筛选"
+              size="sm"
+              leftIcon={<Calendar className="h-3.5 w-3.5" />}
               active={showDateFilter}
               onClick={() => setShowDateFilter(!showDateFilter)}
-            />
+            >
+              筛选
+            </Button>
             {canEdit && (
               <AddRecordMenu onPick={(type) => openDialogForType(type)} />
             )}
@@ -286,7 +294,7 @@ export function RecordPage() {
 
       {/* Date Filter */}
       {showDateFilter && (
-        <div className="card-base space-y-3 animate-slide-up">
+        <Card padding="sm" className="space-y-3 animate-slide-up">
           <div className="flex items-center justify-between">
             <span className="body-md font-medium text-[var(--text-secondary)]">日期范围</span>
             {(startDate || endDate) && (
@@ -296,43 +304,49 @@ export function RecordPage() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            <input
+            <Input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="input-base flex-1"
               placeholder="开始日期"
+              wrapperClassName="flex-1"
             />
             <span className="body-sm text-[var(--text-hint)]">至</span>
-            <input
+            <Input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="input-base flex-1"
               placeholder="结束日期"
+              wrapperClassName="flex-1"
             />
           </div>
-        </div>
+        </Card>
       )}
 
-      {/* Type Tabs */}
+      {/* Type Tabs - 使用 Button ghost+active 实现"类型色切换" */}
       <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-        <button
+        <Button
+          variant="ghost"
+          size="sm"
+          active={activeType === 'all'}
           onClick={() => setActiveType('all')}
-          className={`chip ${activeType === 'all' ? 'chip--active' : 'chip--inactive'}`}
-          style={activeType === 'all' ? { backgroundColor: 'var(--primary)' } : undefined}
+          accentColor="var(--primary)"
+          className="rounded-full"
         >
           全部
-        </button>
+        </Button>
         {(Object.keys(recordTypeConfig) as RecordType[]).map((type) => (
-          <button
+          <Button
             key={type}
+            variant="ghost"
+            size="sm"
+            active={activeType === type}
             onClick={() => setActiveType(type)}
-            className={`chip ${activeType === type ? 'chip--active' : 'chip--inactive'}`}
-            style={activeType === type ? { backgroundColor: recordTypeConfig[type].color } : undefined}
+            accentColor={recordTypeConfig[type].color}
+            className="rounded-full"
           >
             {recordTypeConfig[type].label}
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -353,12 +367,9 @@ export function RecordPage() {
                 <span className="caption font-semibold">
                   {group.label}
                 </span>
-                <span
-                  className="badge-mini"
-                  style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-hint)' }}
-                >
+                <Badge size="xs" variant="default">
                   {group.items.length}
-                </span>
+                </Badge>
                 <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border-light)' }} />
               </div>
               {group.items.map((record) => {
@@ -367,9 +378,10 @@ export function RecordPage() {
                 const details = getRecordDetails(record)
                 const creatorLabel = record.creator?.nickname?.trim() || null
                 return (
-                  <div
+                  <Card
                     key={record.id}
-                    className="card-base flex items-start gap-3"
+                    padding="sm"
+                    className="flex items-start gap-3"
                     style={{ borderLeft: `3px solid ${config.color}` }}
                   >
                     <div
@@ -414,12 +426,29 @@ export function RecordPage() {
                         </div>
                       )}
 
-                      {/* 备注 */}
-                      {record.note && (
-                        <p className="caption mt-1 line-clamp-2" title={record.note}>
-                          📝 {record.note}
-                        </p>
-                      )}
+                      {/* 备注：标签 + 自由文本分别渲染 */}
+                      {record.note && (() => {
+                        const parsed = parseNote(record.note)
+                        if (parsed.tags.length === 0 && !parsed.freeText) return null
+                        return (
+                          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                            {parsed.tags.map((tag) => (
+                              <Badge key={tag} size="xs" accentColor={config.color}>
+                                #{tag}
+                              </Badge>
+                            ))}
+                            {parsed.freeText && (
+                              <span
+                                className="caption line-clamp-2"
+                                title={parsed.freeText}
+                                style={{ color: 'var(--text-hint)' }}
+                              >
+                                📝 {parsed.freeText}
+                              </span>
+                            )}
+                          </div>
+                        )
+                      })()}
 
                       {/* 记录者昵称 */}
                       {creatorLabel && (
@@ -431,26 +460,26 @@ export function RecordPage() {
                     </div>
                     <div className="flex items-center gap-0.5 shrink-0">
                       {canEdit && (
-                        <button
+                        <IconButton
+                          variant="ghost"
+                          size="sm"
+                          icon={<Pencil className="h-3.5 w-3.5" />}
                           onClick={() => handleEdit(record)}
-                          className="icon-btn"
-                          title="编辑"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
+                          aria-label="编辑"
+                        />
                       )}
                       {canEdit && (
-                        <button
+                        <IconButton
+                          variant="danger-ghost"
+                          size="sm"
+                          icon={<Trash2 className="h-3.5 w-3.5" />}
                           onClick={() => deleteRecord(record.id)}
                           disabled={deletingId === record.id}
-                          className="icon-btn icon-btn--danger"
-                          title="删除"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                          aria-label="删除"
+                        />
                       )}
                     </div>
-                  </div>
+                  </Card>
                 )
               })}
             </div>
@@ -477,10 +506,9 @@ export function RecordPage() {
 
       {/* Viewer notice */}
       {isViewer && (
-        <div className="notice-info">
-          <Lock className="h-3.5 w-3.5 shrink-0" />
+        <Alert variant="info" size="compact" icon={<Lock className="h-3.5 w-3.5" />}>
           您是查看者，无法添加或修改记录
-        </div>
+        </Alert>
       )}
 
       {/* Dialogs */}

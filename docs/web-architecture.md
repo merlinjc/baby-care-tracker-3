@@ -100,6 +100,24 @@ callOpenAI / callOpenAIStream
 返回内容 + 缓存          refundQuota + buildFallbackInsight
 ```
 
+### 2.6.1 AI 按角色差异化（CareRole）
+
+`chat` / `chatStream` / `dailyInsight` 新增可选参数 `role: CareRole`，取值：
+
+```
+'mom' | 'dad' | 'grandma_m' | 'grandma_p'
+      | 'grandpa_m' | 'grandpa_p' | 'nanny' | 'other'
+```
+
+- **System prompt** 通过 `buildRoleSystemPrompt(role, ctx)` 产出不同的"你是谁 / 你关注什么 / 用什么称呼"人设；不同角色 AI 会给出口吻与侧重不同的回答（妈妈 → 兼顾自身；爸爸 → 分担行动；祖辈 → 科学育儿温和提示；月嫂 → 专业观察 + 交接要点）。
+- **缓存 key** 扩展为 `daily_insight:${babyId}:${today}:${role ?? 'default'}`，不同角色共存不串味。
+- **Role 来源（v5.0.0+ 单一数据源）**：前端仅通过 `lib/care-role.ts#relationToCareRole` 从当前家庭成员的 `FamilyMember.relation` 字段推导；未命中时回落到 `'other'`。**不再保留** `baby_care_preferred_care_role` 的 localStorage 覆盖层（旧键由 `App` 启动时的 `cleanupLegacyPreferredCareRole()` 一次性清理）。
+- **relation 字段语义（v5.0.0+）**：用户在「创建家庭 / 加入家庭」表单中通过 `<CareRoleSelector>` 直接选定 CareRole（`'mom' / 'dad' / 'grandma_m' / 'grandma_p' / 'grandpa_m' / 'grandpa_p' / 'nanny' / 'other'`），该值作为 `FamilyMember.relation` 提交到后端（`POST /families` / `POST /families/join` 已有 relation 入参），首页可直接精确命中。`relationToCareRole` 保留对老数据中文自由文本（"妈妈 / 外婆 / 月嫂"等）的关键字降级，保证历史数据兼容。
+- **UI（v5.0.0+）**：
+  - 创建 / 加入家庭表单：`<CareRoleSelector>` 网格选择（必填），选中后若昵称为空会自动填入身份默认名（可覆盖）。这是**当前版本唯一的身份设置入口**。
+  - 家庭成员列表：每个成员行在昵称后展示身份 chip（emoji + 名称），让用户直观感知 AI 洞察依据的身份视角。
+  - 首页 AI 每日洞察：**移除了**早期版本的 `<CareRoleBadge>` 手动切换入口；角色自动跟随当前用户在家庭中的 relation，如需变更请在家庭页（未来迭代）或重新加入家庭时调整。
+
 ### 2.7 双层权限闸（Web 客户端）
 
 | 层 | 实现 | 防御对象 |
@@ -175,6 +193,56 @@ DELETE /babies/:id?cursor=2500
 ```
 
 `useThemeStore.setMode(mode)` 同时设置 `document.documentElement.dataset.theme` 和 `.dark` class，旧组件不破坏。
+
+### 5.1 字体大小适配（FR-G1.2）
+
+为老年人 / 低视力用户和紧凑信息场景提供统一的 4 档字体缩放：
+
+```
+<html data-font-scale="sm"> → 小（0.9x，信息密集）
+<html data-font-scale="md"> → 标准（1.0x，默认）
+<html data-font-scale="lg"> → 大（~1.15x，更易阅读）
+<html data-font-scale="xl"> → 特大（~1.35x，适合老年人；额外放宽行高与点击目标）
+```
+
+实现位于：
+- `client/src/stores/font-scale-store.ts`：zustand + persist（key `baby_care_font_scale`）
+- `client/src/styles/globals.css`：4 套 `:root[data-font-scale='…']` 覆盖 `--text-xs / sm / base / lg / xl / 2xl / 3xl`
+- `client/src/components/font-scale-selector.tsx`：4 档切换 UI，v5.0.0+ 内嵌在"我的"页面的"字体大小"卡中（与"主题外观"卡并列，两者共同取代 Settings 曾经的"外观"Tab）
+
+**关键约束**：业务组件必须消费语义类（`.heading-*` / `.body-*` / `.caption`）或 CSS 变量 `var(--text-*)`，**禁止**写死 `text-[14px]` 等任意值样式，否则字体缩放会失效。特大档位同时放宽 `btn-*` / `chip` / `input-base` 的 padding，以满足触屏目标 ≥ 48px 的无障碍要求。
+
+### 5.2 黄疸记录（客户端本地存储 MVP，v5.0.0+）
+
+发现页新增"黄疸记录"子入口（`/jaundice`）。设计决策：
+
+- **不新增后端字段 / 表 / 接口**：黄疸作为"观察类"数据而非核心育儿记录，本期以 `localStorage` 落地，快速验证产品价值。
+- 存储位置：`client/src/lib/jaundice.ts`
+  - key：`baby_care_jaundice:${babyId}`
+  - value：按 `date` 降序的 `JaundiceRecord[]` JSON 数组
+- 字段覆盖医学上常用维度：日龄、Kramer 分区（Ⅰ-Ⅴ）、巩膜黄染、经皮胆红素 TcB、血清胆红素 TSB、主观分类（生理性 / 病理性 / 母乳性）、伴随表现（多选）、处置（多选）、备注。
+- 子页 `/jaundice`（`pages/jaundice/index.tsx`）：
+  - PageHeader + 新增按钮（canEdit 才出现）
+  - 教育提示条（提醒就医门槛）
+  - 迷你 SVG 趋势图（最近 10 次有数值的记录 + 12 / 17 mg/dL 虚线警戒）
+  - 时间线卡片列表（Kramer 分区 / TcB / TSB / 伴随表现 / 处置 / 备注）
+- 后续若需要跨端同步，再抽出同名类型到 `shared/types`，新增 `recordType = 'jaundice'` 或独立 `jaundice_records` 表 + 接口；当前本地存储与未来后端方案零冲突（迁移时一次性把本地数据 POST 上去即可）。
+
+### 5.3 成长报告（v5.0.0+）
+
+发现页新增「成长报告」入口（`/report`），提供周报 / 月报两档切换的结构化数据回顾 + 一键分享。设计决策：
+
+- **不新增后端接口 / 表**：报告是既有数据的"纵向汇总视图"，完全基于现有 `/records?startDate&endDate` / `/babies/:id/vaccines` / `/babies/:id/milestones` / `/babies/:id/trend/weekly` 四个端点在前端聚合。避免"每个报告加一个后端接口"造成面条。
+- **数据聚合 Hook**：`client/src/hooks/use-report-data.ts` 把四类并行 query 封装为 `ReportData`，提供 `metrics / daily / milestones / vaccines / growth / weeklyTrend / range` 七个字段；时间窗 `computeReportRange(period, birthDate)` 受 `baby.birthDate` 限制（向后裁剪到出生当日 00:00）。
+- **页面组织**：`pages/report/index.tsx` 作为容器，7 个分区各自对应一个子组件（`components/report/*`），互相独立，空态粒度到"每个分区"。封面、Tab 切换、头部分享按钮在容器层；`ListSkeleton` 仅覆盖数据区，封面与 Tab 立即可见。
+- **AI 总结不自动触发**：为避免"每次打开报告页都扣配额"，`<ReportAiSummary>` 默认渲染"生成 AI 总结"按钮，用户显式点击才调一次 `aiService.chat`；session 内缓存（不持久化到 localStorage，跨页面失效是可接受的）。失败降级为「去 AI 助手详聊」，复用 `autoPrompt` 路由协议（见 §2.9）。
+- **分享图**：扩展 `lib/share-canvas.ts` 新增 `renderReportImage`，与既有 `renderShareImage` 共享调色板与 `drawRoundedRect` / `drawCard` / `wrapText` 基础设施；总高度按"AI 总结行数"动态计算，超长文案不会被裁切。
+- **与其他页面的信息层次对齐**（关键）：
+  - 首页 `<TodaySummary>`：**今天** 当下的仪表盘
+  - 记录页 `<InsightSection>`：**本周** 精细趋势（4 张卡 + 范围条 + 建议）
+  - 发现页：已移除 `<WeeklyTrendOverview>`，仅保留 FocusCard + 功能入口 + 报告入口
+  - 报告页 `/report`：**周 / 月** 结构化回顾（关键指标 + 上周vs本周<仅周报> + 每日节律 + 成就 + AI 总结）
+  - 各页面视角互补，避免"三页都看同一份趋势"。
 
 ## 6. 文件依赖图
 

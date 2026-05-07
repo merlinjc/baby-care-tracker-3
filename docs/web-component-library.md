@@ -9,6 +9,522 @@
 
 ## 1. 新增 UI 通用组件（client/src/components/ui/）
 
+### 1.A shadcn 风格 Primitives（v5.0.1 新增）
+
+> **背景**：旧版组件库里 `.btn-primary / .input-base / .card / .badge-mini / .icon-btn` 等样式定义在 `globals.css`，但**组件层没有抽象**，导致 JSX 中充满散装 Tailwind 字符串（`inline-flex items-center gap-1.5 rounded-md h-8 px-3 text-xs text-white` 在 7 处重复）。v5.0.1 引入 **shadcn 设计模式 + 自研实现 + CVA** 方案，建立 16 个 Primitive 组件作为整个 UI 层的原子。
+>
+> **硬性规则**：新代码**必须**使用以下 Primitive 组件；旧的 CSS 类（`.btn-primary` 等）进入过渡期并标记 `@deprecated`，计划在 Batch 4 收尾阶段从 JSX 中清除。
+
+#### Batch 1（基础原子 · 9 个）
+
+| 组件 | 文件 | 对标 shadcn | 关键 Variants |
+|------|------|-------------|---------------|
+| `<Button>` | `ui/button.tsx` | `button` | `variant: primary / secondary / ghost / outline / danger / danger-outline / link` × `size: xs / sm / md / lg / icon` + `loading / leftIcon / rightIcon / block / active / accentColor` |
+| `<IconButton>` | `ui/icon-button.tsx` | `button size=icon` | `variant: ghost / danger-ghost / primary-ghost` × `size: xs / sm / md` |
+| `<Input>` | `ui/input.tsx` | `input` | `variant: default / warning / danger` × `size: sm / md / lg` + `leftIcon / rightIcon / wrapperClassName` |
+| `<Textarea>` | `ui/textarea.tsx` | `textarea` | `variant × size` + `autoResize?: boolean` |
+| `<Label>` | `ui/label.tsx` | `label` | `required?: boolean`（自动加红 `*`） |
+| `<FormField>` | `ui/form-field.tsx` | form 组合 | `label / htmlFor / required / error / hint`；`<Label> + control + <message>` 三段布局 |
+| `<Card>` + `<CardHeader/Title/Description/Content/Footer>` | `ui/card.tsx` | `card` | `variant: default / interactive / ghost / accent` × `padding: none / sm / md / lg` + `accentColor`（accent 左侧 3px 色条） |
+| `<Badge>` | `ui/badge.tsx` | `badge` | `variant: default / primary / feeding / sleep / diaper / temperature / growth / success / warning / danger / info / outline / ghost` × `size: xs(10px) / sm(12px) / md` + `interactive / icon / accentColor` |
+| `<Separator>` | `ui/separator.tsx` | `separator` (radix) | `orientation: horizontal / vertical` × `variant: solid / dashed / light` + `label?: ReactNode`（水平分隔线中间文字） |
+
+#### Batch 2（表单 & 菜单 · 7 个）
+
+| 组件 | 文件 | 对标 shadcn | 关键 Variants / API |
+|------|------|-------------|--------------------|
+| `<Switch>` | `ui/switch.tsx` | `switch` (radix) | `size: sm / md`；受控 `checked` + `onCheckedChange` |
+| `<RadioGroup>` + `<RadioGroupItem>` / `<RadioGroupCard>` | `ui/radio-group.tsx` | `radio-group` (radix) | `RadioGroupItem` 原始圆点；`RadioGroupCard` 卡片式（`label / description / icon / accentColor / checkedAdornment`），用于 RoleEditDialog / TransferAdminDialog |
+| `<Slider>` | `ui/slider.tsx` | `slider` (radix) | `min / max / step / value / onValueChange`；`accentColor`；`showLabels: { left, center, right }` 三段刻度 |
+| `<Progress>` + `<RangeIndicator>` + `<WeeklyRangeBar>` | `ui/progress.tsx` | `progress` (radix) | `<Progress>` 条形；`<RangeIndicator>` 均匀区间点位；`<WeeklyRangeBar>` 非均匀参考范围条（中央 60% 绿色正常区 + 低/高 0~20% 和 80~100% 映射，Batch 3 合并原 `<RangeBar>`） |
+| `<Alert>` + `<AlertTitle>` + `<AlertDescription>` | `ui/alert.tsx` | `alert` | `variant: info / primary / success / warning / danger` × `size: compact / md` + `icon?: ReactNode` |
+| `<Popover>` + `<PopoverTrigger>` + `<PopoverContent>` | `ui/popover.tsx` | `popover` (radix) | `PopoverContent.padding: none / sm / md` + `side / align / sideOffset`；自带 Portal / ESC / 外部点击关闭 / focus trap |
+| `<DropdownMenu>` + 子组件 | `ui/dropdown-menu.tsx` | `dropdown-menu` (radix) | `<DropdownMenuContent align sideOffset>` + `<DropdownMenuItem variant="default \| danger">` + `<DropdownMenuItemIcon accentColor>` + `<DropdownMenuItemText title description>` + `<DropdownMenuSeparator>` + `<DropdownMenuLabel>` |
+
+#### Batch 3（数据展示 · 3 个）
+
+| 组件 | 文件 | 对标 shadcn | 关键 Variants / API |
+|------|------|-------------|--------------------|
+| `<Tabs>` + `<TabsList>` + `<TabsTrigger>` + `<TabsContent>` | `ui/tabs.tsx` | `tabs` (radix) | `variant: underline（默认）/ pill`；radix 自带 ← → 键盘导航、自动 `role="tab/tabpanel"` |
+| `<Avatar>` + `<AvatarImage>` + `<AvatarFallback>` + **`<BabyAvatar>`** + **`<UserAvatar>`** | `ui/avatar.tsx` | `avatar` (radix) | `size: xs(24) / sm(32) / md(40) / lg(48) / xl(64)` × `bordered`；**快捷封装** `<BabyAvatar baby>` 按 gender 自动配色 + 名字首字 fallback；`<UserAvatar user>` 昵称 + avatar 组合 |
+| `<Tooltip>` + `<TooltipTrigger>` + `<TooltipContent>` + `<TooltipProvider>` | `ui/tooltip.tsx` | `tooltip` (radix) | Provider 挂在 App 根部；默认 300ms 延迟；键盘 focus 时也显示 |
+
+#### Batch 4（收尾 · 3 个）
+
+| 组件 | 文件 | 对标 shadcn | 关键 Variants / API |
+|------|------|-------------|--------------------|
+| `<Checkbox>` | `ui/checkbox.tsx` | `checkbox` (radix) | `size: sm / md`；支持 `indeterminate` 三态；键盘 Space 切换 |
+| `<Sheet>` + `<SheetContent>` + `<SheetHeader/Title/Description>` + `<SheetBody>` + `<SheetFooter>` + `<SheetTrigger>` + `<SheetClose>` | `ui/sheet.tsx` | `sheet` (radix-dialog 底座) | `side: right(默认) / left / top / bottom` × `size: sm / md / lg`；**与 Dialog 区别**：Sheet 在所有断点都是侧滑/底部滑出，用于桌面端右侧抽屉 / 左侧导航抽屉 |
+| `<ScrollArea>` | `ui/scroll-area.tsx` | `scroll-area` (radix) | 把原生 scrollbar 统一为美拉德细滚动条；A11y 友好；必须外层有固定高度 |
+
+### 1.A.1 用法示例（Batch 1）
+
+#### Button
+
+```tsx
+import { Button } from '@/components/ui/button'
+import { Plus } from 'lucide-react'
+
+// 等价于旧 HeaderAction variant="primary"
+<Button variant="primary" size="sm" leftIcon={<Plus className="h-3.5 w-3.5" />} onClick={...}>
+  添加
+</Button>
+
+// Loading + block
+<Button loading={isSubmitting} block size="md">保存</Button>
+
+// Ghost + active（等价旧 HeaderAction variant="ghost" active）
+<Button variant="ghost" size="sm" active={showFilter} leftIcon={<Calendar />}>
+  筛选
+</Button>
+
+// 自定义 accentColor（例如生长页使用 var(--growth) 主色）
+<Button variant="primary" accentColor="var(--growth)" leftIcon={<Plus />}>
+  记录
+</Button>
+```
+
+#### FormField + Input
+
+```tsx
+import { FormField } from '@/components/ui/form-field'
+import { Input } from '@/components/ui/input'
+import { Mail } from 'lucide-react'
+
+<FormField label="邮箱" htmlFor="email" required error={errors.email}>
+  <Input
+    id="email"
+    type="email"
+    leftIcon={<Mail className="h-4 w-4" />}
+    autoComplete="email"
+    value={email}
+    onChange={(e) => setEmail(e.target.value)}
+  />
+</FormField>
+
+// 体温 Dialog 中"发烧预警"场景：
+<Input
+  type="number"
+  step="0.1"
+  variant={isHighFever ? 'danger' : isFever ? 'warning' : 'default'}
+  rightIcon={<span className="text-xs">°C</span>}
+  value={temperature}
+  onChange={...}
+/>
+```
+
+#### Card 组合
+
+```tsx
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card'
+
+// default
+<Card>
+  <CardHeader>
+    <div>
+      <CardTitle>本周喂养</CardTitle>
+      <CardDescription>基于最近 7 天记录</CardDescription>
+    </div>
+  </CardHeader>
+  <CardContent>...</CardContent>
+</Card>
+
+// accent（替代旧 .card-base--accent-left）
+<Card variant="accent" accentColor="var(--feeding)" padding="md">
+  ...
+</Card>
+
+// interactive（替代旧 .card-interactive）
+<Card variant="interactive" as="article" onClick={...}>
+  ...
+</Card>
+```
+
+#### Badge
+
+```tsx
+import { Badge } from '@/components/ui/badge'
+
+// xs 等价旧 .badge-mini
+<Badge variant="feeding" size="xs">喂养·3</Badge>
+<Badge variant="danger" size="xs">2 项逾期</Badge>
+<Badge variant="outline" size="xs">自费</Badge>
+
+// interactive（用于 NoteTagPicker 标签 toggle）
+<Badge variant="primary" size="sm" interactive aria-pressed={selected} onClick={toggle}>
+  #吃得多
+</Badge>
+
+// 自定义 accentColor（不在枚举 variant 里）
+<Badge accentColor="#7BC950" size="xs">新记录</Badge>
+```
+
+### 1.A.2 用法示例（Batch 2）
+
+#### Switch
+
+```tsx
+import { Switch } from '@/components/ui/switch'
+
+<Switch size="sm" checked={rememberMe} onCheckedChange={setRememberMe} aria-label="记住我" />
+
+// 搭配 Label 组合成完整开关行
+<label className="flex items-center gap-2.5 text-sm cursor-pointer">
+  <Switch checked={enabled} onCheckedChange={setEnabled} />
+  <span>启用通知</span>
+</label>
+```
+
+#### RadioGroup + RadioGroupCard（卡片式单选）
+
+```tsx
+import { RadioGroup, RadioGroupCard } from '@/components/ui/radio-group'
+import { Shield, Edit, Eye } from 'lucide-react'
+
+<RadioGroup value={role} onValueChange={setRole}>
+  <RadioGroupCard
+    value="admin"
+    label="管理员"
+    description="所有权限：管理成员、记录、宝宝档案"
+    icon={<Shield className="h-4 w-4" />}
+    accentColor="var(--primary)"
+  />
+  <RadioGroupCard
+    value="editor"
+    label="成员"
+    description="可添加 / 编辑 / 删除自己创建的记录"
+    icon={<Edit className="h-4 w-4" />}
+    accentColor="var(--primary)"
+  />
+  <RadioGroupCard
+    value="viewer"
+    label="仅查看"
+    description="只能查看记录，不能修改任何数据"
+    icon={<Eye className="h-4 w-4" />}
+    accentColor="var(--primary)"
+  />
+</RadioGroup>
+
+// 原始圆点（非卡片）用 <RadioGroupItem>：
+<RadioGroup value={value} onValueChange={setValue}>
+  <div className="flex items-center gap-2">
+    <RadioGroupItem value="a" id="a" />
+    <label htmlFor="a">选项 A</label>
+  </div>
+</RadioGroup>
+```
+
+#### Slider（带三段刻度）
+
+```tsx
+import { Slider } from '@/components/ui/slider'
+
+<Slider
+  min={35}
+  max={42}
+  step={0.1}
+  value={[temperature]}
+  onValueChange={([v]) => setTemperature(v)}
+  accentColor={isFever ? 'var(--warning)' : 'var(--temperature)'}
+  showLabels={{ left: '35.0', center: '正常 36-37.2', right: '42.0' }}
+/>
+```
+
+#### Progress + RangeIndicator
+
+```tsx
+import { Progress, RangeIndicator } from '@/components/ui/progress'
+
+// 条形进度（TodaySummary 4 格 / QuotaBar）
+<Progress value={42} max={100} accentColor="var(--feeding)" size="sm" />
+
+// 范围指示器（WHO 百分位 / 生长趋势）
+<RangeIndicator
+  min={0} max={100} value={65}
+  normalRange={[25, 75]}
+  accentColor="var(--growth)"
+  label="体重百分位"
+/>
+```
+
+#### Alert
+
+```tsx
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
+import { AlertTriangle, Info } from 'lucide-react'
+
+// 单行紧凑（替代旧 .notice-info）
+<Alert variant="info" size="compact" icon={<Info className="h-3.5 w-3.5" />}>
+  仅您本人可见的观察记录
+</Alert>
+
+// 多行带标题
+<Alert variant="danger" size="md" icon={<AlertTriangle className="h-4 w-4" />}>
+  <AlertTitle>删除后不可恢复</AlertTitle>
+  <AlertDescription>此操作将移除该成员及其创建的所有记录。</AlertDescription>
+</Alert>
+```
+
+#### DropdownMenu
+
+```tsx
+import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuItemIcon,
+  DropdownMenuItemText,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu'
+
+<DropdownMenu>
+  <DropdownMenuTrigger asChild>
+    <Button variant="primary" size="sm" leftIcon={<Plus />}>添加</Button>
+  </DropdownMenuTrigger>
+  <DropdownMenuContent align="end">
+    <DropdownMenuItem onSelect={() => onPick('feeding')}>
+      <DropdownMenuItemIcon accentColor="var(--feeding)">
+        <Baby className="h-3.5 w-3.5" />
+      </DropdownMenuItemIcon>
+      <DropdownMenuItemText title="喂养" description="母乳 / 配方奶 / 辅食" />
+    </DropdownMenuItem>
+    <DropdownMenuSeparator />
+    <DropdownMenuItem variant="danger" onSelect={handleDelete}>
+      <Trash2 className="h-3.5 w-3.5" />
+      <span>删除</span>
+    </DropdownMenuItem>
+  </DropdownMenuContent>
+</DropdownMenu>
+```
+
+**约定**：
+- Trigger 必须 `asChild` 包裹目标 Button / IconButton，不要让 DropdownMenuTrigger 渲染 `<button>` 外层 DOM。
+- `onSelect` 不带事件对象；若需要阻止默认关闭行为（例如打开另一个 Dialog），调用 `e.preventDefault()`（radix 会把事件对象传入）。
+- 菜单项带 icon + 主/副文字时使用 `<DropdownMenuItemIcon>` + `<DropdownMenuItemText>` 标准组合。
+
+### 1.A.3 用法示例（Batch 3）
+
+#### Tabs
+
+```tsx
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+
+// underline 默认（记录页类型筛选、设置 Tab 切换）
+<Tabs value={tab} onValueChange={setTab}>
+  <TabsList>
+    <TabsTrigger value="profile">资料</TabsTrigger>
+    <TabsTrigger value="password">密码</TabsTrigger>
+    <TabsTrigger value="export">导出</TabsTrigger>
+  </TabsList>
+  <TabsContent value="profile">…</TabsContent>
+  <TabsContent value="password">…</TabsContent>
+</Tabs>
+
+// pill（次级 Tab，如报告页周/月切换）
+<Tabs value={period} onValueChange={v => setPeriod(v as 'week' | 'month')}>
+  <TabsList variant="pill">
+    <TabsTrigger variant="pill" value="week">本周报告</TabsTrigger>
+    <TabsTrigger variant="pill" value="month">本月报告</TabsTrigger>
+  </TabsList>
+</Tabs>
+```
+
+#### Avatar / BabyAvatar / UserAvatar
+
+```tsx
+import { Avatar, AvatarImage, AvatarFallback, BabyAvatar, UserAvatar } from '@/components/ui/avatar'
+
+// 组合式（灵活）
+<Avatar size="lg" bordered>
+  <AvatarImage src={user.avatar} alt={user.nickname} />
+  <AvatarFallback bgColor="var(--primary)">W</AvatarFallback>
+</Avatar>
+
+// 快捷式：宝宝（自动按 gender 着色：女=temperature / 男=growth）
+<BabyAvatar baby={currentBaby} size="md" bordered />
+
+// 快捷式：家庭成员 / 用户
+<UserAvatar user={{ nickname: '妈妈', avatar: '...' }} size="lg" />
+```
+
+#### Tooltip
+
+```tsx
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
+
+<Tooltip>
+  <TooltipTrigger asChild>
+    <IconButton variant="ghost" icon={<Trash2 className="h-4 w-4" />} aria-label="删除" />
+  </TooltipTrigger>
+  <TooltipContent>删除记录</TooltipContent>
+</Tooltip>
+```
+
+**前提**：`<TooltipProvider>` 已在 `app/App.tsx` 根部挂载，业务组件只需直接使用 `<Tooltip>`。
+
+### 1.A.4 用法示例（Batch 4）
+
+#### Checkbox
+
+```tsx
+import { Checkbox } from '@/components/ui/checkbox'
+
+<label className="flex items-center gap-2">
+  <Checkbox checked={agreed} onCheckedChange={setAgreed} />
+  <span className="text-sm">我已阅读并同意用户协议</span>
+</label>
+
+// 三态
+<Checkbox
+  checked={someChecked ? (allChecked ? true : 'indeterminate') : false}
+  onCheckedChange={handleToggleAll}
+/>
+```
+
+#### Sheet（侧边/底部抽屉）
+
+```tsx
+import {
+  Sheet, SheetTrigger, SheetContent,
+  SheetHeader, SheetTitle, SheetBody, SheetFooter,
+} from '@/components/ui/sheet'
+import { Button } from '@/components/ui/button'
+
+<Sheet open={open} onOpenChange={setOpen}>
+  <SheetContent side="right" size="md">
+    <SheetHeader>
+      <SheetTitle>高级筛选</SheetTitle>
+    </SheetHeader>
+    <SheetBody>
+      {/* 长表单 */}
+    </SheetBody>
+    <SheetFooter>
+      <Button variant="secondary" block onClick={() => setOpen(false)}>取消</Button>
+      <Button block onClick={onApply}>应用</Button>
+    </SheetFooter>
+  </SheetContent>
+</Sheet>
+```
+
+**与 `<Dialog>` 的区别**：Dialog 桌面端居中弹窗（移动端退化 bottom sheet）；Sheet 在**所有断点都是侧滑/底部滑出**，适合桌面端右侧抽屉、左侧导航。
+
+#### ScrollArea
+
+```tsx
+import { ScrollArea } from '@/components/ui/scroll-area'
+
+<ScrollArea className="h-72 w-full">
+  <div className="p-4 space-y-2">
+    {items.map(item => <div key={item.id}>{item.title}</div>)}
+  </div>
+</ScrollArea>
+```
+
+**注意**：外层 ScrollArea 必须有固定高度，否则不会出现滚动条。
+
+### 1.A.5 v5.1.0 设计优化增补
+
+#### 图标尺寸 5 档自动推导（lib/icon-size.ts）
+
+所有 Primitive（`<Button>` / `<IconButton>` / `<Badge>` / `<Alert>`）自动根据组件 size 推导图标尺寸：
+
+| Size token | 像素 | Tailwind | 对齐文本 |
+|-----------|-----|----------|---------|
+| `xs` | 12 | `h-3 w-3` | caption (11px) |
+| `sm` | 14 | `h-3.5 w-3.5` | body-sm (13px) |
+| `md` | 16 | `h-4 w-4` | body-md (15px) |
+| `lg` | 20 | `h-5 w-5` | heading-md (17px) |
+| `xl` | 24 | `h-6 w-6` | heading-lg+ (20px+) |
+
+```tsx
+// 用户不传尺寸 className → 自动注入
+<Button size="md" leftIcon={<Plus />}>添加</Button>
+// 等价于：<Button size="md" leftIcon={<Plus className="h-4 w-4" />}>
+
+// 用户自己写了 className → 被尊重，不覆盖
+<Button size="md" leftIcon={<Plus className="h-5 w-5" />}>大图标</Button>
+
+// 显式 override（绕过推导）
+<Button size="md" iconSize="lg" leftIcon={<Plus />}>特大图标</Button>
+```
+
+实现：`withIconSize(icon, size)` 只给"根元素没有 h-/w- className"的 icon 注入；lucide-react 所有图标符合此约定。
+
+#### 字体 display-sm/md/lg + display-number（globals.css）
+
+v5.1.0 引入"叙事 vs 数据 vs 交互"三级字体节奏：
+
+| 类别 | 用途 | 类名 | 字号（md 档） |
+|------|------|------|-------------|
+| display-sm | 首页问候 / 报告封面 / 空态主标题 | `.display-sm` | 30px |
+| display-md | 大型 CTA 卡 | `.display-md` | 38px |
+| display-lg | 启动屏 / 巨型数据 | `.display-lg` | 48px |
+| display-number | TodaySummary 4 格 / ReportMetricsGrid 大数字 | `.display-number` | 继承外层 + 负字距 + tabular-nums + slashed-zero |
+
+4 档 font-scale 均已补齐 display token；切换字号档位自动生效。
+
+#### Badge `tone` prop（soft / solid / outline）
+
+```tsx
+<Badge variant="danger" tone="soft">警告</Badge>      // 默认，14% 底色 + 类型色文字
+<Badge variant="danger" tone="solid">3 项逾期</Badge> // 纯色底 + 白字 + 暖夜自动发光
+<Badge variant="warning" tone="outline">低烧</Badge>  // 透明 + 1px 类型色边 + 类型色文字
+```
+
+- tone 仅对"类型色/语义色 variant"或 `accentColor` 场景生效
+- `default / outline / ghost` variant 有固定视觉，tone 不作用
+- 暖夜模式下 `tone="solid"` 自动获得 `box-shadow: 0 0 12px -4px currentColor` 微光
+
+#### Badge xs 可读性（xl 档自动放大）
+
+`:root[data-font-scale='xl'] .badge-xs` 自动从 10px → 12px，保证老年人场景可读。
+
+#### Card `cta` variant
+
+```tsx
+<Card variant="cta" onClick={onAdd}>
+  <Plus /> 添加宝宝开始记录
+</Card>
+```
+
+虚线 border + 中心对齐 + hover 填充 `primary 4%` + focus-visible ring，适合"引导性空态 / 大型 CTA"。
+
+#### Focus ring 双层
+
+全局 `:focus-visible` 升级为：内 2px（容器同色）+ 外 4px（primary 40%）双层 box-shadow；暖夜模式自动增强到 60% 饱和。
+组件内部已自定义 ring 的元素（Button / Input 等）通过 `box-shadow: revert` 取消兜底，避免重叠。
+
+### 1.A.6 CVA 设计约定
+
+所有 Primitive 遵循以下 CVA 结构，后续新增 Primitive 请保持一致：
+
+```typescript
+const xxxVariants = cva(
+  'base-classes',
+  {
+    variants: { variant: {...}, size: {...}, ... },
+    defaultVariants: { variant: 'default', size: 'md' },
+  },
+)
+
+export interface XxxProps
+  extends React.HTMLAttributes<HTMLElement>,
+    VariantProps<typeof xxxVariants> { ... }
+
+export const Xxx = forwardRef<..., XxxProps>((props, ref) => ...)
+Xxx.displayName = 'Xxx'
+export { xxxVariants }
+```
+
+- **`variants` 枚举外的颜色**：通过额外 prop `accentColor?: string` 传入 CSS 变量或 hex，组件内部用 inline `style.backgroundColor/color` 覆盖。禁止为每个可能的颜色都新增 variant 枚举项。
+- **尺寸统一 4 档**：`xs(28) / sm(32) / md(40) / lg(48)`；`icon` 作为特例（h-9 w-9 保持视觉与 `sm` 协调）。
+- **组件一律 `forwardRef`**：下游组件可能做 Popover/Tooltip 等 anchor 绑定，必须能拿到 ref。
+- **`focus-visible:ring` 默认带**：保证键盘导航有可见焦点；不要依赖业务层补。
+
+### 1.B 已有 UI 组件（保持不变）
+
 | 组件 | 文件 | 说明 |
 |------|------|------|
 | `<Dialog>` + `<DialogFooter>` | `ui/dialog.tsx` | 响应式弹窗（基于 `@radix-ui/react-dialog`）：移动底部 sheet / 桌面居中；可选 sticky footer 和 size；内置 focus trap / inert 背景 / ESC / return focus |
@@ -137,15 +653,25 @@ import { ChartSkeleton } from '@/components/ui/chart-skeleton'
 | `<HomeSkeleton>` | `home-skeleton.tsx` | FR-A5（首页骨架屏） |
 | `<InsightSection>` | `insight-section.tsx` | FR-B（记录页精细趋势：4 张卡含范围条/参考/环比/建议） |
 | `<WeeklyTrendOverview>` | `weekly-trend-overview.tsx` | 发现页「上周 vs 本周」趋势对比：单卡 4 行（指标 / 上周日均 / 本周日均 / 对比箭头），异常行整行高亮；头部含偏离徽章 + 「详情 →」跳记录页；底部「向 AI 咨询建议」按钮，会把趋势摘要拼为预填问题，通过 `navigate('/ai-assistant', { state: { autoPrompt } })` 跳转，AI 助手页自动发送一次 |
-| `<RangeBar>` | `range-bar.tsx` | FR-B3（迷你范围条） |
+| `<RangeBar>` | ~~`range-bar.tsx`~~ | **v5.0.1 Batch 3 已删除**：合并到 `<WeeklyRangeBar>`（位于 `ui/progress.tsx`）。`InsightSection` 内部已迁移。 |
 | `<FocusCard>` | `focus-card.tsx` | 发现页「最紧急事项」卡：3 级 urgency（overdue / upcoming / normal），左侧 3px 色条 + icon + title + desc |
 | `<PageHeader>` | `page-header.tsx` | 通用页面头部，支持 `variant: 'sub' / 'tab'`、`showBack` / `backTo`、`icon` / `accentColor` / `action` |
-| `<HeaderAction>` | `header-action.tsx` | 配合 `PageHeader.action` 使用，三种 variant（primary / secondary / ghost），统一右上角操作按钮样式 |
+| ~~`<HeaderAction>`~~ | ~~`header-action.tsx`~~ | **v5.0.1 已删除**：使用 `<Button variant="primary/secondary/ghost" size="sm">` 替代。映射关系：`icon→leftIcon` / `label→children` / `active`/`disabled`/`accentColor` 同名保留。 |
 | `<AddRecordMenu>` | `add-record-menu.tsx` | 记录页右上角「添加」下拉菜单：5 种记录类型（喂养/睡眠/排便/体温/生长）独立入口；点击外部 / Esc 自动关闭；通过 `onPick(type)` 回调通知父组件打开对应 Dialog |
 | `<EasterEggDisplay>` | `easter-egg-display.tsx` | FR-G2（彩蛋三态渲染） |
 | `<QuotaBar>` | `quota-bar.tsx` | FR-F3（AI 配额）双形态：`variant='bar'`（完整条带）/ `variant='badge'`（紧凑徽章，嵌入 header） |
-| `<ThemeSelector>` | `theme-selector.tsx` | FR-G1（三态主题选择器） |
+| `<ThemeSelector>` | `theme-selector.tsx` | FR-G1（三态主题选择器，v5.0.0+ 内嵌于"我的"页面的"主题外观"卡；不再需要进 Settings） |
+| `<FontScaleSelector>` | `font-scale-selector.tsx` | FR-G1.2（字体 4 档选择器：小 / 标准 / 大 / 特大，配合 `stores/font-scale-store.ts` 持久化；v5.0.0+ 内嵌于"我的"页面的"字体大小"卡） |
+| `<NoteTagPicker>` | `note-tag-picker.tsx` | 记录备注标签化选择器（受控组件，用于 5 个记录 Dialog 的备注字段；内含预设标签 + 自定义标签 + 自由文本三层；详见 `web-coding-conventions.md §15`） |
+| `<CareRoleSelector>` | `care-role-selector.tsx` | "我的身份"网格选择器（3/4 列 chip，emoji + 名称），用于创建家庭 / 加入家庭表单。选中结果作为 `FamilyMember.relation` 字段提交到后端，首页 AI 洞察直接命中无需中文关键字推断；是 v5.0.0+ 唯一的身份设置入口（旧 `<CareRoleBadge>` 手动切换徽章已移除）。详见 `web-architecture.md §2.6.1` |
+| `<JaundiceDialog>` | `jaundice-dialog.tsx` | 黄疸观察记录新建 / 编辑弹窗（数据仅存 localStorage）：Kramer 分区 / 巩膜 / TcB / TSB / 伴随表现 / 处置 / 备注；与 `/jaundice` 子页和 `lib/jaundice.ts` 配合 |
 | `<Timeline>` | `timeline.tsx` | 首页「今日时间线」记录展示（结构化摘要 + 关键指标徽章 + 辅助行） |
+| `<ReportCover>` | `report/report-cover.tsx` | 成长报告封面卡（v5.0.0+）：渐变背景 + 大号装饰字 `W/M` + 宝宝名 + 周期副标题 |
+| `<ReportMetricsGrid>` | `report/report-metrics-grid.tsx` | 本期关键指标 4 宫格（移动 2×2 / 桌面 4 列）：喂养 / 睡眠 / 换尿布 / 体温，每格大号数字 + 单位 + 明细副行，体温异常 ≥1 时强制切 `var(--danger)` |
+| `<ReportDailyRhythm>` | `report/report-daily-rhythm.tsx` | 每日节律双色柱图：每天喂养次数（左柱，`var(--feeding)`）与睡眠小时（右柱，`var(--sleep)`）；x 轴稀疏标签（周报全显 / 月报首中末三点）；hover title 展示具体数值 |
+| `<ReportGrowthSection>` | `report/report-growth-section.tsx` | 生长快照对比：期初 vs 期末最新 growth 记录；delta 绿涨橙跌，仅一条记录时显示"—"；底部跳 `/growth` |
+| `<ReportAchievements>` | `report/report-achievements.tsx` | 本期里程碑 / 疫苗双卡：每卡最多 6 行（超出显示"还有 N 条未展示"），复用 `var(--diaper)` / `var(--feeding)` 类型色 |
+| `<ReportAiSummary>` | `report/report-ai-summary.tsx` | AI 总结段：点按生成才请求 `aiService.chat`（避免无谓扣配额），session 内缓存；失败降级为「去 AI 助手详聊」按钮，通过 `autoPrompt` 带上下文跳 `/ai-assistant` |
 
 ### 2.1 PageHeader 用法
 
@@ -379,6 +905,7 @@ interface RecordDialogProps {
 | `useLocalStorageState(key, default)` | `use-local-storage-state.ts` | localStorage 持久化的 React state；跨 tab 同步 |
 | `useDialog<T>()` | `use-dialog.ts` | 弹窗开关；`openDialog(payload?)` 可携带 payload（编辑模式下的 CareRecord），`closeDialog` 自动清空 |
 | `useConfirm()` | `components/ui/confirm-dialog.tsx` | 全局 Promise 式确认弹窗；`confirm(options): Promise<boolean>` |
+| `useReportData(babyId, period, birthDate?)` | `use-report-data.ts` | 成长报告数据聚合（v5.0.0+）：基于 `GET /records?startDate&endDate`、疫苗 / 里程碑列表、`/trend/weekly`（仅周报）并行拉取并在前端聚合为 `{ metrics, daily, milestones, vaccines, growth, weeklyTrend }`；时间窗：`period='week'` = 本周一→今天，`period='month'` = 本月 1 号→今天，均受 `baby.birthDate` 限制 |
 
 ## 5. 新增 Lib（client/src/lib/）
 
@@ -391,7 +918,8 @@ interface RecordDialogProps {
 | `buildFallbackInsight` | `insight-fallback.ts` | AI 降级规则引擎 |
 | `buildTodaySummaryText` | `today-summary.ts` | 记录页副标题构建 |
 | `detectAll` / `markEggShown` / `EggResult` | `easter-egg.ts` | 彩蛋检测引擎 |
-| `renderShareImage` / `downloadShareImage` / `shareImage` | `share-canvas.ts` | 分享图 V1 |
+| `renderShareImage` / `downloadShareImage` / `shareImage` | `share-canvas.ts` | 分享图 V1（今日小结） + 成长报告分享（v5.0.0+ `renderReportImage`） |
+| `renderReportImage(opts)` | `share-canvas.ts` | v5.0.0+：渲染成长报告分享图（周报 / 月报）。入参 `{ baby, data: ReportData, aiSummary? }`；返回 `Promise<Blob>` JPEG。布局：封面（渐变 + 大号 W/M）→ 4 宫格关键指标 → 成就摘要行 → 可选 AI 总结段 → Footer；总高度按 AI 总结行数动态计算（`wrapText` 按字符断行）。DPR 限制为 2，质量 0.85。|
 | `getRecordSummary(record)` / `getRecordDetails(record)` / `getRecordTypeLabel(type)` | `record.ts` | 记录展示工具：`getRecordSummary` 返回单行摘要文本；`getRecordDetails` 返回结构化的 `{ key, value }[]`，记录页卡片用其渲染详情标签组（地点 / 部位 / 性状 / 颜色 / 体温分级等） |
 
 ## 6. 新增 Service 方法
@@ -563,11 +1091,4 @@ export type LeaveFamilyStatus = 'ok' | 'dissolved' | 'need_transfer' | 'family_n
 export interface LeaveFamilyResult { status, message, otherMembers? }
 
 // FR-B
-export interface WeeklyTrendData { feeding/sleep/diaper/temperature: WeeklyTrendDimension; period; ageMonths }
-export interface WeeklyTrendDimension { thisWeekAvg, lastWeekAvg, range, status, tip, changePercent }
-
-// FR-F
-export interface AIQuotaStatus { dailyLimit, used, remaining, resetAt }
-export type ChatStreamEvent = { type: 'chunk' | 'done' | 'error', ... }
-export interface DailyInsight { summary, suggestions, alerts, source?: 'ai' | 'fallback' }
-```
+export interface WeeklyT

@@ -2,10 +2,15 @@
  * RemoveMemberConfirm - 移除成员二次确认（FR-C4）
  *
  * 要求用户输入「确认移除」字样才能点击红色按钮，防止误操作
+ *
+ * v5.0.1 Batch 2：裸 input + 手写警告条 → <Input> + <FormField> + <Alert variant="danger">
  */
 import { useState } from 'react'
 import { UserX, AlertTriangle } from 'lucide-react'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { FormField } from '@/components/ui/form-field'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useFamilyStore } from '@/stores/family-store'
 import { toast } from '@/components/ui/toast'
 import { ApiError } from '@/lib/api-error'
@@ -73,33 +78,33 @@ export function RemoveMemberConfirm({ open, onClose, member }: RemoveMemberConfi
         />
       }
     >
-      <div
-        className="rounded-md p-3 mb-4 flex items-start gap-2"
-        style={{ backgroundColor: 'color-mix(in srgb, var(--danger) 8%, transparent)' }}
+      <Alert
+        variant="danger"
+        size="md"
+        icon={<AlertTriangle className="h-4 w-4" />}
+        className="mb-4"
       >
-        <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" style={{ color: 'var(--danger)' }} />
-        <div className="body-sm space-y-1">
+        <AlertDescription>
           <p style={{ color: 'var(--danger)' }}>
             您正在移除 <span className="font-semibold">{member.user?.nickname ?? '成员'}</span>。
           </p>
-          <p className="text-[var(--text-secondary)]">
+          <p className="text-[var(--text-secondary)] mt-0.5">
             移除后该成员将无法访问家庭数据。其历史记录会保留并标注为「已退出成员」。
           </p>
-        </div>
-      </div>
+        </AlertDescription>
+      </Alert>
 
-      <label className="label-base">
-        请输入「{CONFIRM_TEXT}」以继续：
-      </label>
-      <input
-        type="text"
-        className="input-base mt-1"
-        placeholder={CONFIRM_TEXT}
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        disabled={submitting}
-        autoComplete="off"
-      />
+      <FormField label={`请输入「${CONFIRM_TEXT}」以继续：`} htmlFor="remove-confirm">
+        <Input
+          id="remove-confirm"
+          type="text"
+          placeholder={CONFIRM_TEXT}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          disabled={submitting}
+          autoComplete="off"
+        />
+      </FormField>
     </Dialog>
   )
 }

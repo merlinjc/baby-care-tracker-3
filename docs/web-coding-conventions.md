@@ -199,6 +199,20 @@ async createFamily(userId: string, data: ...) {
 - `FamilyMember.displayName String?` 是用户在该家庭中的展示昵称，由 `createFamily` / `joinByInviteCode` 入参 `nickname` 落库。
 - 前端展示家庭成员时优先 `displayName`，回退到 `user.nickname`。
 
+### 6.7 成员三点菜单的权限分档（客户端）
+
+`<MembersSection>` 里每条非自身成员行右侧的"⋮"菜单，三项操作的客户端显隐规则（服务端仍是最终裁判）：
+
+| 操作 | 客户端条件 | 服务端兜底 |
+|------|------|------|
+| 修改权限 | 总是显示（对 admin 也显示，允许降级） | `SOLE_ADMIN`（最后一个 admin 不能被降级） |
+| 转让管理员 | 目标 `role !== 'admin'` | `INVALID_PARAMS`（目标已是 admin 不可"再转让"） |
+| 移除成员 | 目标 `role !== 'admin'` | `CANNOT_REMOVE_ADMIN` |
+
+**反例**（v5.0.0 前的 BUG）：三项操作全部加了 `m.role !== 'admin'` 守卫，导致"管理员 A 想把管理员 B 降级 / 移除"时点开"⋮"菜单是空的，UI 表现像"被遮挡 / 没反应"。修复时仅保留"移除成员"的 admin 守卫，其余两项交给服务端。
+
+**另外**：打开菜单时务必给承载它的 `.card` 动态加 `z-index: 30`，否则相邻 card 的阴影 / 边框会盖在菜单上，看起来也像"被遮挡"。
+
 ## 7. 错误码使用
 
 后端 `ErrorCodes` 常量定义在 `server/src/types/errors.ts`：
@@ -427,9 +441,128 @@ feedingDialog.openDialog(existingRecord)
 
 ### 11.7 页面 wrapper 间距统一
 
-- Tab 主页（home / record / discover / profile）：`space-y-5`
-- 子页（baby / family / vaccine / milestone / growth / settings 等）：`space-y-4`
-- 不再出现 `space-y-6`（已于 home / family 引导页废弃）。
+- **v5.0.0+ 约定（外层 padding 只在 MainLayout 一处）**：`MainLayout` 的内容容器统一给出 `max-w-3xl mx-auto w-full px-5 sm:px-6 py-7 lg:py-8`，并通过 `pb-20 lg:pb-0` 给移动端 TabBar 留白；**所有业务页根容器不得再写 `p-4 md:p-6 max-w-3xl mx-auto`**，只保留 `space-y-*` + `animate-*`。
+- Tab 主页（home / discover / profile）：`space-y-6`
+- 子页（record / baby / family / vaccine / milestone / growth / settings / jaundice 等）：`space-y-5`
+- 不再出现 `space-y-3 / space-y-4 / space-y-7`。
+
+**历史变迁**：v4.3.x 曾约定"Tab 主页 `space-y-5`、子页 `space-y-4`"并在每个页面自己写 `p-4 md:p-6 max-w-3xl mx-auto`，结果与 MainLayout 内层的 `px-4 py-6` 双层叠加，视觉上仍显拥挤（尤其移动端卡片紧贴屏幕左右）。v5.0.0+ 一次性把 padding 统一到 MainLayout、`space-y` 各升一档，解决此问题。
+
+**🛡️ Tailwind 4 JIT 兜底钩子（不得删除）**：由于 `@tailwindcss/vite` 在某些环境下对新增 class 的扫描会滞后或漏掉，导致 `px-5 / py-7 / pb-20` 等 utility 失效（Computed 全为 0），项目里关键结构元素额外挂了一组 `data-*` 属性钩子，在 `globals.css` 的 "Layout Fallback" 段用真·CSS 写死对应 padding / 间距 / 高度。**任何人改这些组件都不得移除这些 data 属性**；若要调整间距，同时改 Tailwind class（保证主干）和兜底 CSS（保证故障模式下也正常）。
+
+| Data 钩子 | 所属组件 | 兜底内容 |
+|------|------|------|
+| `data-app-main` / `data-app-content` | `MainLayout` | `px-5 sm:px-6 py-7 lg:py-8`、`pb-20 lg:pb-0` |
+| `data-app-tabbar` / `data-app-tabbar-inner` | `MainLayout` 移动 TabBar | `h-16` = 64px |
+| `data-profile-stack` | `ProfilePage` 根容器 | `space-y-6` = 24px；外观两张卡之间 28px |
+| `data-dialog-form` | 6 个记录 Dialog 的 `<form>` | `space-y-5` = 20px（字段组间距） |
+| `data-form-field` | `<FormField>` 壳组件 | `space-y-2` = 8px（label ↔ 控件间距） |
+| `data-note-tag-picker` | `<NoteTagPicker>` 根 | `space-y-3` = 12px（内部各区块间距） |
+
+**特殊页面**：
+- `AIAssistantPage` 是全屏对话布局，用负 margin `-mx-5 -my-7 sm:-mx-6 lg:-my-8` 抵消 MainLayout 外层 padding，让顶栏 / 输入框能贴到视口边缘；高度由 `h-[calc(100vh-4rem)]` 计算（对齐 TabBar `h-16`）。
+- `AuthLayout`（/login, /register, /auth/wechat/callback）不走 MainLayout，自己用 `px-5 py-10` + `max-w-md`。
+
+### 11.8 卡片内边距基线
+
+`.card` / `.card-interactive` padding = **20px**，`.card-base` padding = **18px**。原 v4.3.x 的 `16px` 在移动端视觉偏挤，v5.0.0+ 统一提升；字号特大档会通过 `:root[data-font-scale='xl']` 再叠加放宽按钮 / 输入框 / chip padding，卡片内边距保持不变（避免特大档位下卡片显得"空"）。
+
+**禁止**：
+- 在卡片上用 `py-3` / `py-4` 等 Tailwind 自定义 padding 覆盖 `.card` 默认 padding（特殊需求除外，并在代码注释里说明）。
+- 为了"省空间"把 `.card` 改为 `.card-base`；二者语义不同：`.card` 是一级分组容器，`.card-base` 是嵌套在分组里的子卡。
+
+### 11.9 原子组件优先级（v5.0.1 起生效 · 硬性规则）
+
+v5.0.1 分 4 批引入 shadcn 风格 Primitive 组件（**全部 4 个 Batch 已完成，合计 22 个 Primitive**，详见 `docs/web-component-library.md §1.A`）。所有**新写/改动的 JSX** 必须优先使用组件，而不是 `globals.css` 的语义类：
+
+| 场景 | ✅ 必须使用 | ❌ 禁止（新代码） | Batch |
+|------|-----------|------------------|-------|
+| 任意按钮 | `<Button variant size>` / `<IconButton>` | `<button className="btn-primary">`、`inline-flex items-center gap-1.5 rounded-md h-8 px-3 text-xs` 散装拼装 | 1 |
+| 表单输入 | `<FormField><Label><Input>...</FormField>` | 裸 `<input className="input-base">`；error 状态自己 inline style `borderColor` | 1 |
+| 多行输入 | `<Textarea>` | 裸 `<textarea className="input-base">` | 1 |
+| 列表/内容容器 | `<Card>` + `<CardHeader><CardTitle>...</CardHeader>...` | `<div className="card">` 新代码 | 1 |
+| 小角标（10-12px） | `<Badge size="xs">` | `<span className="badge-mini">` / `text-[10px] rounded-full px-1.5` | 1 |
+| 分类标签 | `<Badge variant="feeding/sleep/..." size="sm">` | `<span className="type-badge type-badge--feeding">` | 1 |
+| 水平分隔线 | `<Separator />` / `<Separator label="或" />` | `<div className="h-px bg-[var(--border)]">` | 1 |
+| 开关 | `<Switch>` | `<input type="checkbox" style={{accentColor:...}}>` | 2 |
+| 单选 / 卡片式单选 | `<RadioGroup>` + `<RadioGroupCard>` | `<label><input type="radio">...` 手写 + hover/selected 边框切换 | 2 |
+| 滑块 | `<Slider>` | `<input type="range" style={{accentColor:...}}>` | 2 |
+| 进度条 / 范围点位 | `<Progress>` / `<RangeIndicator>` / `<WeeklyRangeBar>` | `<div className="progress-bar">` 手写 fill div；老 `<RangeBar>` 已删除 | 2/3 |
+| 内联提示条 | `<Alert variant size icon>` | `<div className="notice-info">` / `style={{background:'color-mix(...)', color:'var(--danger)'}}` 散装 | 2 |
+| 下拉菜单 | `<DropdownMenu>` + 子组件 | 自己写 `useRef + useEffect(mousedown)` 手势监听；手写 `role="menu/listbox"` + 选项按钮 | 2 |
+| 可切换标签 / chip | `<Badge interactive aria-pressed>` | 手写 `<button>` + 选中态边框/底色切换（JaundiceDialog 的 MultiBadge、NoteTagPicker 是标准示例） | 2 |
+| 多 Tab 切换 | `<Tabs>` + `<TabsList>` + `<TabsTrigger>` | 手写 `role="tablist/tab"` + state + 下划线 / pill 切换 | 3 |
+| 头像（宝宝 / 用户） | `<BabyAvatar>` / `<UserAvatar>`；自由组合用 `<Avatar>` + `<AvatarImage>` + `<AvatarFallback>` | `<img className="rounded-full">` / 裸 `<div>` 做首字 fallback / 手写 gender 配色 | 3 |
+| Tooltip（hover 提示） | `<Tooltip>` + `<TooltipTrigger asChild>` + `<TooltipContent>` | 裸 `title="..."` 属性作为唯一提示（不可键盘聚焦时显示） | 3 |
+| 类型色切换 chip（带类型色填充） | `<Button variant="ghost" active accentColor>` | `.chip + .chip--active/inactive` + inline style 散装（record 页已迁移） | 3 |
+| 复选框 | `<Checkbox>` | 裸 `<input type="checkbox">` | 4 |
+| 侧边 / 底部抽屉 | `<Sheet>` + `<SheetContent>` + `<SheetHeader>` + `<SheetBody>` + `<SheetFooter>` | 自己写 `fixed right-0 inset-y-0` + overlay 组合 | 4 |
+| 内容滚动区 | `<ScrollArea>` | 直接 `overflow-y-auto` + 无美化滚动条的原生样式（滚动条与暖夜/亮色主题不匹配） | 4 |
+
+**过渡期约定（Batch 4 后）**：
+- 以下 CSS 类已在 `globals.css` 标记 `@deprecated`：
+  `.btn-primary / .btn-secondary / .btn-danger-outline / .input-base / .card / .card-base / .card-interactive / .badge-mini / .type-badge / .chip / .chip--active / .chip--inactive / .tab-button / .icon-btn / .icon-btn--danger / .notice-info / .progress-bar`
+- **仍然保留以兼容"未改动的业务页面"**（如 `baby / vaccine / milestone / jaundice / home / ai-assistant / discover` 等页面的部分复杂 JSX 仍在用 `.card-base` 做内部布局）；视觉与新组件 1:1 等价，不影响功能。
+- **新代码**一律按上表走 Primitive；每次接触旧代码时顺手迁移。
+- 物理删除时点：业务页面全部迁移到新组件后（预期下一个次版本 v5.1.x）。
+
+**Dialog 内部豁免**：~~已解除~~。v5.1.0 起 `<DialogFooter>` 内部已迁移到 `<Button>`。现在 `globals.css` 已物理删除所有废弃 CSS 类，业务层与 Primitive 内部均不应再使用。
+
+**v5.1.0 物理清除日志**：删除了 `.card / .card-base / .card-interactive / .type-badge* / .input-base / .btn-primary / .btn-secondary / .btn-danger-outline / .icon-btn* / .badge-mini / .notice-info / .chip* / .tab-button* / .progress-bar*`。仅保留 `.label-base`（Label 组件复用）与 `.heading-* / .body-* / .caption / .icon-circle* / .number-display / .display-number / .display-sm/md/lg / .section-header* / .empty-state* / .spinner*` 等**非废弃视觉基础设施**。
+
+### 11.9.1 v5.1.0 设计优化规范（在 4 批 Primitive 之上）
+
+| 设计细节 | ✅ 约定 |
+|---------|---------|
+| 图标尺寸 | Primitive 自动推导；**不要**在组件内部手写 `<Icon className="h-4 w-4" />` 指定尺寸（特殊场景除外）。绕过推导用 `<Button iconSize="lg">` |
+| 叙事性大字 | `<h1 className="display-sm">` / `display-md` / `display-lg`；**不要**用 `heading-xl` + 手写 `fontSize` 模拟大号 |
+| 数字仪表盘 | `className="display-number"`（mono + tabular + 负字距）；**不要**用 `number-display font-bold leading-none` 手写 |
+| Badge 强调 | `<Badge tone="solid">` 用于高优先级未读数 / 严重警示；`tone="outline"` 用于 meta；默认 `tone="soft"` |
+| 引导空态 | `<Card variant="cta">` 代替手写 dashed border + center 组合 |
+| Focus 指示 | 优先使用组件内置 `focus-visible:ring-*`；全局双层 ring 仅作兜底 |
+
+### 11.10 variant / size 命名一致性
+
+所有 Primitive 与其衍生组件（`HeaderAction` / `AddRecordMenu` / `Dialog` 等）**必须**遵守统一的命名字典：
+
+| Variant | 语义 | 色值来源 |
+|---------|------|---------|
+| `default / primary` | 主操作 / 品牌 | `var(--primary)` |
+| `secondary` | 次要操作 | `var(--bg-card)` + border |
+| `ghost` | 低调 / 可切换（`active` 时填充） | 透明 + hover 填充 |
+| `outline` | 纯描边 | 透明 + `var(--border)` |
+| `danger` | 危险 / 删除 / 高烧 | `var(--danger)` |
+| `danger-outline` | 危险描边 | border: `var(--danger)` alpha 25% |
+| `warning` | 警告 / 低烧 / 异常 | `var(--warning)` |
+| `success` | 成功 / 达标 | `var(--success)` |
+| `info` | 普通提示 | `var(--info)` |
+| `feeding / sleep / diaper / temperature / growth` | 记录类型色 | 对应 `var(--*)` |
+| `link` | 文字链接 | `var(--primary-dark)` + underline |
+
+**Size 统一 4 档 + icon 特例**：
+
+| Size | 按钮高度 | 字号 | 适用场景 |
+|------|---------|------|---------|
+| `xs` | 28px | `text-xs` | 列表行内按钮、Badge 内嵌、快捷用量 chip |
+| `sm` | 32px | `text-xs` | 页面右上角 action、紧凑场景 |
+| `md` | 40px | `text-sm` | 默认；表单提交、对话框底部 |
+| `lg` | 48px | `text-base` | 首屏 CTA、字号 xl 档无障碍场景 |
+| `icon` | 36×36 | — | 纯图标按钮 |
+
+**禁止**：
+- 在业务 JSX 中使用 `size="md"` 的 Button 自行加 `className="h-8"` 覆盖高度——应该改用 `size="sm"`。
+- 新增非以上枚举的 variant 名（如 `variant="special"`）；需求不覆盖时通过 `accentColor` prop 传入具体颜色 token。
+
+### 11.11 CVA 新增组件约定
+
+在 `ui/` 新增任意 Primitive 时：
+
+1. **使用 `class-variance-authority`** 定义所有 variant × size 组合；禁止 `if/else` 渲染分支。
+2. **导出 `{组件, 组件Variants}`**：下游业务组件可通过 `buttonVariants({ variant, size })` 复用同款 class（例如在 `cn(buttonVariants(...), className)` 里）。
+3. **必用 `forwardRef`**：未来可能被 Popover / Tooltip / DropdownMenu 当 anchor 使用，必须可以 attach ref。
+4. **A11y 默认齐备**：所有交互组件自动带 `focus-visible:ring-[var(--primary)]/40`；`aria-*` 不靠业务侧补。
+5. **`defaultVariants`** 必须显式列出，以便 tsc 正确推断可选 prop。
+6. **tsc -b + vite build 零错误**是 PR 合入的硬门槛。
 
 ## 13. 自动化测试规范（FR-T）
 
@@ -666,6 +799,7 @@ router.post('/:id/leave', validateParams(familyIdParamSchema), asyncHandler(asyn
 - `<Dialog>` 内部基于 `@radix-ui/react-dialog`，业务层无需直接引用 `DialogPrimitive.*`。
 - 需要自定义非标准 Dialog（例如带 Tab / 侧边栏的复杂场景）时，优先扩展现有 `<Dialog>` 增加 prop；非特殊情况不要直接使用 `DialogPrimitive`。
 - 禁止在业务页面手写 `fixed inset-0 z-50` + overlay/内容双层结构来模拟 Dialog——请用官方组件。
+- **双按钮 footer 布局**：`DialogFooter` 内部采用 `grid grid-cols-2 gap-2` 容器（而非 `flex gap-2`）。原因：`<Button>` primitive 带 `shrink-0`（防止图标按钮被压扁），与 `block: w-full` 组合后在 flex 容器中会让两个按钮各自坚持 100% 宽度并溢出 Dialog。grid 两列等宽格子可以严格将宽度约束在 `(container - gap) / 2`，即使未来 Button 样式再调整也不会破坏底栏布局。
 
 ## 12. 趋势数据约定（FR-B v4.3.2）
 
@@ -682,7 +816,9 @@ router.post('/:id/leave', validateParams(familyIdParamSchema), asyncHandler(asyn
 | 页面 | 组件 | 视角 |
 |------|------|------|
 | 记录页 | `<InsightSection>` | 仅展示本周（细节视角：4 张精细卡 + 范围条 + 月龄参考 + 环比 + 建议） |
-| 发现页 | `<WeeklyTrendOverview>` | 上周 vs 本周对比 + 异常行高亮 + 「向 AI 咨询建议」按钮 |
+| 成长报告页（周报模式） | `<WeeklyTrendOverview>` | 上周 vs 本周对比 + 异常行高亮 + 「向 AI 咨询建议」按钮；v5.0.0+ 由发现页迁入 `/report` |
+
+> **v5.0.0+ 历史变迁**：`<WeeklyTrendOverview>` 原本挂在发现页底部（v4.3.2）。为避免"首页仪表盘 / 记录页精细趋势 / 发现页对比 / 报告页汇总"四处同质内容，v5.0.0+ 把发现页的趋势对比卡移除，并在"周报"页内复用同一组件；发现页改为纯导航（FocusCard + 功能入口 Grid + 成长报告入口卡）。
 
 ## 13. AI 助手 autoPrompt 路由协议
 
@@ -765,3 +901,39 @@ AI 助手页 (`pages/ai-assistant/index.tsx`) 通过：
 - **当前状态**：仅前端入口 + 后端路由骨架；未配置时前端不渲染按钮、后端返回 503 `WECHAT_NOT_CONFIGURED`。
 - **已知小程序 vs 网站应用区别**：本项目小程序 AppID 是 `wx1f1bc8e6ff2be61d`，但网站应用必须在「微信开放平台」（open.weixin.qq.com）单独注册（与小程序 AppID 不同），且需要主体认证 + ICP 备案域名。
 - **二阶段启用步骤**详见 `server/src/services/wechat-auth.service.ts` 的 `TODO(wechat-login-phase-2)` 注释块（核心是补 `User.wechatUnionId` schema + migrate）。
+
+## 15. 记录备注「标签 + 自由文本」协议（v5.0.0+）
+
+为提升备注输入效率并支持常用标签的快速勾选 / 自定义，所有记录类型（喂养 / 睡眠 / 换尿布 / 体温 / 生长）的 `record.note` 统一采用如下内联协议：
+
+```
+"#吃得多 #打嗝多 今晚多喝了 30ml"
+ └─ 标签 ─┘ └───── 自由文本 ──────┘
+```
+
+**核心约定**：
+- 标签以 `#` 前缀开头，空白分隔（半角空格 / 全角空格 / 换行）
+- 标签与自由文本混写，顺序不敏感（但保存时标签统一靠前）
+- **不改 `note` 字段类型**，后端、shared 类型、DB schema 零改动；纯前端语义约定
+- 老数据（纯文本 note）完全向后兼容：`parseNote` 返回 `{ tags: [], freeText: 原文 }`
+
+**解析 / 构造 API**（位于 `client/src/lib/note-tags.ts`）：
+
+| 函数 | 用途 |
+|------|------|
+| `parseNote(note)` | 把 note 字符串解析为 `{ tags, freeText }` |
+| `buildNote(tags, freeText)` | 构造回 note 字符串；空值自动合并 |
+| `getPresetNoteTags(recordType)` | 返回某类型的预设标签（类型细分 + 通用） |
+| `readCustomNoteTags / writeCustomNoteTags / addCustomNoteTag / removeCustomNoteTag` | 自定义标签 `localStorage` CRUD；key `baby_care_custom_tags:${recordType}`；每类型上限 30 个；每标签 ≤ 10 字符 |
+
+**输入侧约定**：
+- 5 个记录 Dialog（`FeedingDialog` / `SleepDialog` / `DiaperDialog` / `TemperatureDialog` / `GrowthDialog`）的备注字段**必须**使用 `<NoteTagPicker>`，禁止直接写 `<input type="text">`。
+- `<NoteTagPicker>.onChange` 返回的就是已拼好的 note 字符串，直接透传到 `onSubmit` 的 `note` 字段。
+- 不同 `recordType` 对应不同 `accentColor`，与 Dialog 头部图标色一致。
+
+**展示侧约定**（timeline / record 页卡片 / 任何其它要展示备注的地方）：
+- **必须**先用 `parseNote` 解析，再分别渲染：
+  - 标签用 `.badge-mini` 或等价的小 pill，color/bg 复用 `config.color`（类型色）
+  - 自由文本用 `📝` emoji 前缀 + caption 文字 + `line-clamp-2` 截断
+- 禁止把 note 作为纯字符串一次性展示（会出现 `#` 前缀裸露的视觉污染）。
+

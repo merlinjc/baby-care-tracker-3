@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { Moon } from 'lucide-react'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { SegmentedControl } from '@/components/ui/segmented-control'
+import { Input } from '@/components/ui/input'
+import { FormField } from '@/components/ui/form-field'
+import { NoteTagPicker } from '@/components/note-tag-picker'
 import { toDateTimeLocalValue, fromDateTimeLocalValue } from '@/lib/date'
 import type { SleepType, CareRecord } from '@/types'
 import type { RecordDialogMeta } from './feeding-dialog'
@@ -96,9 +99,8 @@ export function SleepDialog({ open, onClose, onSubmit, editRecord }: SleepDialog
         />
       }
     >
-      <form id={formId} onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="label-base">类型</label>
+      <form id={formId} onSubmit={handleSubmit} data-dialog-form className="space-y-5">
+        <FormField label="类型">
           <SegmentedControl<SleepType>
             value={sleepType}
             onChange={setSleepType}
@@ -108,51 +110,47 @@ export function SleepDialog({ open, onClose, onSubmit, editRecord }: SleepDialog
               { value: 'nap', label: '午睡' },
             ]}
           />
-        </div>
+        </FormField>
 
-        <div>
-          <label className="label-base">时长 (分钟)</label>
-          <input
+        <FormField label="时长" htmlFor="sleep-duration" required>
+          <Input
+            id="sleep-duration"
             type="number"
             value={duration}
             onChange={(e) => setDuration(e.target.value)}
             required
             placeholder="输入时长"
-            className="input-base"
+            rightIcon={<span className="text-xs">分钟</span>}
           />
-        </div>
+        </FormField>
 
-        <div>
-          <label className="label-base">开始时间</label>
-          <input
+        <FormField label="开始时间" htmlFor="sleep-time">
+          <Input
+            id="sleep-time"
             type="datetime-local"
             value={recordTime}
             onChange={(e) => setRecordTime(e.target.value)}
-            className="input-base"
           />
-        </div>
+        </FormField>
 
-        <div>
-          <label className="label-base">地点</label>
-          <input
+        <FormField label="地点" htmlFor="sleep-location">
+          <Input
+            id="sleep-location"
             type="text"
             value={location}
             onChange={(e) => setLocation(e.target.value)}
             placeholder="如：婴儿床、推车"
-            className="input-base"
           />
-        </div>
+        </FormField>
 
-        <div>
-          <label className="label-base">备注</label>
-          <input
-            type="text"
+        <FormField label="备注">
+          <NoteTagPicker
             value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="添加备注"
-            className="input-base"
+            onChange={setNote}
+            recordType="sleep"
+            accentColor="var(--sleep)"
           />
-        </div>
+        </FormField>
       </form>
     </Dialog>
   )

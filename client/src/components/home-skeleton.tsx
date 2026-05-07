@@ -5,10 +5,11 @@
  * 使用 globals.css 的 .animate-shimmer 动画。
  */
 import { Skeleton } from '@/components/ui/skeleton'
+import { Card } from '@/components/ui/card'
 
 export function HomeSkeleton() {
   return (
-    <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
       {/* 问候栏 */}
       <div className="space-y-2 pt-2">
         <Skeleton className="h-7 w-48" />
@@ -21,19 +22,19 @@ export function HomeSkeleton() {
       {/* TodaySummary 4 列 */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="card-base flex flex-col gap-3">
+          <Card key={i} padding="sm" className="flex flex-col gap-3">
             <Skeleton className="h-4 w-12" />
             <Skeleton className="h-8 w-16" />
             <Skeleton className="h-3 w-20" />
             <Skeleton className="h-1 w-full" />
-          </div>
+          </Card>
         ))}
       </div>
 
       {/* Timeline 3 条 */}
       <div className="space-y-3">
         <Skeleton className="h-4 w-24" />
-        <div className="card space-y-3">
+        <Card className="space-y-3">
           {[0, 1, 2].map((i) => (
             <div key={i} className="flex items-center gap-3">
               <Skeleton className="h-10 w-10 rounded-full" />
@@ -43,7 +44,7 @@ export function HomeSkeleton() {
               </div>
             </div>
           ))}
-        </div>
+        </Card>
       </div>
 
       {/* InsightSection 折叠态 */}

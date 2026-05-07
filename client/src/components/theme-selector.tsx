@@ -3,10 +3,13 @@
  *
  * 选项：亮色 / 暖夜 / 跟随系统
  * 切换时立即应用 + 持久化到 localStorage（由 theme-store 处理）
+ *
+ * v5.0.1 Batch 4：重构为基于 <RadioGroup> + <RadioGroupCard>（竖向网格布局）。
+ * 由 radix 提供键盘 ← → 导航、roving tabindex、aria-checked。
  */
 import { Sun, Moon, Monitor } from 'lucide-react'
 import { useThemeStore, type ThemeMode } from '@/stores/theme-store'
-import { cn } from '@/lib/utils'
+import { RadioGroup, RadioGroupCard } from '@/components/ui/radio-group'
 
 const OPTIONS: { value: ThemeMode; label: string; desc: string; Icon: typeof Sun }[] = [
   { value: 'light', label: '亮色', desc: '默认明亮配色', Icon: Sun },
@@ -19,32 +22,21 @@ export function ThemeSelector() {
   const setMode = useThemeStore((s) => s.setMode)
 
   return (
-    <div className="grid grid-cols-3 gap-2">
-      {OPTIONS.map((opt) => {
-        const isActive = mode === opt.value
-        return (
-          <button
-            key={opt.value}
-            onClick={() => setMode(opt.value)}
-            className={cn(
-              'flex flex-col items-center gap-2 rounded-xl p-4 transition-all',
-              'cursor-pointer',
-            )}
-            style={{
-              backgroundColor: isActive
-                ? 'color-mix(in srgb, var(--primary) 14%, transparent)'
-                : 'var(--bg-primary)',
-              border: isActive ? '1px solid var(--primary)' : '1px solid var(--border-light)',
-              color: isActive ? 'var(--primary)' : 'var(--text-secondary)',
-            }}
-            aria-pressed={isActive}
-          >
-            <opt.Icon className="h-5 w-5" />
-            <div className="body-sm font-medium">{opt.label}</div>
-            <div className="caption text-[var(--text-hint)] text-center">{opt.desc}</div>
-          </button>
-        )
-      })}
-    </div>
+    <RadioGroup
+      value={mode}
+      onValueChange={(v) => setMode(v as ThemeMode)}
+      className="grid grid-cols-1 sm:grid-cols-3 gap-2 space-y-0"
+    >
+      {OPTIONS.map((opt) => (
+        <RadioGroupCard
+          key={opt.value}
+          value={opt.value}
+          label={opt.label}
+          description={opt.desc}
+          icon={<opt.Icon className="h-5 w-5" />}
+          accentColor="var(--primary)"
+        />
+      ))}
+    </RadioGroup>
   )
 }

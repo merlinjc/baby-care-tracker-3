@@ -81,6 +81,8 @@
 | `/growth` | `GrowthPage` | 生长曲线 | `packageGrowth/pages/growth/growth` | 发现页入口 |
 | `/milestone` | `MilestonePage` | 里程碑 | `packageGrowth/pages/milestone/milestone` | 发现页入口 |
 | `/ai-assistant` | `AIAssistantPage` | AI 助手 | `packageSocial/pages/ai-assistant/ai-assistant` | 发现页入口 |
+| `/jaundice` | `JaundicePage` | 黄疸记录（Web 端独有） | — | 发现页入口（本地存储 MVP） |
+| `/report` | `ReportPage` | 成长报告（周报 / 月报） | — | 发现页入口（v5.0.0+） |
 | `/baby/create` | `BabyCreatePage` | 创建宝宝 | `pages/baby-create/baby-create` | 个人中心入口 |
 | `/baby/:id` | `BabyDetailPage` | 宝宝详情 | `packageGrowth/pages/baby-detail/baby-detail` | 个人中心入口 |
 | `/babies` | `BabyListPage` | 宝宝列表 | `pages/baby-list/baby-list` | 个人中心入口 |
@@ -528,8 +530,10 @@ App
 
 - **FocusCard**：3 级 urgency —— `overdue`（有疫苗逾期）→ `upcoming`（有疫苗即将到期）→ `normal`（一切顺利）；按此优先级从后端数据自动决策。
 - **功能入口 Grid**：移动端 2 列、桌面端 4 列，右上角 badge 显示完成百分比（仅疫苗 / 里程碑有 badge）。4 个入口：疫苗 / 里程碑 / 生长曲线 / AI 助手。
-- **趋势对比**（v4.3.2 修订）：使用 `<WeeklyTrendOverview>`，单卡 4 行布局，每行展示「指标 / 上周日均 / 本周日均 / 对比箭头」，异常行整行高亮；头部含「X 项偏离」徽章 + 「详情 →」跳记录页；底部「向 AI 咨询建议」按钮把上周/本周趋势摘要拼成预填问题，调 `navigate('/ai-assistant', { state: { autoPrompt } })` 跳转，AI 助手页自动发送一次。数据来自 `useWeeklyTrend(babyId)` hook（后端返回的 `period` = 本周一→今天，`lastWeekPeriod` = 上周一→上周日）。
-  - **与记录页差异**：记录页使用 `<InsightSection>`（4 张精细卡含范围条 / 环比 / 建议，仅本周）；发现页使用 `<WeeklyTrendOverview>`（上周 vs 本周对比 + AI 入口）。两页信息层次互补。
+- **黄疸记录入口（v5.0.0+ 新增）**：在上述 4 入口基础上新增"黄疸记录"一项（入口图标为 `Sun`，accent 色 `var(--warning)`），链接到 `/jaundice`。黄疸记录本期为纯前端 MVP，数据存 `localStorage`（key 前缀 `baby_care_jaundice:${babyId}`），不走后端。
+- **成长报告并入功能 Grid（v5.0.0+ 修订）**：原本独占一张大卡（品牌色渐变 + W/M 装饰字）的"成长报告"入口，收敛进功能 Grid 作为第 4 个入口（图标 `BookOpen`，accent 色 `var(--primary)`），与其他入口在视觉上平权，发现页去掉"三层信息分区"带来的视觉噪音。最终 Grid 为 **6 个入口**，栅格调整为 **移动 2 列 / 平板及以上 3 列**（两行布局；不再有桌面 5 列一行的形态，避免图标尺寸与标签过于分散）。
+- **成长报告入口（v5.0.0+ 新增）**：在 FocusCard 和功能 Grid **之间**插入一张醒目的「成长报告」入口卡（渐变背景 + 大号装饰字 `W/M` + `BookOpen` 图标 + "周报/月报"pill），点击跳 `/report`。与功能 Grid 中的 5 入口视觉差异化，避免"再加一格"导致信息同质。
+- **历史变迁**：v4.3.2 曾在发现页最底部放 `<WeeklyTrendOverview>`（上周 vs 本周对比）；v5.0.0+ 把该能力**整合进成长报告页**（仅"周报"模式展示），发现页自身不再渲染趋势对比卡，避免与记录页的 `<InsightSection>` 三页信息重叠。记录页仍保留 `<InsightSection>`（本周精细视角），作为"数据细节"入口。
 
 ---
 
@@ -580,8 +584,22 @@ App
 #### v4.3.x P2 实现约定
 
 - 用户卡头像放大到 64px，副标题行以 pill 标签形式展示"当前宝宝 + 家庭名"。
-- **主题选择器从个人中心移除**，收敛到 `Settings → 外观` Tab。
 - 4 个快捷入口合并为单张分组 Cell 卡（iOS 设置风格），减少视觉噪声；每行右侧显示可选 detail 文案（如家庭名 / 宝宝数量）。
+
+#### v5.0.0+ 约定：外观（主题 + 字体）直接内嵌于"我的"页面
+
+历史：v4.3.x P2 曾把主题从"我的"收敛到 Settings → 外观。v5.0.0+ 新增"字体大小 4 档"无障碍特性后，为了让老年人 / 低视力用户一步就能调整，外观被**整体移回"我的"页面**，并拆成两张独立卡：
+
+1. 「主题外观」卡：内嵌 `<ThemeSelector>`（亮色 / 暖夜 / 跟随系统 三档）
+2. 「字体大小」卡：内嵌 `<FontScaleSelector>`（小 / 标准 / 大 / 特大 四档）
+
+两张卡紧贴快捷入口下方渲染，不再需要跳转到 Settings。`Settings` 页相应去掉"外观"Tab，仅保留「资料 / 密码 / 导出」三 Tab；老链接 `?tab=appearance` 会兜底回「资料」Tab。
+
+#### v5.0.0+ 修订：快捷入口行高 + 外观卡间距
+
+- **快捷入口每行 padding** 从 `py-3 gap-3`（12px / 12px）→ `py-3.5 gap-3.5`（14px / 14px），字号"大 / 特大"档位下不再挤手。
+- **外观两张卡之间额外 +4px 间距**：`[data-profile-stack] > section.card + section.card { margin-top: 28px }`（vs. 其他模块之间 24px），视觉上把「主题」和「字体」拉开一点，避免两张重量级卡片粘连。
+- 兼容 Tailwind 4 JIT 漏扫：Profile 页根容器挂 `data-profile-stack` 钩子，`globals.css` 的 "Layout Fallback" 段用真·CSS 写死 24/28px 间距，不依赖 Tailwind。
 
 ---
 
@@ -598,6 +616,12 @@ App
 - **四角圆角**：移动端仅顶部两角圆角；桌面端 `sm:rounded-[20px]` 全圆角 + `sm:mx-4` 留边距。
 - **内置能力**：ESC 关闭 / 背景点击关闭（可关）/ 焦点陷阱 / body 滚动锁 / 首元素自动 focus。
 - **底层**：v4.3.x P3 起基于 `@radix-ui/react-dialog`，自动获得 `aria-labelledby` / 可选 `aria-describedby` / inert 背景 / return-focus / Portal 渲染；对外 API 与旧版 100% 兼容。
+- **内边距（v5.0.0+ 调整）**：Header `px-6 pt-5 pb-3`、Body `px-6 pt-2 pb-5`、Footer `px-6 py-4`；移动端拖拽条 `pt-3 pb-1.5`。相比 v4.3.x 的紧凑版本，上下留白各加 4-8px，保存按钮不再贴下边缘。
+- **表单字段纵向间距（v5.0.0+ 修订）**：
+  - Dialog 里的 `<form>` 统一 `space-y-5`（20px）+ `data-dialog-form` 钩子；**不再使用** `space-y-3 / space-y-4`。
+  - `<FormField>` 内部 label ↔ 控件间距统一 `space-y-2`（8px）+ `data-form-field` 钩子；旧版 `space-y-1`（4px）废弃（label 几乎贴着控件）。
+  - `<NoteTagPicker>` 内部各区块（预设标签 / 自定义标签 / 新增输入 / 自由文本）`space-y-3`（12px）+ `data-note-tag-picker` 钩子；内嵌输入框 / 按钮 padding 由 `6px 10px` 升到 `8px 12px`。
+  - 兼容 Tailwind 4 JIT 漏扫：上述 3 个 `space-y-*` 都通过 `globals.css` "Layout Fallback" 段的 `[data-*] > * + * { margin-top: Npx }` 真·CSS 规则做兜底。
 
 #### 通用弹窗结构
 
@@ -963,6 +987,85 @@ interface GrowthDialogProps {
 - **时间戳**：每条消息下方显示小号灰色时间戳（同日 `HH:mm`，跨日 `M月D日 HH:mm`），消息 VM 结构扩展 `ts?: number`，发送给后端时剥离。
 - **配额位置**：`<QuotaBar variant="badge"/>` 融入 sticky 顶栏右侧（`Trash2` 按钮左侧），不再独占一行。
 - **本地历史上限**：`localStorage` 历史从 100 条降到 50 条，控制 `localStorage` 占用。
+
+---
+
+### 2.10 成长报告（v5.0.0+）
+
+**路由**: `/report` | **组件**: `ReportPage` | **小程序映射**: —（Web 独有）
+
+#### 线框
+
+```
+┌─────────────────────────────────────┐
+│  ← 成长报告           [分享]         │  ← PageHeader(sub) + HeaderAction(secondary)
+├─────────────────────────────────────┤
+│  ⦿ 本周报告 | 本月报告               │  ← Tab 切换
+├─────────────────────────────────────┤
+│ ┌─ 封面 ────────────────────────  W │ │  ← ReportCover
+│ │  📖 本周报告                     │ │     渐变背景 + 大号装饰字
+│ │  小宝                            │ │
+│ │  3 月龄 · 5.1 – 5.7（共 7 天）    │ │
+│ └──────────────────────────────────┘ │
+│                                     │
+│  本期关键指标                        │
+│  ┌────┐┌────┐┌────┐┌────┐          │  ← ReportMetricsGrid
+│  │喂养 ││睡眠 ││尿布 ││体温 │          │     移动 2x2 / 桌面 4 列
+│  │ 32次││45h ││ 28次││ 3次 │          │
+│  └────┘└────┘└────┘└────┘          │
+│                                     │
+│  上周 vs 本周（仅周报）              │  ← 复用 WeeklyTrendOverview
+│  [单卡 4 行对比 + AI 入口]          │
+│                                     │
+│  每日节律                            │
+│  [双色柱图：喂养(左) / 睡眠(右)]    │  ← ReportDailyRhythm
+│                                     │
+│  生长情况                            │
+│  体重 9.2kg (+0.3kg)                │  ← ReportGrowthSection
+│  身高 72.5cm (+1.2cm)               │
+│  头围 45cm  (持平)                   │
+│                                     │
+│  里程碑 & 疫苗                       │
+│  [左右双卡：新达成的 / 已接种的]    │  ← ReportAchievements
+│                                     │
+│  AI 总结                             │
+│  [点按生成 → 文案 + 跳 AI 详聊]     │  ← ReportAiSummary
+│                                     │
+│  [       分享这份报告       ]        │
+└─────────────────────────────────────┘
+```
+
+#### 交互流程
+
+1. **入口**：发现页「成长报告」入口卡 → 默认进入本周报告
+2. **周/月切换**：顶部 Tab Pill 切换，`useReportData` 按新周期重新聚合
+3. **数据加载**：首次渲染显示 `<ListSkeleton count={4} />`；所有小卡独立加载，不相互阻塞
+4. **空态**：无 currentBaby → 整页空态；本期无数据 → 每个模块各自显示温和空态（"本期还没有 XX 记录"）
+5. **AI 总结**：默认**不自动请求**，用户点"生成"按钮才触发一次 `aiService.chat`；session 内缓存，重复点击不再消耗配额。失败不阻塞整页，降级为「去 AI 助手详聊」
+6. **分享**：`renderReportImage` 生成 JPEG → 优先 `navigator.share`（移动端）→ 降级 `download` 到本地；成功 toast
+
+#### 数据聚合策略
+
+- **不新增后端接口**，完全基于既有：
+  - `GET /records?babyId&startDate&endDate&pageSize=500` → 本期所有记录，前端聚合关键指标 / 每日节律 / 生长快照
+  - `GET /babies/:id/vaccines` → 拉全量后按本期 `vaccinatedDate` 过滤
+  - `GET /babies/:id/milestones` → 拉全量后按本期 `achievedDate` 过滤
+  - `GET /babies/:id/trend/weekly` → 仅周报模式展示
+  - `POST /ai/chat` → AI 总结，复用 `autoPrompt` 协议
+- 时间窗口：
+  - 周报：本周一 00:00 → 今天 23:59:59（受 birthDate 限制）
+  - 月报：本月 1 号 00:00 → 今天 23:59:59（受 birthDate 限制）
+
+#### 状态设计
+
+| 状态 | 表现 |
+|------|------|
+| 加载中 | 封面与 Tab 立即渲染，下方 ListSkeleton |
+| 无宝宝 | 整页空态插图 + 提示 |
+| 本期无数据 | 各模块独立空态，不影响其他模块渲染 |
+| AI 生成中 | 按钮内 Loader2 spin + "正在生成…" |
+| AI 生成失败 | toast.error，按钮恢复可点击 |
+| 分享生成中 | "分享"按钮禁用 + 文案变"生成中" |
 
 ---
 
@@ -1359,6 +1462,24 @@ interface UseThemeReturn {
 }
 ```
 
+#### 4.2.1 字体大小 4 档无障碍适配（FR-G1.2）
+
+用户可在「设置 → 外观」切换字体档位，应用全局立即生效：
+
+| 档位 | `data-font-scale` | 倍率 | 适用场景 |
+|------|------|------|------|
+| 小 | `sm` | ~0.9x | 小屏、信息密度需求 |
+| 标准 | `md` | 1.0x（默认） | 常规 |
+| 大 | `lg` | ~1.15x | 长辈友好 / 阅读偏好 |
+| 特大 | `xl` | ~1.35x | 老年人 / 低视力；额外放宽行高与按钮 padding |
+
+实现：`<html data-font-scale="…">` + `globals.css` 内 `:root[data-font-scale='…']` 覆盖 `--text-xs` 到 `--text-3xl`；语义类 `.heading-* / .body-* / .caption` 自动响应。
+
+**UI 规范**：
+- 写页面时**必须**使用语义类（`heading-lg` / `body-md` / `caption` 等）或 `var(--text-*)`，**禁止**写死 `text-[14px]` / `font-size: 14px` 之类的绝对值。
+- 特大档位下 `btn-primary` / `btn-secondary` / `chip` / `input-base` 的 padding 会自动放大，以保持触摸目标 ≥ 48×48px。
+- 字体档位与主题（亮 / 暖夜 / 系统）**完全正交**，可任意组合。
+
 ### 4.3 动效规范
 
 ```css
@@ -1629,30 +1750,121 @@ interface UseThemeReturn {
 
 ## 6. shadcn/ui 组件映射总表
 
-| Web 组件 | shadcn/ui 基础 | 说明 |
-|---------|---------------|------|
-| `FeedingDialog` | Dialog + Tabs + Select | 底部弹出/居中弹窗 |
-| `SleepDialog` | Dialog + Tabs + Timer | 计时器自定义 |
-| `DiaperDialog` | Dialog + ToggleGroup | 类型/质地/颜色选择 |
-| `TemperatureDialog` | Dialog + Slider + Input | 体温滑块+数字输入 |
-| `GrowthDialog` | Dialog + Input + Popover(Calendar) | WHO 百分位自定义组件 |
-| `Timeline` | 自定义（虚拟列表） | 复杂手势交互 |
-| `InsightSection` | Card + Skeleton | 骨架屏加载 |
-| `FocusCard` | Card | 左侧色条自定义 |
-| `BabyCard` | Card + Avatar | 宝宝信息卡片 |
-| `ReportDialog` | Dialog + Tabs + Chart | 周报/月报切换 |
-| `ExportDialog` | Dialog + Button | 导出功能 |
-| `BabyEditDialog` | Dialog + Input + Select + Calendar | 宝宝编辑表单 |
-| `ErrorState` | 自定义 | 错误提示+重试 |
-| 导航 - TabBar | 自定义 | 底部导航栏 |
-| 导航 - Sidebar | 自定义 | 侧边栏导航 |
-| 筛选标签 | ToggleGroup | 记录类型筛选 |
-| 搜索框 | Input + Command | 搜索+命令面板 |
-| FAB 按钮 | Button | 浮动操作按钮 |
-| Toast | Sonner (shadcn/ui 集成) | 全局通知 |
-| 确认弹窗 | AlertDialog | 二次确认 |
-| 日期选择 | Popover + Calendar | 日期/时间选择 |
-| 百分位条 | Progress (自定义) | WHO 百分位可视化 |
+> **v5.0.1 重构路线**：本项目不直接使用 `shadcn/ui` CLI 生成的代码（会与美拉德色系 + 字体 4 档体系冲突），改为 **"shadcn 设计模式 + 自研实现 + CVA"**：
+> - 组件 API（子组件结构 / variant 命名 / props 形状）对标 shadcn/ui 官方
+> - 样式底层全部走 `var(--*)` CSS 变量，与现有主题/字体档位零冲突
+> - 需要 A11y 复杂度的组件（Dialog / DropdownMenu / Popover / Tooltip / Tabs / ...）以 `@radix-ui/*` 为底座，和 `shadcn/ui` 的底层一致
+> - 所有 variant 通过 `class-variance-authority` 管理，避免 `if variant === 'x'` 分支渲染
+>
+> 下表新列 **"自研组件"** 指向 `client/src/components/ui/*` 的实际文件。
+
+| Web 业务组件 | shadcn 对标 | 自研 Primitive（Batch 进度） | 说明 |
+|---------|---------------|------------|------|
+| `FeedingDialog` | Dialog + Tabs | ✅ `<Dialog>` + `<SegmentedControl>` + `<FormField>` + `<Input>` + `<Button>`（Batch 2 完成） | 底部弹出/居中弹窗；快捷用量 8 按钮使用 `<Button variant="outline" size="xs">` |
+| `SleepDialog` | Dialog + Tabs + Timer | ✅ 同上（Batch 2 完成） | 计时器由 TodaySummary / StatusCapsule 承担 |
+| `DiaperDialog` | Dialog + ToggleGroup | ✅ `<Dialog>` + `<FormField>` + `<SegmentedControl>`（Batch 2 完成） | 类型/质地/颜色均用 SegmentedControl |
+| `TemperatureDialog` | Dialog + Slider + Input | ✅ `<Dialog>` + `<Slider>` + `<Input variant="warning/danger">` + `<Alert>`（Batch 2 完成） | 体温滑块+数字输入；发烧预警用 Alert |
+| `GrowthDialog` | Dialog + Input | ✅ `<Dialog>` + `<FormField>` + `<Input rightIcon="cm/kg">`（Batch 2 完成） | WHO 百分位可视化（RangeIndicator 预留 Batch 3） |
+| `JaundiceDialog` | Dialog + ToggleGroup | ✅ `<Dialog>` + `<FormField>` + `<Badge interactive>`（Batch 2 完成） | 多选标签使用 Badge interactive |
+| `RoleEditDialog` | Dialog + RadioGroup | ✅ `<RadioGroup>` + `<RadioGroupCard>`（Batch 2 完成） | 三选一权限切换 |
+| `TransferAdminDialog` | Dialog + RadioGroup | ✅ `<RadioGroup>` + `<RadioGroupCard>` + `<Alert>`（Batch 2 完成） | 候选成员卡片式选择 |
+| `RemoveMemberConfirm` | Dialog + Input | ✅ `<Alert variant="danger">` + `<FormField>` + `<Input>`（Batch 2 完成） | 输入"确认移除"二次确认 |
+| `AddRecordMenu` | DropdownMenu | ✅ `<Button>` + `<DropdownMenu>`（Batch 2 完成） | 替代手写 useRef + useEffect(mousedown) |
+| 成员⋮菜单 | DropdownMenu | ✅ `<IconButton>` + `<DropdownMenu>`（Batch 2 完成） | 家庭成员操作 |
+| SidebarBabyCard | DropdownMenu | ✅ `<DropdownMenu side="top">`（Batch 2 完成） | 桌面侧栏底部宝宝切换 |
+| `Timeline` | 自定义 | ✅ 复用 `<Badge size="xs">`（Batch 3 完成） | 首页今日时间线；结构化摘要 |
+| `InsightSection` | Card + Skeleton | ✅ 4×`<Card>` + `<WeeklyRangeBar>` + `<Badge>`（Batch 3 完成） | 记录页精细趋势；`<RangeBar>` 已合并到 `<WeeklyRangeBar>` |
+| `FocusCard` | Card | ✅ `<Card variant="accent">` + `<Badge>`（Batch 3 完成） | 发现页聚焦卡 |
+| `BabyCard` | Card + Avatar | ✅ `<Card variant="interactive">` + `<BabyAvatar>` + `<Badge>`（Batch 3 完成） | 宝宝信息卡 |
+| `BabySwitcher` | Avatar + Tooltip | ✅ `<BabyAvatar bordered>` + `<Tooltip>`（Batch 3 完成） | 多宝头像切换 |
+| `StatusCapsule` | Alert | ✅ `<Alert variant>` 底色 + `<Button size="xs">`（Batch 3 完成） | 首页状态胶囊 |
+| `QuotaBar` | Progress + Badge | ✅ `<Badge>` + `<Progress>`（Batch 3 完成） | AI 配额条 |
+| `WeeklyTrendOverview` | Card + Badge + Button | ✅ `<Card>` + `<Badge>` + `<Button>`（Batch 3 完成） | 发现页/报告页趋势对比 |
+| `TodaySummary` | Card + Progress | ✅ 4×`<Card variant="accent">` + `<Progress>` + `<Alert>` 发烧提示（Batch 3 完成） | 首页今日四格 |
+| `ReportDialog / ReportPage` | Tabs + Chart | ✅ `<Tabs variant="pill">` + `<Card>`（Batch 3 完成） | 周/月报告 |
+| `BabyEditDialog` | Dialog + Input | ✅ `<FormField>` + `<Input>` + `<Button>`（Batch 4 完成，pages/baby/index.tsx 内嵌表单） | 宝宝编辑表单 |
+| `ErrorState` | 自定义 | 保留为 spinner 形态；`<Alert>` 已覆盖列表空态场景 | 错误提示+重试 |
+| 导航 - TabBar / Sidebar | 自定义 | ✅ NavLink + `<BabyAvatar>` + `<DropdownMenu>`（Batch 3 完成） | 导航栏 |
+| 筛选标签 | ToggleGroup | ✅ `<Button variant="ghost" active accentColor>`（Batch 3 完成） | 记录类型筛选 |
+| Toast | Sonner | 自建（保留） | 全局通知 |
+| 确认弹窗 | AlertDialog | 自建 `useConfirm()`（保留） | 二次确认 |
+| 主题/字体选择 | RadioGroup | ✅ `<RadioGroup>` + `<RadioGroupCard>`（Batch 4 完成） | 3/4 档切换 |
+| `NoteTagPicker` 标签 | Badge + Input | ✅ `<Badge interactive>` + `<Input size="sm">` + `<Button>` + `<Separator>`（Batch 4 完成） | 备注标签化 |
+| `CareRoleBadge` | DropdownMenu | ✅ `<DropdownMenu>` + 自定义 badge trigger（Batch 4 完成） | 视角切换 |
+| `EasterEggDisplay` | Button | ✅ `<Button block>`（Batch 4 完成） | 彩蛋弹窗 |
+| ~~HeaderAction~~ | Button | **已删除**，直接用 `<Button variant="primary/secondary/ghost" size="sm">` | 页面右上角操作 |
+
+### 6.1 原子 Primitive 组件（Batch 1 + Batch 2 新增）
+
+#### Batch 1
+
+| Primitive | 文件 | 关键 Variants |
+|-----------|------|---------------|
+| `<Button>` | `ui/button.tsx` | `variant × size × block × loading` |
+| `<IconButton>` | `ui/icon-button.tsx` | `variant: ghost / danger-ghost / primary-ghost` |
+| `<Input>` | `ui/input.tsx` | `variant: default / warning / danger` + `leftIcon / rightIcon` |
+| `<Textarea>` | `ui/textarea.tsx` | `variant × size` + `autoResize` |
+| `<Label>` | `ui/label.tsx` | `required` 自动加红 `*` |
+| `<FormField>` | `ui/form-field.tsx` | `<Label> + control + error` 组合壳 |
+| `<Card>` 族 | `ui/card.tsx` | `default / interactive / ghost / accent` |
+| `<Badge>` | `ui/badge.tsx` | `xs/sm/md × 13 个 variant + interactive` |
+| `<Separator>` | `ui/separator.tsx` | `orientation × variant + label` |
+
+#### Batch 2
+
+| Primitive | 文件 | 关键 Variants / API |
+|-----------|------|---------------------|
+| `<Switch>` | `ui/switch.tsx` | `size: sm / md`；radix 驱动 |
+| `<RadioGroup>` + `<RadioGroupCard>` | `ui/radio-group.tsx` | 卡片式单选（label / description / icon / checkedAdornment） |
+| `<Slider>` | `ui/slider.tsx` | `accentColor` + `showLabels` 三段刻度 |
+| `<Progress>` + `<RangeIndicator>` + `<WeeklyRangeBar>` | `ui/progress.tsx` | 条形 / 均匀范围点位 / 非均匀参考范围（Batch 3 增 WeeklyRangeBar） |
+| `<Alert>` 族 | `ui/alert.tsx` | 5 variant × 2 size |
+| `<Popover>` 族 | `ui/popover.tsx` | radix 驱动 |
+| `<DropdownMenu>` 族 | `ui/dropdown-menu.tsx` | radix 驱动；内置 ItemIcon / ItemText / Separator |
+
+#### Batch 3
+
+| Primitive | 文件 | 关键 Variants / API |
+|-----------|------|---------------------|
+| `<Tabs>` 族 | `ui/tabs.tsx` | `variant: underline / pill`；radix 驱动（← → 导航） |
+| `<Avatar>` + `<BabyAvatar>` + `<UserAvatar>` | `ui/avatar.tsx` | 5 档 size + bordered；快捷封装按 gender / nickname 配色 |
+| `<Tooltip>` 族 | `ui/tooltip.tsx` | radix 驱动；`<TooltipProvider>` 已挂在 App 根部 |
+
+#### Batch 4
+
+| Primitive | 文件 | 关键 Variants / API |
+|-----------|------|---------------------|
+| `<Checkbox>` | `ui/checkbox.tsx` | radix 驱动；`size: sm / md`；三态（indeterminate） |
+| `<Sheet>` 族 | `ui/sheet.tsx` | radix-dialog 底座；`side: right / left / top / bottom` × `size: sm / md / lg` |
+| `<ScrollArea>` | `ui/scroll-area.tsx` | 美拉德色细滚动条；A11y 友好 |
+
+### 6.2 已删除 / 合并的组件
+
+| 原组件 | 去向 | 迁移时间 |
+|--------|------|---------|
+| ~~`HeaderAction`~~ | `<Button variant="primary/secondary/ghost" size="sm">` | Batch 1 |
+| ~~`RangeBar`~~ | `<WeeklyRangeBar>`（合并到 `ui/progress.tsx`）| Batch 3 |
+
+### 6.3 v5.1.0 设计优化（在 4 批 Primitive 之上）
+
+1. **图标尺寸 5 档自动推导** — `Button / IconButton / Badge / Alert` 根据 size 自动注入 `h-* w-*`，业务层无需手写尺寸 className。用户显式指定尺寸 className 时被尊重不覆盖。
+2. **字体 display 三档 + display-number** — 引入"叙事 / 数据 / 交互"三级节奏；首页问候、报告封面换 `display-sm`；TodaySummary / ReportMetricsGrid 大数字换 `display-number`（mono + tabular + 负字距）。4 档 font-scale 已补齐。
+3. **Badge `tone` prop** — `soft`（默认）/ `solid` / `outline`；暖夜模式下 `solid` 自动发光提升对比度。
+4. **Badge xs 档无障碍** — `[data-font-scale='xl']` 下自动放大到 12px。
+5. **Card `cta` variant** — 虚线 border + 中心对齐，用于空态 / 大型引导。
+6. **Focus ring 双层** — 内 2px 容器同色 + 外 4px primary 40%，暖夜增强到 60%。
+7. **Card `interactive` hover 微抬升** — 新增 `hover:shadow-soft` + 200ms transition。
+
+### 6.4 物理清除的旧 CSS 类（v5.1.0）
+
+下列类曾作为 Primitive 的过渡期样式存在于 `globals.css`，v5.1.0 已物理删除：
+
+`.card` / `.card-base` / `.card-interactive` / `.type-badge` 系列 / `.input-base` / `.btn-primary` / `.btn-secondary` / `.btn-danger-outline` / `.icon-btn` / `.icon-btn--danger` / `.badge-mini` / `.notice-info` / `.chip` / `.chip--active` / `.chip--inactive` / `.tab-button` / `.tab-button--active` / `.progress-bar` / `.progress-bar__fill`
+
+保留：`.label-base`（Label 组件默认 className 内部复用）、`.heading-*` / `.body-*` / `.caption` 字体语义类、`.icon-circle / .icon-circle--*` 图标圆底、`.section-header` / `.empty-state` / `.spinner` / `.animate-*` / `.number-display` / `.display-number`（字体）。
+
+详细用法见 [`docs/web-component-library.md §1.A`](./web-component-library.md#1a-shadcn-风格-primitives-v501-新增)。
+
 
 ---
 

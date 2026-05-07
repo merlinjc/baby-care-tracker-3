@@ -5,7 +5,12 @@ import { vaccineService } from '@/services/baby-extra'
 import { getVaccinePlans } from '@/lib/vaccine-plans'
 import { useConfirm } from '@/components/ui/confirm-dialog'
 import { PageHeader } from '@/components/page-header'
-import { HeaderAction } from '@/components/header-action'
+import { Button } from '@/components/ui/button'
+import { IconButton } from '@/components/ui/icon-button'
+import { Card } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { FormField } from '@/components/ui/form-field'
 import { ListSkeleton } from '@/components/ui/list-skeleton'
 import type { VaccineRecord, Baby } from '@/types'
 
@@ -165,25 +170,29 @@ export function VaccinePage() {
   ]
 
   return (
-    <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-4 animate-fade-in-up">
+    <div className="space-y-5 animate-fade-in-up">
       <PageHeader
         title="疫苗计划"
         backTo="/discover"
         action={
           <div className="flex items-center gap-2">
-            <HeaderAction
+            <Button
               variant="ghost"
-              icon={<ListChecks className="h-3.5 w-3.5" />}
-              label="标准计划"
+              size="sm"
+              leftIcon={<ListChecks className="h-3.5 w-3.5" />}
               onClick={() => setShowRecommend(true)}
-            />
+            >
+              标准计划
+            </Button>
             {!showAdd && (
-              <HeaderAction
+              <Button
                 variant="primary"
-                icon={<Plus className="h-3.5 w-3.5" />}
-                label="添加"
+                size="sm"
+                leftIcon={<Plus className="h-3.5 w-3.5" />}
                 onClick={() => setShowAdd(true)}
-              />
+              >
+                添加
+              </Button>
             )}
           </div>
         }
@@ -192,59 +201,88 @@ export function VaccinePage() {
       {/* Status Filter Tabs with count badge */}
       <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
         {statusTabs.map((tab) => (
-          <button
+          <Button
             key={tab.key}
+            variant="ghost"
+            size="sm"
+            active={statusFilter === tab.key}
             onClick={() => setStatusFilter(tab.key)}
-            className={`chip ${statusFilter === tab.key ? 'chip--active' : 'chip--inactive'}`}
-            style={statusFilter === tab.key ? { backgroundColor: tab.color } : undefined}
+            accentColor={tab.color}
+            className="rounded-full"
+            rightIcon={
+              <span
+                className="ml-0.5 px-1.5 rounded-full number-display text-[10px] leading-4"
+                style={{
+                  backgroundColor: statusFilter === tab.key ? 'rgba(255,255,255,0.25)' : `color-mix(in srgb, ${tab.color} 12%, transparent)`,
+                  color: statusFilter === tab.key ? 'white' : tab.color,
+                }}
+              >
+                {tab.count}
+              </span>
+            }
           >
             {tab.label}
-            <span
-              className="ml-1 px-1.5 rounded-full number-display text-[10px] leading-4"
-              style={{
-                backgroundColor: statusFilter === tab.key ? 'rgba(255,255,255,0.25)' : `color-mix(in srgb, ${tab.color} 12%, transparent)`,
-                color: statusFilter === tab.key ? 'white' : tab.color,
-              }}
-            >
-              {tab.count}
-            </span>
-          </button>
+          </Button>
         ))}
       </div>
 
       {/* Add Form */}
       {showAdd && (
-        <form onSubmit={handleAdd} className="card space-y-4 animate-slide-up">
-          <div className="flex items-center justify-between">
-            <h2 className="heading-sm text-[var(--text-primary)]">添加疫苗记录</h2>
-            <button
-              type="button"
-              onClick={() => setShowAdd(false)}
-              className="p-1 rounded-lg text-[var(--text-hint)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] transition-colors"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-          <div>
-            <label className="label-base">疫苗名称</label>
-            <input type="text" value={name} onChange={(e) => setName(e.target.value)} required placeholder="如：乙肝疫苗" className="input-base" />
-          </div>
-          <div>
-            <label className="label-base">剂次</label>
-            <input type="text" value={dose} onChange={(e) => setDose(e.target.value)} required placeholder="如：第1针" className="input-base" />
-          </div>
-          <div>
-            <label className="label-base">接种日期</label>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required className="input-base" />
-          </div>
-          <div>
-            <label className="label-base">备注</label>
-            <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="可选" className="input-base" />
-          </div>
-          <button type="submit" disabled={isSubmitting} className="btn-primary w-full">
-            {isSubmitting ? '保存中...' : '保存'}
-          </button>
-        </form>
+        <Card as="section" className="animate-slide-up">
+          <form onSubmit={handleAdd} className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="heading-sm text-[var(--text-primary)]">添加疫苗记录</h2>
+              <IconButton
+                variant="ghost"
+                size="sm"
+                icon={<X className="h-5 w-5" />}
+                onClick={() => setShowAdd(false)}
+                aria-label="关闭"
+              />
+            </div>
+            <FormField label="疫苗名称" htmlFor="vaccine-name" required>
+              <Input
+                id="vaccine-name"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                placeholder="如：乙肝疫苗"
+              />
+            </FormField>
+            <FormField label="剂次" htmlFor="vaccine-dose" required>
+              <Input
+                id="vaccine-dose"
+                type="text"
+                value={dose}
+                onChange={(e) => setDose(e.target.value)}
+                required
+                placeholder="如：第1针"
+              />
+            </FormField>
+            <FormField label="接种日期" htmlFor="vaccine-date" required>
+              <Input
+                id="vaccine-date"
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                required
+              />
+            </FormField>
+            <FormField label="备注" htmlFor="vaccine-note">
+              <Input
+                id="vaccine-note"
+                type="text"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="可选"
+              />
+            </FormField>
+            <Button type="submit" block loading={isSubmitting}>
+              {isSubmitting ? '保存中...' : '保存'}
+            </Button>
+          </form>
+        </Card>
       )}
 
       {/* Vaccine List */}
@@ -261,7 +299,12 @@ export function VaccinePage() {
             if (item.type === 'record') {
               const v = item.data as VaccineRecord
               return (
-                <div key={v.id} className="card-base flex items-center gap-3" style={{ borderLeft: '3px solid var(--feeding)' }}>
+                <Card
+                  key={v.id}
+                  padding="sm"
+                  className="flex items-center gap-3"
+                  style={{ borderLeft: '3px solid var(--feeding)' }}
+                >
                   <div
                     className="icon-circle icon-circle--sm"
                     style={{ backgroundColor: 'color-mix(in srgb, var(--feeding) 15%, transparent)' }}
@@ -275,22 +318,27 @@ export function VaccinePage() {
                     </p>
                     {v.note && <p className="caption truncate">{v.note}</p>}
                   </div>
-                  <button
+                  <IconButton
+                    variant="danger-ghost"
+                    size="sm"
+                    icon={<Trash2 className="h-3.5 w-3.5" />}
                     onClick={() => handleDelete(v.id)}
                     disabled={deletingId === v.id}
-                    className="icon-btn icon-btn--danger"
-                    title="删除"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
+                    aria-label="删除"
+                  />
+                </Card>
               )
             } else {
               const p = item.data as (typeof standardPlans)[0]
               const isOverdue = p.monthAge <= ageMonths
               const accentColor = isOverdue ? 'var(--danger)' : 'var(--sleep)'
               return (
-                <div key={`plan-${i}`} className="card-base flex items-center gap-3" style={{ borderLeft: `3px solid ${accentColor}` }}>
+                <Card
+                  key={`plan-${i}`}
+                  padding="sm"
+                  className="flex items-center gap-3"
+                  style={{ borderLeft: `3px solid ${accentColor}` }}
+                >
                   <div
                     className="icon-circle icon-circle--sm"
                     style={{ backgroundColor: `color-mix(in srgb, ${accentColor} 15%, transparent)` }}
@@ -306,15 +354,9 @@ export function VaccinePage() {
                       <p className="body-md font-medium text-[var(--text-primary)]">{p.name}</p>
                       <span className="caption">{p.dose}</span>
                       {!p.isFree && (
-                        <span
-                          className="badge-mini"
-                          style={{
-                            backgroundColor: 'color-mix(in srgb, var(--warning) 12%, transparent)',
-                            color: 'var(--warning)',
-                          }}
-                        >
+                        <Badge size="xs" variant="warning">
                           自费
-                        </span>
+                        </Badge>
                       )}
                     </div>
                     <p className="caption">
@@ -322,14 +364,14 @@ export function VaccinePage() {
                       {isOverdue && <span style={{ color: 'var(--danger)' }}> (逾期)</span>}
                     </p>
                   </div>
-                  <button
+                  <Button
+                    size="xs"
                     onClick={() => handleQuickAddFromPlan(p)}
                     disabled={isSubmitting}
-                    className="btn-primary px-2 py-1 text-[10px] shrink-0"
                   >
                     标记已接种
-                  </button>
-                </div>
+                  </Button>
+                </Card>
               )
             }
           })}
@@ -360,12 +402,13 @@ export function VaccinePage() {
             <div className="p-4 sticky top-0 z-10" style={{ backgroundColor: 'var(--bg-card)' }}>
               <div className="flex items-center justify-between">
                 <h3 className="heading-sm text-[var(--text-primary)]">国家标准免疫计划</h3>
-                <button
+                <IconButton
+                  variant="ghost"
+                  size="sm"
+                  icon={<X className="h-5 w-5" />}
                   onClick={() => setShowRecommend(false)}
-                  className="p-1 rounded-lg text-[var(--text-hint)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] transition-colors"
-                >
-                  <X className="h-5 w-5" />
-                </button>
+                  aria-label="关闭"
+                />
               </div>
               <p className="caption mt-1">
                 基于出生日期：{currentBaby ? new Date(currentBaby.birthDate).toLocaleDateString('zh-CN') : ''}
@@ -406,15 +449,9 @@ export function VaccinePage() {
                         <span className="body-md font-medium text-[var(--text-primary)]">{plan.name}</span>
                         <span className="caption">{plan.dose}</span>
                         {!plan.isFree && (
-                          <span
-                            className="badge-mini"
-                            style={{
-                              backgroundColor: 'color-mix(in srgb, var(--warning) 12%, transparent)',
-                              color: 'var(--warning)',
-                            }}
-                          >
+                          <Badge size="xs" variant="warning">
                             自费
-                          </span>
+                          </Badge>
                         )}
                       </div>
                       <p className="caption">
@@ -422,13 +459,13 @@ export function VaccinePage() {
                       </p>
                     </div>
                     {!isCompleted && (
-                      <button
+                      <Button
+                        size="xs"
                         onClick={() => handleQuickAddFromPlan(plan)}
                         disabled={isSubmitting}
-                        className="btn-primary px-2 py-1 text-[10px] shrink-0"
                       >
                         标记已接种
-                      </button>
+                      </Button>
                     )}
                   </div>
                 )

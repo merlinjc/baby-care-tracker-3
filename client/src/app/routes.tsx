@@ -14,6 +14,8 @@ import { GrowthPage } from '@/pages/growth';
 import { VaccinePage } from '@/pages/vaccine';
 import { MilestonePage } from '@/pages/milestone';
 import { AiAssistantPage } from '@/pages/ai-assistant';
+import { JaundicePage } from '@/pages/jaundice';
+import { ReportPage } from '@/pages/report';
 import { SettingsPage } from '@/pages/settings';
 
 export const router = createBrowserRouter([
@@ -30,6 +32,8 @@ export const router = createBrowserRouter([
       { path: '/vaccine', element: <VaccinePage /> },
       { path: '/milestone', element: <MilestonePage /> },
       { path: '/ai-assistant', element: <AiAssistantPage /> },
+      { path: '/jaundice', element: <JaundicePage /> },
+      { path: '/report', element: <ReportPage /> },
       { path: '/settings', element: <SettingsPage /> },
     ],
   },

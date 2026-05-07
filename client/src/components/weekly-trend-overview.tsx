@@ -10,6 +10,9 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { Baby, Moon, Droplets, Thermometer, CheckCircle2, AlertTriangle, ChevronRight, Sparkles, ArrowRight } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Card } from '@/components/ui/card'
+import { Badge, type BadgeProps } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import type { WeeklyTrendData, WeeklyTrendDimension, WeeklyTrendStatus } from '@/types'
 
 interface WeeklyTrendOverviewProps {
@@ -172,7 +175,7 @@ function DimensionRow({ meta, data }: { meta: DimensionMeta; data: WeeklyTrendDi
 
 function OverviewSkeleton() {
   return (
-    <div className="card-base space-y-3" aria-busy>
+    <Card padding="sm" className="space-y-3" aria-busy>
       <div className="flex items-center justify-between">
         <Skeleton className="h-3.5 w-28" />
         <Skeleton className="h-3 w-14" />
@@ -183,7 +186,7 @@ function OverviewSkeleton() {
         ))}
       </div>
       <Skeleton className="h-9 w-full" />
-    </div>
+    </Card>
   )
 }
 
@@ -237,6 +240,8 @@ export function WeeklyTrendOverview({
   const abnormalDimensions = DIMENSIONS.filter((m) => statusTone(trend[m.key].status) !== 'normal')
   const abnormalCount = abnormalDimensions.length
   const HeaderIcon = abnormalCount === 0 ? CheckCircle2 : AlertTriangle
+  const headerBadgeVariant: BadgeProps['variant'] =
+    abnormalCount === 0 ? 'success' : abnormalCount >= 3 ? 'danger' : 'warning'
   const headerTone =
     abnormalCount === 0
       ? 'var(--success)'
@@ -250,28 +255,19 @@ export function WeeklyTrendOverview({
   }
 
   return (
-    <div className="card-base space-y-3">
+    <Card padding="sm" className="space-y-3">
       {/* 头部：icon + 标题 + 偏离徽章 + 详情入口 */}
       <div className="flex items-center gap-2">
         <HeaderIcon className="h-4 w-4 shrink-0" style={{ color: headerTone }} />
         <span className="body-md font-medium text-[var(--text-primary)] flex-1">
           上周 vs 本周
         </span>
-        <span
-          className="inline-flex items-center gap-1 text-[11px] font-medium rounded-full px-2 py-0.5"
-          style={{
-            backgroundColor:
-              abnormalCount === 0
-                ? 'color-mix(in srgb, var(--success) 14%, transparent)'
-                : `color-mix(in srgb, ${headerTone} 14%, transparent)`,
-            color: abnormalCount === 0 ? 'var(--success)' : headerTone,
-          }}
-        >
+        <Badge size="sm" variant={headerBadgeVariant}>
           {abnormalCount === 0 ? '状态良好' : `${abnormalCount} 项偏离`}
-        </span>
+        </Badge>
         <Link
           to={detailUrl}
-          className="inline-flex items-center gap-0.5 text-[11px] font-medium shrink-0"
+          className="inline-flex items-center gap-0.5 text-[11px] font-medium shrink-0 hover:underline"
           style={{ color: 'var(--primary)' }}
           aria-label="查看本周趋势详情"
         >
@@ -311,20 +307,18 @@ export function WeeklyTrendOverview({
       )}
 
       {/* 向 AI 咨询建议 */}
-      <button
+      <Button
         type="button"
+        variant="primary"
+        size="sm"
+        block
         onClick={askAI}
-        className="w-full inline-flex items-center justify-center gap-1.5 rounded-md py-2 text-xs font-medium transition-colors"
-        style={{
-          backgroundColor: 'color-mix(in srgb, var(--sleep) 14%, transparent)',
-          color: 'var(--sleep)',
-          border: '1px solid color-mix(in srgb, var(--sleep) 25%, transparent)',
-        }}
+        accentColor="var(--sleep)"
+        leftIcon={<Sparkles className="h-3.5 w-3.5" />}
+        rightIcon={<ChevronRight className="h-3.5 w-3.5" />}
       >
-        <Sparkles className="h-3.5 w-3.5" />
         基于趋势向 AI 咨询建议
-        <ChevronRight className="h-3.5 w-3.5" />
-      </button>
-    </div>
+      </Button>
+    </Card>
   )
 }

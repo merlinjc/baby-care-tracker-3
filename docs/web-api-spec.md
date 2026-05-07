@@ -1558,6 +1558,9 @@ AI 对话。
 interface AIChatRequest {
   messages: ChatMessage[];  // 必填，对话历史
   babyId?: string;          // 可选，关联宝宝（用于获取上下文）
+  /** 可选：以某个育儿角色的视角生成回复；默认中立顾问 */
+  role?: 'mom' | 'dad' | 'grandma_m' | 'grandma_p'
+       | 'grandpa_m' | 'grandpa_p' | 'nanny' | 'other';
 }
 ```
 
@@ -1617,8 +1620,14 @@ data: {"content": "", "done": true, "usage": {"promptTokens": 120, "completionTo
 ```typescript
 interface DailyInsightRequest {
   babyId: string;  // 必填，宝宝 ID
+  role?: 'mom' | 'dad' | 'grandma_m' | 'grandma_p'
+       | 'grandpa_m' | 'grandpa_p' | 'nanny' | 'other';
+  // 可选：以某个育儿角色的视角生成洞察；不同角色会产出不同语气 + 侧重；
+  // 后端缓存 key 额外按 role 区分（`daily_insight:${babyId}:${date}:${role}`）
 }
 ```
+
+> 实际项目中 `GET /api/ai/insight/daily?babyId=xxx&role=xxx` 是更常用的入口（同语义）。
 
 **成功响应** `200`：
 
@@ -2004,6 +2013,32 @@ enum Permission {
 | `SyncService` | — | Web 版使用 React Query + IndexedDB 自动同步 |
 | `PermissionGuard` | 后端中间件 | 权限校验移至后端 |
 | `FamilyContext` | React Context + Zustand | 前端状态管理 |
+
+## 附录 C：成长报告聚合方案（v5.0.0+）
+
+成长报告（`/report`）**不新增后端接口**，前端在 `client/src/hooks/use-report-data.ts` 中组合以下既有端点聚合出 `ReportData`：
+
+| 数据 | 端点 | 备注 |
+|------|------|------|
+| 本期所有记录（聚合关键指标 / 每日节律 / 生长快照） | `GET /records?babyId&startDate&endDate&pageSize=500` | 周报最多 7 天、月报最多 31 天，500 条足够覆盖；若未来出现超限需求再加分页轮询 |
+| 本期新达成的里程碑 | `GET /babies/:id/milestones?pageSize=200` | 后端无 `startDate` 参数，前端按 `achievedDate` 过滤 |
+| 本期已接种的疫苗 | `GET /babies/:id/vaccines?pageSize=200` | 后端无 `startDate` 参数，前端按 `vaccinatedDate` 过滤 |
+| 上周 vs 本周对比（仅周报） | `GET /babies/:id/trend/weekly` | 复用 §8.2；月报模式不请求 |
+| AI 总结（可选，用户点按触发） | `POST /api/ai/chat`（消耗 AI 配额） | 前端用 `buildReportPrompt` 拼一段结构化的"本期数据 + 回答格式"提示；失败降级为 `autoPrompt` 跳 `/ai-assistant` |
+
+时间窗（前端计算）：
+
+| 周期 | 起始 | 终止 |
+|------|------|------|
+| `week` | 本周一 00:00（本地时区），向后裁剪至 `baby.birthDate` 当日 00:00 | 今天 23:59:59 |
+| `month` | 本月 1 号 00:00，向后裁剪至 `baby.birthDate` 当日 00:00 | 今天 23:59:59 |
+
+> **为什么不做后端聚合接口**：
+> 1. 记录量可控（<500 条/月），前端聚合延迟 < 300ms；
+> 2. 任何新增维度（如将来加辅食 / 用药）只要记录进 `records` 表就自动进入报告，无需同步改接口；
+> 3. 避免"每加一种报告维度就加一个 `GET /api/reports/xxx` 端点"的长期维护负担。
+
+---
 
 ## 附录 B：请求/响应示例
 

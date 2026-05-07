@@ -1,22 +1,19 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { User, Lock, Save, Download, FileJson, FileSpreadsheet, Palette } from 'lucide-react'
+import { User, Lock, Save, Download, FileJson, FileSpreadsheet } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth-store'
 import { useBabyStore } from '@/stores/baby-store'
 import { authService } from '@/services/auth'
 import { exportService } from '@/services/baby-extra'
-import { ThemeSelector } from '@/components/theme-selector'
 import { PageHeader } from '@/components/page-header'
 import { toast } from '@/components/ui/toast'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Card } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { FormField } from '@/components/ui/form-field'
 
-type TabKey = 'profile' | 'password' | 'appearance' | 'export'
-
-const tabs: { key: TabKey; icon: typeof User; label: string }[] = [
-  { key: 'profile', icon: User, label: '资料' },
-  { key: 'password', icon: Lock, label: '密码' },
-  { key: 'appearance', icon: Palette, label: '外观' },
-  { key: 'export', icon: Download, label: '导出' },
-]
+type TabKey = 'profile' | 'password' | 'export'
 
 export function SettingsPage() {
   const user = useAuthStore((s) => s.user)
@@ -29,7 +26,8 @@ export function SettingsPage() {
   const [searchParams] = useSearchParams()
   const initialTab: TabKey = (() => {
     const t = searchParams.get('tab') as TabKey | null
-    return t && ['profile', 'password', 'appearance', 'export'].includes(t) ? t : 'profile'
+    // 注意：'appearance' 已于 v5.0.0+ 迁至"我的"页面；老链接兜底回 'profile'
+    return t && ['profile', 'password', 'export'].includes(t) ? t : 'profile'
   })()
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -94,155 +92,195 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-4 animate-fade-in-up">
+    <div className="space-y-5 animate-fade-in-up">
       <PageHeader title="设置" backTo="/profile" />
 
-      {/* Tab Switcher (using tab-button shared class) */}
-      <div className="flex gap-2">
-        {tabs.map((tab) => {
-          const Icon = tab.icon
-          return (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`tab-button ${activeTab === tab.key ? 'tab-button--active' : ''}`}
-              aria-pressed={activeTab === tab.key}
-            >
-              <Icon className="h-4 w-4" />
-              {tab.label}
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Profile Form */}
-      {activeTab === 'profile' && (
-        <form onSubmit={handleUpdateProfile} className="card space-y-4 animate-fade-in">
-          <div>
-            <label className="label-base">昵称</label>
-            <input
-              type="text"
-              value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
-              required
-              placeholder="输入昵称"
-              className="input-base"
-            />
-          </div>
-          <div>
-            <label className="label-base">邮箱</label>
-            <input
-              type="email"
-              value={user?.email || ''}
-              disabled
-              className="input-base opacity-60"
-              style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-hint)' }}
-            />
-          </div>
-          <button type="submit" disabled={isSubmitting} className="btn-primary w-full">
-            <Save className="h-4 w-4" />
-            {isSubmitting ? '保存中...' : '保存'}
-          </button>
-        </form>
-      )}
-
-      {/* Password Form */}
-      {activeTab === 'password' && (
-        <form onSubmit={handleChangePassword} className="card space-y-4 animate-fade-in">
-          <div>
-            <label className="label-base">当前密码</label>
-            <input
-              type="password"
-              value={oldPassword}
-              onChange={(e) => setOldPassword(e.target.value)}
-              required
-              placeholder="输入当前密码"
-              className="input-base"
-            />
-          </div>
-          <div>
-            <label className="label-base">新密码</label>
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              required
-              minLength={8}
-              placeholder="至少8位"
-              className="input-base"
-            />
-          </div>
-          <div>
-            <label className="label-base">确认新密码</label>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-              minLength={8}
-              placeholder="再次输入新密码"
-              className="input-base"
-            />
-          </div>
-          <button type="submit" disabled={isSubmitting} className="btn-primary w-full">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)}>
+        <TabsList>
+          <TabsTrigger value="profile">
+            <User className="h-4 w-4" />
+            资料
+          </TabsTrigger>
+          <TabsTrigger value="password">
             <Lock className="h-4 w-4" />
-            {isSubmitting ? '修改中...' : '修改密码'}
-          </button>
-        </form>
-      )}
+            密码
+          </TabsTrigger>
+          <TabsTrigger value="export">
+            <Download className="h-4 w-4" />
+            导出
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Appearance Tab —— FR-G1 三态主题 */}
-      {activeTab === 'appearance' && (
-        <div className="card space-y-4 animate-fade-in">
-          <div>
-            <h2 className="heading-sm" style={{ color: 'var(--text-primary)' }}>主题外观</h2>
-            <p className="caption mt-1">深夜照顾宝宝时建议切换为暖夜模式以减少屏幕刺激</p>
-          </div>
-          <ThemeSelector />
-        </div>
-      )}
+        {/* Profile Form */}
+        <TabsContent value="profile">
+          <Card as="section" padding="md">
+            <form onSubmit={handleUpdateProfile} className="space-y-4 animate-fade-in">
+              <FormField label="昵称" htmlFor="settings-nickname" required>
+                <Input
+                  id="settings-nickname"
+                  type="text"
+                  value={nickname}
+                  onChange={(e) => setNickname(e.target.value)}
+                  required
+                  placeholder="输入昵称"
+                />
+              </FormField>
+              <FormField label="邮箱" htmlFor="settings-email" hint="邮箱不可修改">
+                <Input
+                  id="settings-email"
+                  type="email"
+                  value={user?.email || ''}
+                  disabled
+                  className="opacity-60"
+                />
+              </FormField>
+              <Button
+                type="submit"
+                block
+                loading={isSubmitting}
+                leftIcon={<Save className="h-4 w-4" />}
+              >
+                {isSubmitting ? '保存中...' : '保存'}
+              </Button>
+            </form>
+          </Card>
+        </TabsContent>
 
-      {/* Export Tab */}
-      {activeTab === 'export' && (
-        <div className="card space-y-4 animate-fade-in">
-          <div>
-            <h2 className="heading-sm" style={{ color: 'var(--text-primary)' }}>数据导出</h2>
-            <p className="caption mt-1">导出当前宝宝的护理记录数据</p>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={() => handleExport('json')}
-              className="card-interactive flex flex-col items-center text-center gap-2 py-5"
-            >
-              <div
-                className="icon-circle icon-circle--md"
-                style={{ backgroundColor: 'color-mix(in srgb, var(--primary) 12%, transparent)' }}
+        {/* Password Form */}
+        <TabsContent value="password">
+          <Card as="section" padding="md">
+            <form onSubmit={handleChangePassword} className="space-y-4 animate-fade-in">
+              <FormField label="当前密码" htmlFor="settings-old-pwd" required>
+                <Input
+                  id="settings-old-pwd"
+                  type="password"
+                  autoComplete="current-password"
+                  value={oldPassword}
+                  onChange={(e) => setOldPassword(e.target.value)}
+                  required
+                  placeholder="输入当前密码"
+                />
+              </FormField>
+              <FormField
+                label="新密码"
+                htmlFor="settings-new-pwd"
+                required
+                hint="至少 8 位"
               >
-                <FileJson className="h-5 w-5" style={{ color: 'var(--primary)' }} />
-              </div>
-              <div>
-                <p className="body-md font-medium text-[var(--text-primary)]">JSON 格式</p>
-                <p className="caption mt-0.5">完整数据 / 程序友好</p>
-              </div>
-            </button>
-            <button
-              onClick={() => handleExport('csv')}
-              className="card-interactive flex flex-col items-center text-center gap-2 py-5"
-            >
-              <div
-                className="icon-circle icon-circle--md"
-                style={{ backgroundColor: 'color-mix(in srgb, var(--primary) 12%, transparent)' }}
+                <Input
+                  id="settings-new-pwd"
+                  type="password"
+                  autoComplete="new-password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  placeholder="至少 8 位"
+                />
+              </FormField>
+              <FormField label="确认新密码" htmlFor="settings-confirm-pwd" required>
+                <Input
+                  id="settings-confirm-pwd"
+                  type="password"
+                  autoComplete="new-password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  placeholder="再次输入新密码"
+                />
+              </FormField>
+              <Button
+                type="submit"
+                block
+                loading={isSubmitting}
+                leftIcon={<Lock className="h-4 w-4" />}
               >
-                <FileSpreadsheet className="h-5 w-5" style={{ color: 'var(--primary)' }} />
-              </div>
-              <div>
-                <p className="body-md font-medium text-[var(--text-primary)]">CSV 格式</p>
-                <p className="caption mt-0.5">表格友好 / Excel 可读</p>
-              </div>
-            </button>
-          </div>
-        </div>
-      )}
+                {isSubmitting ? '修改中...' : '修改密码'}
+              </Button>
+            </form>
+          </Card>
+        </TabsContent>
+
+        {/* Export Tab */}
+        <TabsContent value="export">
+          <Card as="section" padding="md" className="space-y-4 animate-fade-in">
+            <div>
+              <h2 className="heading-sm" style={{ color: 'var(--text-primary)' }}>
+                数据导出
+              </h2>
+              <p className="caption mt-1">导出当前宝宝的护理记录数据</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Card
+                as="article"
+                variant="interactive"
+                padding="md"
+                role="button"
+                tabIndex={0}
+                onClick={() => handleExport('json')}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    handleExport('json')
+                  }
+                }}
+                className="flex flex-col items-center text-center gap-2"
+              >
+                <div
+                  className="icon-circle icon-circle--md"
+                  style={{
+                    backgroundColor:
+                      'color-mix(in srgb, var(--primary) 12%, transparent)',
+                  }}
+                >
+                  <FileJson className="h-5 w-5" style={{ color: 'var(--primary)' }} />
+                </div>
+                <div>
+                  <p className="body-md font-medium text-[var(--text-primary)]">
+                    JSON 格式
+                  </p>
+                  <p className="caption mt-0.5">完整数据 / 程序友好</p>
+                </div>
+              </Card>
+              <Card
+                as="article"
+                variant="interactive"
+                padding="md"
+                role="button"
+                tabIndex={0}
+                onClick={() => handleExport('csv')}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    handleExport('csv')
+                  }
+                }}
+                className="flex flex-col items-center text-center gap-2"
+              >
+                <div
+                  className="icon-circle icon-circle--md"
+                  style={{
+                    backgroundColor:
+                      'color-mix(in srgb, var(--primary) 12%, transparent)',
+                  }}
+                >
+                  <FileSpreadsheet
+                    className="h-5 w-5"
+                    style={{ color: 'var(--primary)' }}
+                  />
+                </div>
+                <div>
+                  <p className="body-md font-medium text-[var(--text-primary)]">
+                    CSV 格式
+                  </p>
+                  <p className="caption mt-0.5">表格友好 / Excel 可读</p>
+                </div>
+              </Card>
+            </div>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

@@ -7,10 +7,19 @@
  * - 睡眠列右上角支持嵌入「开始/结束」实时计时按钮（v4.3.2）：
  *   传入 `sleepActive` 时显示「结束」按钮，否则显示「开始」按钮；
  *   点击按钮不会触发卡片本身的 onSelect。
+ *
+ * v5.0.1 Batch 3：
+ * - 4 格容器 `.card-base` → `<Card variant="accent" accentColor>`
+ * - 睡眠开始/结束按钮 → `<Button size="xs">`
+ * - 条形进度 `.progress-bar` → `<Progress accentColor size="sm">`
+ * - 发烧警示条 → `<Alert variant="danger" size="compact">`
  */
 import { Baby, Moon, Droplets, Thermometer, Play, Square } from 'lucide-react'
 import type { TodayStats } from '@/types'
-import { cn } from '@/lib/utils'
+import { Card } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Progress } from '@/components/ui/progress'
+import { Alert } from '@/components/ui/alert'
 import { computeDailyGoals } from '@/lib/age-goals'
 
 interface TodaySummaryProps {
@@ -116,25 +125,25 @@ export function TodaySummary({
   return (
     <div className="space-y-2">
       {showFeverWarning && (
-        <div
-          className="rounded-lg px-3 py-2 text-xs flex items-center gap-2 animate-fade-in"
-          style={{
-            background: 'color-mix(in srgb, var(--danger) 12%, transparent)',
-            color: 'var(--danger)',
-          }}
-          role="alert"
+        <Alert
+          variant="danger"
+          size="compact"
+          icon={<Thermometer className="h-3.5 w-3.5" />}
+          className="animate-fade-in"
         >
-          <Thermometer className="h-3.5 w-3.5 shrink-0" />
           宝宝体温偏高，请注意观察
-        </div>
+        </Alert>
       )}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {items.map((item) => {
           const isSleep = item.key === 'sleep'
           const showSleepAction = isSleep && (onStartSleep || onEndSleep)
           return (
-            <div
+            <Card
               key={item.key}
+              variant="accent"
+              accentColor={item.color}
+              padding="sm"
               role="button"
               tabIndex={0}
               onClick={() => onSelect?.(item.key)}
@@ -144,17 +153,17 @@ export function TodaySummary({
                   onSelect?.(item.key)
                 }
               }}
-              className={cn(
-                'card-base text-left flex flex-col gap-2 transition-all hover:border-[var(--primary)]',
-                'cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/40',
-              )}
-              style={{ borderTop: `3px solid ${item.color}` }}
+              className="cursor-pointer flex flex-col gap-2.5 transition-all hover:border-[var(--primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/40"
+              // accent 在左侧 3px，这里用 borderTop 代替（保持旧视觉）
+              style={{ borderLeft: 'none', borderTop: `3px solid ${item.color}` }}
             >
               <div className="flex items-center justify-between">
                 <span className="caption">{item.label}</span>
                 {showSleepAction ? (
-                  <button
+                  <Button
                     type="button"
+                    variant="primary"
+                    size="xs"
                     disabled={!canControlSleep}
                     onClick={(e) => {
                       e.stopPropagation()
@@ -163,52 +172,43 @@ export function TodaySummary({
                     }}
                     title={sleepActive ? '结束当前睡眠' : '开始睡眠计时'}
                     aria-label={sleepActive ? '结束当前睡眠' : '开始睡眠计时'}
-                    className={cn(
-                      'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold transition-opacity',
-                      'disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-85',
-                    )}
-                    style={{
-                      backgroundColor: sleepActive
+                    accentColor={
+                      sleepActive
                         ? 'var(--danger)'
-                        : `color-mix(in srgb, ${item.color} 18%, transparent)`,
-                      color: sleepActive ? '#FFFFFF' : item.color,
-                    }}
-                  >
-                    {sleepActive ? (
-                      <>
+                        : `color-mix(in srgb, ${item.color} 18%, transparent)`
+                    }
+                    className="rounded-full"
+                    style={{ color: sleepActive ? '#FFFFFF' : item.color }}
+                    leftIcon={
+                      sleepActive ? (
                         <Square className="h-3 w-3 fill-current" />
-                        结束
-                      </>
-                    ) : (
-                      <>
+                      ) : (
                         <Play className="h-3 w-3 fill-current" />
-                        开始
-                      </>
-                    )}
-                  </button>
+                      )
+                    }
+                  >
+                    {sleepActive ? '结束' : '开始'}
+                  </Button>
                 ) : (
                   <item.Icon className="h-4 w-4" style={{ color: item.color }} />
                 )}
               </div>
               <div
-                className="flex items-baseline number-display font-bold"
+                className="flex items-baseline display-number"
                 style={{ minHeight: 32, color: item.color }}
               >
                 <span className="text-2xl leading-none">{item.value}</span>
               </div>
               <div className="caption text-[var(--text-hint)]">{item.detail}</div>
               {item.showProgress && (
-                <div className="progress-bar">
-                  <div
-                    className="progress-bar__fill"
-                    style={{
-                      width: `${Math.round(item.progress * 100)}%`,
-                      backgroundColor: item.color,
-                    }}
-                  />
-                </div>
+                <Progress
+                  value={Math.round(item.progress * 100)}
+                  max={100}
+                  size="sm"
+                  accentColor={item.color}
+                />
               )}
-            </div>
+            </Card>
           )
         })}
       </div>

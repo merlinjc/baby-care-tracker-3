@@ -6,6 +6,9 @@ import { aiService } from '@/services/ai'
 import { QuotaBar } from '@/components/quota-bar'
 import { toast } from '@/components/ui/toast'
 import { useConfirm } from '@/components/ui/confirm-dialog'
+import { Button } from '@/components/ui/button'
+import { IconButton } from '@/components/ui/icon-button'
+import { Textarea } from '@/components/ui/textarea'
 import type { ChatMessage, AIQuotaStatus } from '@/types'
 
 const STORAGE_KEY = 'baby_care_chat_history'
@@ -239,7 +242,9 @@ export function AiAssistantPage() {
   }, [location.state, location.pathname, navigate, handleSend])
 
   return (
-    <div className="flex flex-col h-[calc(100vh-3.5rem)] md:h-screen">
+    // AI 助手页是全屏对话布局，用负 margin 抵消 MainLayout 外层的 px-5/py-7，
+    // 让 header / messages / input 能一直贴到视口边缘。
+    <div className="flex flex-col h-[calc(100vh-4rem)] md:h-screen -mx-5 -my-7 sm:-mx-6 lg:-my-8">
       {/* Header（全屏对话页专用 sticky 顶栏，配额徽章嵌入右侧） */}
       <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-[var(--border-light)] bg-[var(--bg-secondary)]">
         <div className="flex items-center gap-3 min-w-0">
@@ -260,14 +265,14 @@ export function AiAssistantPage() {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <QuotaBar quota={quota} variant="badge" />
-          <button
+          <IconButton
+            variant="danger-ghost"
+            size="sm"
+            icon={<Trash2 className="h-4 w-4" />}
             onClick={handleClearHistory}
             aria-label="清除聊天记录"
             title="清除聊天记录"
-            className="icon-btn icon-btn--danger"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+          />
         </div>
       </div>
 
@@ -335,13 +340,16 @@ export function AiAssistantPage() {
             </div>
             <div className="flex flex-wrap gap-2">
               {SUGGESTED_QUESTIONS.map((q) => (
-                <button
+                <Button
                   key={q}
+                  variant="ghost"
+                  size="sm"
                   onClick={() => handleSend(q)}
-                  className="chip chip--inactive hover:border-[var(--sleep)] hover:text-[var(--sleep)]"
+                  accentColor="var(--sleep)"
+                  className="rounded-full"
                 >
                   {q}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -351,7 +359,7 @@ export function AiAssistantPage() {
       {/* Input - auto-resize textarea */}
       <div className="p-3 border-t border-[var(--border-light)] bg-[var(--bg-secondary)]">
         <div className="flex items-end gap-2 max-w-3xl mx-auto">
-          <textarea
+          <Textarea
             ref={textareaRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -363,18 +371,17 @@ export function AiAssistantPage() {
             }}
             placeholder="输入消息... (Shift+Enter 换行)"
             rows={1}
-            className="input-base flex-1 resize-none"
+            className="flex-1"
             style={{ minHeight: '40px', maxHeight: '120px', overflowY: 'auto' }}
           />
-          <button
+          <Button
             onClick={() => handleSend()}
             disabled={isLoading || !input.trim()}
-            className="btn-primary px-3 shrink-0"
-            style={{ height: '40px' }}
             aria-label="发送"
+            className="shrink-0 px-3"
           >
             <Send className="h-4 w-4" />
-          </button>
+          </Button>
         </div>
       </div>
     </div>

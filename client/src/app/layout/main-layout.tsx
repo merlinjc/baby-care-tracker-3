@@ -3,13 +3,20 @@ import { Home, ClipboardList, Compass, User, Check, ChevronsUpDown, Baby as Baby
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth-store';
 import { Navigate } from 'react-router-dom';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useFamilyStore } from '@/stores/family-store';
 import { useBabyStore } from '@/stores/baby-store';
 import { Footer } from '@/components/footer';
 import type { Baby } from '@/types';
 import { getAgeLabel } from '@/lib/date';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu';
+import { Avatar, BabyAvatar } from '@/components/ui/avatar';
 
 const navItems = [
   { to: '/', icon: Home, label: '首页' },
@@ -21,26 +28,15 @@ const navItems = [
 /**
  * SidebarBabyCard - 桌面 Sidebar 底部的"当前宝宝"卡
  * 点击展开下拉列表，切换宝宝。
+ *
+ * v5.0.1 Batch 2：重写为基于 <DropdownMenu> (radix) 驱动。
+ * v5.0.1 Batch 3：头像统一迁移到 <BabyAvatar> / <Avatar>。
  */
 function SidebarBabyCard() {
   const babies = useBabyStore((s) => s.babies);
   const currentBaby = useBabyStore((s) => s.currentBaby);
   const selectBaby = useBabyStore((s) => s.selectBaby);
   const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  // 点击外部关闭
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
 
   if (babies.length === 0) {
     return null;
@@ -51,116 +47,72 @@ function SidebarBabyCard() {
     queryClient.invalidateQueries({ queryKey: ['todayStats', baby.id] });
     queryClient.invalidateQueries({ queryKey: ['records', baby.id] });
     queryClient.invalidateQueries({ queryKey: ['activeSleep', baby.id] });
-    setOpen(false);
   };
 
-  const avatarBg = (baby: Baby) =>
-    baby.gender === 'female' ? 'var(--temperature)' : 'var(--growth)';
-
   return (
-    <div ref={rootRef} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className={cn(
-          'w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors',
-          'border border-[var(--border-light)] bg-[var(--bg-card)] hover:border-[var(--primary)]'
-        )}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-      >
-        {currentBaby ? (
-          <>
-            {currentBaby.avatar ? (
-              <img
-                src={currentBaby.avatar}
-                alt={currentBaby.name}
-                className="h-9 w-9 rounded-full object-cover shrink-0"
-              />
-            ) : (
-              <div
-                className="h-9 w-9 rounded-full flex items-center justify-center text-white text-sm font-semibold shrink-0"
-                style={{ background: avatarBg(currentBaby) }}
-              >
-                {currentBaby.name.charAt(0)}
-              </div>
-            )}
-            <div className="flex-1 min-w-0 text-left">
-              <p className="body-md font-medium text-[var(--text-primary)] truncate">
-                {currentBaby.name}
-              </p>
-              <p className="caption truncate">{getAgeLabel(currentBaby.birthDate)}</p>
-            </div>
-          </>
-        ) : (
-          <>
-            <div
-              className="h-9 w-9 rounded-full flex items-center justify-center shrink-0"
-              style={{ backgroundColor: 'var(--bg-elevated)' }}
-            >
-              <BabyIcon className="h-4 w-4" style={{ color: 'var(--text-hint)' }} />
-            </div>
-            <div className="flex-1 min-w-0 text-left">
-              <p className="body-md font-medium text-[var(--text-secondary)]">选择宝宝</p>
-              <p className="caption">{babies.length} 位可选</p>
-            </div>
-          </>
-        )}
-        <ChevronsUpDown className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--text-hint)' }} />
-      </button>
-
-      {open && (
-        <div
-          role="listbox"
-          className="absolute bottom-full left-0 right-0 mb-2 rounded-xl p-1 shadow-popup overflow-hidden animate-fade-in-up"
-          style={{
-            backgroundColor: 'var(--bg-card)',
-            border: '1px solid var(--border-light)',
-            maxHeight: 280,
-            overflowY: 'auto',
-          }}
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            'w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors',
+            'border border-[var(--border-light)] bg-[var(--bg-card)] hover:border-[var(--primary)]',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/40'
+          )}
         >
-          {babies.map((baby) => {
-            const isCurrent = baby.id === currentBaby?.id;
-            return (
-              <button
-                key={baby.id}
-                type="button"
-                role="option"
-                aria-selected={isCurrent}
-                onClick={() => handleSelect(baby)}
-                className={cn(
-                  'w-full flex items-center gap-2.5 px-2 py-2 rounded-lg transition-colors',
-                  isCurrent ? 'bg-[var(--bg-elevated)]' : 'hover:bg-[var(--bg-elevated)]'
-                )}
-              >
-                {baby.avatar ? (
-                  <img
-                    src={baby.avatar}
-                    alt={baby.name}
-                    className="h-8 w-8 rounded-full object-cover shrink-0"
-                  />
-                ) : (
-                  <div
-                    className="h-8 w-8 rounded-full flex items-center justify-center text-white text-sm font-semibold shrink-0"
-                    style={{ background: avatarBg(baby) }}
-                  >
-                    {baby.name.charAt(0)}
-                  </div>
-                )}
-                <div className="flex-1 min-w-0 text-left">
-                  <p className="body-md text-[var(--text-primary)] truncate">{baby.name}</p>
-                  <p className="caption truncate">{getAgeLabel(baby.birthDate)}</p>
+          {currentBaby ? (
+            <>
+              <BabyAvatar baby={currentBaby} size="md" />
+              <div className="flex-1 min-w-0 text-left">
+                <p className="body-md font-medium text-[var(--text-primary)] truncate">
+                  {currentBaby.name}
+                </p>
+                <p className="caption truncate">{getAgeLabel(currentBaby.birthDate)}</p>
+              </div>
+            </>
+          ) : (
+            <>
+              <Avatar size="md">
+                <div
+                  className="flex h-full w-full items-center justify-center"
+                  style={{ backgroundColor: 'var(--bg-elevated)' }}
+                >
+                  <BabyIcon className="h-4 w-4" style={{ color: 'var(--text-hint)' }} />
                 </div>
-                {isCurrent && (
-                  <Check className="h-4 w-4 shrink-0" style={{ color: 'var(--primary)' }} />
-                )}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
+              </Avatar>
+              <div className="flex-1 min-w-0 text-left">
+                <p className="body-md font-medium text-[var(--text-secondary)]">选择宝宝</p>
+                <p className="caption">{babies.length} 位可选</p>
+              </div>
+            </>
+          )}
+          <ChevronsUpDown className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--text-hint)' }} />
+        </button>
+      </DropdownMenuTrigger>
+
+      <DropdownMenuContent
+        side="top"
+        align="start"
+        sideOffset={8}
+        className="min-w-[220px] max-h-72 overflow-y-auto"
+      >
+        {babies.map((baby) => {
+          const isCurrent = baby.id === currentBaby?.id;
+          return (
+            <DropdownMenuItem key={baby.id} onSelect={() => handleSelect(baby)}>
+              <BabyAvatar baby={baby} size="sm" />
+              <div className="flex-1 min-w-0 text-left">
+                <p className="body-md text-[var(--text-primary)] truncate">{baby.name}</p>
+                <p className="caption truncate">{getAgeLabel(baby.birthDate)}</p>
+              </div>
+              {isCurrent && (
+                <Check className="h-4 w-4 shrink-0" style={{ color: 'var(--primary)' }} />
+              )}
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -224,17 +176,18 @@ export function MainLayout() {
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 lg:ml-60 pb-16 lg:pb-0 flex flex-col">
-        <div className="flex-1 max-w-3xl mx-auto w-full px-4 py-6">
+      {/* Main Content
+          data-app-main / data-app-content：CSS 兜底钩子，避免 Tailwind 4 JIT 偶发漏扫 */}
+      <main data-app-main className="flex-1 lg:ml-60 pb-20 lg:pb-0 flex flex-col">
+        <div data-app-content className="flex-1 max-w-3xl mx-auto w-full px-5 sm:px-6 py-7 lg:py-8">
           <Outlet />
         </div>
         <Footer />
       </main>
 
       {/* Mobile TabBar */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-[var(--bg-secondary)] border-t border-[var(--border)] z-50" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        <div className="flex items-center justify-around h-14">
+      <nav data-app-tabbar className="lg:hidden fixed bottom-0 left-0 right-0 bg-[var(--bg-secondary)] border-t border-[var(--border)] z-50" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        <div data-app-tabbar-inner className="flex items-center justify-around h-16">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
