@@ -50,7 +50,9 @@ function saveHistory(messages: ChatMessageVM[]) {
   try {
     const toSave = messages.slice(-50)
     localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave))
-  } catch {}
+  } catch {
+    // localStorage 不可用（隐私模式 / 容量超限）时静默失败，不影响主流程
+  }
 }
 
 function formatBubbleTime(ts?: number): string | null {

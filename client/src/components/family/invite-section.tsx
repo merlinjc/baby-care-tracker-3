@@ -50,7 +50,7 @@ async function copyToClipboard(text: string): Promise<boolean> {
   ta.style.opacity = '0'
   document.body.appendChild(ta)
   ta.select()
-  let success = false
+  let success: boolean
   try {
     success = document.execCommand('copy')
   } catch {

@@ -12,7 +12,7 @@
 import { forwardRef, type HTMLAttributes, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
-export interface SectionHeaderProps extends HTMLAttributes<HTMLElement> {
+export interface SectionHeaderProps extends Omit<HTMLAttributes<HTMLElement>, 'title'> {
   title: ReactNode
   /** 次标题（小字，灰色） */
   subtitle?: ReactNode

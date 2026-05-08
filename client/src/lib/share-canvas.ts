@@ -121,6 +121,8 @@ export async function renderShareImage(opts: RenderShareImageOptions): Promise<B
 
     drawCard(ctx, x, cardY, cardW, CARD_HEIGHT, card)
   }
+  // y 在此之后未再使用；保留语义化推进逻辑但 disable lint 警告
+  // eslint-disable-next-line no-useless-assignment
   y += CARD_HEIGHT * 2 + 20 + 60
 
   // Footer 品牌标识
