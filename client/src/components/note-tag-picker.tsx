@@ -13,7 +13,7 @@
  * - 底：自由文本 input，用于非标签化描述
  */
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, X } from 'lucide-react'
+import { PlusCircle, X } from 'lucide-react';
 import type { RecordType } from '@baby-care-tracker/shared'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -232,7 +232,7 @@ export function NoteTagPicker({
           onClick={handleAddCustom}
           disabled={!draftTag.trim()}
           aria-label="添加自定义标签"
-          leftIcon={<Plus className="h-3.5 w-3.5" />}
+          leftIcon={<PlusCircle className="h-3.5 w-3.5" />}
         >
           添加
         </Button>

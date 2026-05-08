@@ -1,21 +1,54 @@
+/**
+ * GrowthPage v7 - iOS Health × 美拉德
+ *
+ * 重构：
+ * - PageHeader → LargeTitleHeader（右上「记录」按钮）
+ * - 类型 chip → SegmentedControl（体重/身高/头围）
+ * - 图表卡：Card variant="plain"（去掉 gradient-header）
+ * - 历史记录列表：用 ListRow 风（日期 + 月龄 + 数值）
+ * - WHO 参考线 + 颜色保留（以业务色重映射）
+ */
 import { useState, useEffect, useMemo } from 'react'
-import { TrendingUp, Info, Plus } from 'lucide-react'
+import { Info, PlusCircle, TrendingUp } from 'lucide-react';
+import { motion } from 'framer-motion'
 import { useBabyStore } from '@/stores/baby-store'
 import { trendService } from '@/services/baby-extra'
 import { GrowthDialog } from '@/components/growth-dialog'
 import { useDialog } from '@/hooks/use-dialog'
 import { recordService } from '@/services/record'
 import { getWHOReferenceLines } from '@/lib/who-standards'
-import { PageHeader } from '@/components/page-header'
+import { LargeTitleHeader } from '@/components/ui/large-title-header'
+import { SectionHeader } from '@/components/ui/section-header'
+import { SegmentedControl } from '@/components/ui/segmented-control'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { ChartSkeleton } from '@/components/ui/chart-skeleton'
+import { Switch } from '@/components/ui/switch'
+import { staggerContainer, staggerItem } from '@/lib/motion'
 import type { TrendType, TrendDataPoint, Baby } from '@/types'
 
-const trendLabels: Record<TrendType, { label: string; unit: string; color: string }> = {
-  weight: { label: '体重', unit: 'kg', color: 'var(--feeding)' },
-  height: { label: '身高', unit: 'cm', color: 'var(--sleep)' },
-  headCircumference: { label: '头围', unit: 'cm', color: 'var(--growth)' },
+const trendLabels: Record<TrendType, { label: string; unit: string; color: string; bg: string; fg: string }> = {
+  weight: {
+    label: '体重',
+    unit: 'kg',
+    color: 'var(--feeding)',
+    bg: 'var(--feeding-bg)',
+    fg: 'var(--feeding-fg)',
+  },
+  height: {
+    label: '身高',
+    unit: 'cm',
+    color: 'var(--sleep)',
+    bg: 'var(--sleep-bg)',
+    fg: 'var(--sleep-fg)',
+  },
+  headCircumference: {
+    label: '头围',
+    unit: 'cm',
+    color: 'var(--growth)',
+    bg: 'var(--growth-bg)',
+    fg: 'var(--growth-fg)',
+  },
 }
 
 const trendTypeToWHOType: Record<TrendType, 'weight' | 'height' | 'headCircumference'> = {
@@ -24,14 +57,12 @@ const trendTypeToWHOType: Record<TrendType, 'weight' | 'height' | 'headCircumfer
   headCircumference: 'headCircumference',
 }
 
-/** Calculate baby age in months */
 function getAgeMonths(baby: Baby): number {
   const birth = new Date(baby.birthDate)
   const now = new Date()
   return (now.getFullYear() - birth.getFullYear()) * 12 + (now.getMonth() - birth.getMonth())
 }
 
-/** Calculate month age at a specific date */
 function getMonthAgeAtDate(birthDate: string, dateStr: string): number {
   const birth = new Date(birthDate)
   const date = new Date(dateStr)
@@ -49,7 +80,8 @@ export function GrowthPage() {
   useEffect(() => {
     if (!currentBaby) return
     setIsLoading(true)
-    trendService.get(currentBaby.id, trendType)
+    trendService
+      .get(currentBaby.id, trendType)
       .then((data) => setPoints(data.points || []))
       .catch(() => setPoints([]))
       .finally(() => setIsLoading(false))
@@ -71,17 +103,14 @@ export function GrowthPage() {
     setPoints(data2.points || [])
   }
 
-  // WHO reference data for chart
   const whoRefs = useMemo(() => {
     if (!currentBaby || !showWHO) return []
     return getWHOReferenceLines(trendTypeToWHOType[trendType], currentBaby.gender)
   }, [currentBaby, trendType, showWHO])
 
-  // Chart calculations
   const ageMonths = currentBaby ? getAgeMonths(currentBaby) : 24
   const chartMonths = Math.min(Math.max(ageMonths + 3, 12), 24)
 
-  // Data points with month age
   const chartPoints = useMemo(() => {
     if (!currentBaby) return []
     return points.map((p) => ({
@@ -90,7 +119,6 @@ export function GrowthPage() {
     }))
   }, [points, currentBaby])
 
-  // Y-axis range
   const allValues = useMemo(() => {
     const vals: number[] = []
     chartPoints.forEach((p) => vals.push(p.value))
@@ -108,7 +136,6 @@ export function GrowthPage() {
   const minY = allValues.length > 0 ? Math.min(...allValues) * 0.95 : 0
   const yRange = maxY - minY || 1
 
-  // Chart dimensions
   const chartW = 400
   const chartH = 200
   const padL = 45
@@ -121,196 +148,310 @@ export function GrowthPage() {
   const toX = (month: number) => padL + (month / chartMonths) * plotW
   const toY = (val: number) => padT + ((maxY - val) / yRange) * plotH
 
-  // Percentile colors
+  // 用美拉德兄弟色重映射 WHO 百分位
   const percentileColors: Record<string, string> = {
-    p3: '#FFB3B3',
-    p15: '#FFD4A3',
-    p50: '#90C8A0',
-    p85: '#FFD4A3',
-    p97: '#FFB3B3',
+    p3: '#C86464', // danger 暖玫红
+    p15: '#D4A87A', // diaper 奶油橙
+    p50: '#9BBF7F', // feeding 抹茶绿（中位数）
+    p85: '#D4A87A',
+    p97: '#C86464',
   }
 
+  const cfg = trendLabels[trendType]
+
   return (
-    <div className="space-y-5 animate-fade-in-up">
-      <PageHeader
-        title="生长曲线"
-        backTo="/discover"
-        action={
-          <Button
-            variant="primary"
-            size="sm"
-            leftIcon={<Plus className="h-3.5 w-3.5" />}
-            accentColor="var(--growth)"
-            onClick={growthDialog.openDialog}
-          >
-            记录
-          </Button>
-        }
-      />
+    <motion.div
+      className="space-y-5"
+      data-page-stack
+      variants={staggerContainer}
+      initial="initial"
+      animate="animate"
+    >
+      <motion.div variants={staggerItem}>
+        <LargeTitleHeader
+          title="生长曲线"
+          subtitle={
+            currentBaby
+              ? `${currentBaby.name} · ${currentBaby.gender === 'male' ? '男' : '女'} · ${ageMonths}月龄`
+              : undefined
+          }
+          backTo="/discover"
+          rightAction={
+            <Button
+              variant="tinted"
+              size="sm"
+              leftIcon={<PlusCircle className="h-3.5 w-3.5" />}
+              onClick={growthDialog.openDialog}
+            >
+              记录
+            </Button>
+          }
+        />
+      </motion.div>
 
-      {/* Type Tabs */}
-      <div className="flex gap-2">
-        {(Object.entries(trendLabels) as [TrendType, typeof trendLabels.weight][]).map(([key, val]) => (
-          <button
-            key={key}
-            onClick={() => setTrendType(key)}
-            className={`chip flex-1 justify-center ${trendType === key ? 'chip--active' : 'chip--inactive'}`}
-            style={trendType === key ? { backgroundColor: val.color } : undefined}
-          >
-            {val.label}
-          </button>
-        ))}
-      </div>
+      {/* 类型切换 */}
+      <motion.div variants={staggerItem}>
+        <SegmentedControl
+          value={trendType}
+          onChange={(v) => setTrendType(v as TrendType)}
+          options={(Object.entries(trendLabels) as [TrendType, typeof trendLabels.weight][]).map(([key, val]) => ({
+            value: key,
+            label: val.label,
+          }))}
+          size="md"
+        />
+      </motion.div>
 
-      {/* WHO Reference Toggle */}
+      {/* WHO 开关 */}
       {currentBaby && (
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => setShowWHO(!showWHO)}
-            className={`chip ${showWHO ? 'chip--active' : 'chip--inactive'}`}
-            style={showWHO ? { backgroundColor: 'var(--growth)' } : undefined}
-          >
-            WHO 参考线
-          </button>
-          {currentBaby && (
-            <span className="caption">
-              {currentBaby.name} · {currentBaby.gender === 'male' ? '男' : '女'} · {ageMonths}月龄
-            </span>
-          )}
-        </div>
+        <motion.div
+          variants={staggerItem}
+          className="flex items-center justify-between px-1"
+        >
+          <span className="footnote font-medium" style={{ color: 'var(--label-secondary)' }}>
+            WHO 参考曲线
+          </span>
+          <Switch checked={showWHO} onCheckedChange={setShowWHO} aria-label="显示 WHO 参考线" />
+        </motion.div>
       )}
 
-      {/* Chart */}
-      {isLoading ? (
-        <ChartSkeleton chartHeight={200} rows={4} />
-      ) : (
-        <Card padding="sm">
-          {points.length === 0 && !showWHO ? (
-            <div className="empty-state">
-              <TrendingUp className="h-12 w-12 empty-state__icon" />
-              <p className="empty-state__title">暂无{trendLabels[trendType].label}数据</p>
-              <p className="empty-state__desc">点击右上角「记录」添加生长数据</p>
-            </div>
-          ) : (
-            <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="caption">{trendLabels[trendType].label}趋势</span>
-              <span className="caption">单位: {trendLabels[trendType].unit}</span>
-            </div>
+      {/* Chart Card */}
+      <motion.div variants={staggerItem}>
+        {isLoading ? (
+          <ChartSkeleton chartHeight={200} rows={4} />
+        ) : (
+          <Card padding="md">
+            {points.length === 0 && !showWHO ? (
+              <div className="empty-state">
+                <TrendingUp className="h-12 w-12 empty-state__icon" />
+                <p className="empty-state__title">暂无{cfg.label}数据</p>
+                <p className="empty-state__desc">点击右上角「记录」添加生长数据</p>
+              </div>
+            ) : (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="footnote" style={{ color: 'var(--label-secondary)' }}>
+                    {cfg.label}趋势
+                  </span>
+                  <span className="caption-1" style={{ color: 'var(--label-tertiary)' }}>
+                    单位: {cfg.unit}
+                  </span>
+                </div>
 
-            {/* SVG Chart with WHO references */}
-            <svg viewBox={`0 0 ${chartW} ${chartH}`} className="w-full" preserveAspectRatio="xMidYMid meet">
-              {/* Grid lines */}
-              {[0, 0.25, 0.5, 0.75, 1].map((pct) => (
-                <line key={`grid-${pct}`} x1={padL} y1={padT + pct * plotH} x2={chartW - padR} y2={padT + pct * plotH} stroke="var(--border-light)" strokeWidth="0.5" strokeDasharray="4" />
-              ))}
+                <svg
+                  viewBox={`0 0 ${chartW} ${chartH}`}
+                  className="w-full"
+                  preserveAspectRatio="xMidYMid meet"
+                >
+                  {[0, 0.25, 0.5, 0.75, 1].map((pct) => (
+                    <line
+                      key={`grid-${pct}`}
+                      x1={padL}
+                      y1={padT + pct * plotH}
+                      x2={chartW - padR}
+                      y2={padT + pct * plotH}
+                      stroke="var(--separator)"
+                      strokeWidth="0.5"
+                      strokeDasharray="4"
+                    />
+                  ))}
 
-              {/* Y-axis labels */}
-              {[0, 0.25, 0.5, 0.75, 1].map((pct) => {
-                const val = maxY - pct * yRange
-                return <text key={`y-${pct}`} x={padL - 4} y={padT + pct * plotH + 3} textAnchor="end" fontSize="9" fill="var(--text-hint)">{val.toFixed(1)}</text>
-              })}
-
-              {/* X-axis labels (months) */}
-              {Array.from({ length: Math.floor(chartMonths / 3) + 1 }, (_, i) => i * 3)
-                .filter((m) => m <= chartMonths)
-                .map((month) => (
-                  <text key={`x-${month}`} x={toX(month)} y={chartH - 4} textAnchor="middle" fontSize="9" fill="var(--text-hint)">
-                    {month}月
-                  </text>
-                ))}
-
-              {/* WHO reference lines (P3, P15, P50, P85, P97) */}
-              {showWHO && whoRefs.filter((r) => r.month <= chartMonths).length > 1 && (
-                <>
-                  {(['p3', 'p15', 'p50', 'p85', 'p97'] as const).map((pKey) => {
-                    const filteredRefs = whoRefs.filter((r) => r.month <= chartMonths)
-                    if (filteredRefs.length < 2) return null
-                    const linePoints = filteredRefs.map((r) => `${toX(r.month)},${toY(r[pKey])}`).join(' ')
+                  {[0, 0.25, 0.5, 0.75, 1].map((pct) => {
+                    const val = maxY - pct * yRange
                     return (
-                      <g key={`who-${pKey}`}>
-                        <polyline
-                          fill="none"
-                          stroke={percentileColors[pKey]}
-                          strokeWidth={pKey === 'p50' ? '1.5' : '0.8'}
-                          strokeDasharray={pKey === 'p50' ? 'none' : '4,3'}
-                          points={linePoints}
-                        />
-                        {/* Label */}
-                        {filteredRefs.length > 0 && (
-                          <text
-                            x={toX(filteredRefs[filteredRefs.length - 1].month) + 3}
-                            y={toY(filteredRefs[filteredRefs.length - 1][pKey]) + 3}
-                            fontSize="8"
-                            fill={percentileColors[pKey]}
-                          >
-                            {pKey.toUpperCase().replace('P', 'P')}
-                          </text>
-                        )}
-                      </g>
+                      <text
+                        key={`y-${pct}`}
+                        x={padL - 4}
+                        y={padT + pct * plotH + 3}
+                        textAnchor="end"
+                        fontSize="9"
+                        fill="var(--label-tertiary)"
+                      >
+                        {val.toFixed(1)}
+                      </text>
                     )
                   })}
-                </>
-              )}
 
-              {/* Baby data line */}
-              {chartPoints.length > 1 && (
-                <polyline
-                  fill="none"
-                  stroke={trendLabels[trendType].color}
-                  strokeWidth="2"
-                  strokeLinejoin="round"
-                  points={chartPoints.map((p) => `${toX(p.monthAge)},${toY(p.value)}`).join(' ')}
-                />
-              )}
+                  {Array.from({ length: Math.floor(chartMonths / 3) + 1 }, (_, i) => i * 3)
+                    .filter((m) => m <= chartMonths)
+                    .map((month) => (
+                      <text
+                        key={`x-${month}`}
+                        x={toX(month)}
+                        y={chartH - 4}
+                        textAnchor="middle"
+                        fontSize="9"
+                        fill="var(--label-tertiary)"
+                      >
+                        {month}月
+                      </text>
+                    ))}
 
-              {/* Baby data points */}
-              {chartPoints.map((p, i) => (
-                <circle key={i} cx={toX(p.monthAge)} cy={toY(p.value)} r="3" fill={trendLabels[trendType].color} />
-              ))}
-            </svg>
+                  {showWHO && whoRefs.filter((r) => r.month <= chartMonths).length > 1 && (
+                    <>
+                      {(['p3', 'p15', 'p50', 'p85', 'p97'] as const).map((pKey) => {
+                        const filteredRefs = whoRefs.filter((r) => r.month <= chartMonths)
+                        if (filteredRefs.length < 2) return null
+                        const linePoints = filteredRefs
+                          .map((r) => `${toX(r.month)},${toY(r[pKey])}`)
+                          .join(' ')
+                        return (
+                          <g key={`who-${pKey}`}>
+                            <polyline
+                              fill="none"
+                              stroke={percentileColors[pKey]}
+                              strokeWidth={pKey === 'p50' ? '1.5' : '0.8'}
+                              strokeDasharray={pKey === 'p50' ? 'none' : '4,3'}
+                              points={linePoints}
+                            />
+                          </g>
+                        )
+                      })}
+                    </>
+                  )}
 
-            {/* Legend */}
-            {showWHO && (
-              <div className="flex flex-wrap gap-3 mt-2 mb-3">
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-0.5 rounded" style={{ background: trendLabels[trendType].color }} />
-                  <span className="caption">{currentBaby?.name}</span>
-                </div>
-                {(['p3', 'p15', 'p50', 'p85', 'p97'] as const).map((pKey) => (
-                  <div key={pKey} className="flex items-center gap-1">
-                    <div className="w-3 h-0.5 rounded" style={{ background: percentileColors[pKey], borderStyle: pKey === 'p50' ? 'solid' : 'dashed' }} />
-                    <span className="caption">P{pKey.slice(1)}</span>
+                  {chartPoints.length > 1 && (
+                    <polyline
+                      fill="none"
+                      stroke={cfg.color}
+                      strokeWidth="2.5"
+                      strokeLinejoin="round"
+                      points={chartPoints.map((p) => `${toX(p.monthAge)},${toY(p.value)}`).join(' ')}
+                    />
+                  )}
+
+                  {chartPoints.map((p, i) => (
+                    <g key={i}>
+                      <circle
+                        cx={toX(p.monthAge)}
+                        cy={toY(p.value)}
+                        r="6"
+                        fill="transparent"
+                        className="cursor-pointer"
+                      />
+                      <circle
+                        cx={toX(p.monthAge)}
+                        cy={toY(p.value)}
+                        r="3.5"
+                        fill={cfg.color}
+                        stroke="var(--surface-1)"
+                        strokeWidth="1.5"
+                        className="pointer-events-none"
+                      />
+                      <title>{`${new Date(p.date).toLocaleDateString('zh-CN')}: ${p.value}${cfg.unit}`}</title>
+                    </g>
+                  ))}
+                </svg>
+
+                {/* Legend */}
+                {showWHO && (
+                  <div className="flex flex-wrap gap-1.5 mt-3">
+                    <span
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                      style={{
+                        backgroundColor: 'var(--surface-2)',
+                        color: cfg.fg,
+                      }}
+                    >
+                      <span className="w-3 h-0.5 rounded" style={{ background: cfg.color }} />
+                      {currentBaby?.name}
+                    </span>
+                    {(['p3', 'p15', 'p50', 'p85', 'p97'] as const).map((pKey) => (
+                      <span
+                        key={pKey}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium"
+                        style={{
+                          backgroundColor: 'var(--surface-2)',
+                          color: 'var(--label-secondary)',
+                        }}
+                      >
+                        <span
+                          className="w-3 h-0.5 rounded"
+                          style={{ background: percentileColors[pKey] }}
+                        />
+                        P{pKey.slice(1)}
+                      </span>
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
             )}
+          </Card>
+        )}
+      </motion.div>
 
-            {/* Data table */}
-            <div className="mt-2 space-y-2">
-              {chartPoints.slice().reverse().slice(0, 10).map((p, i) => (
-                <div key={i} className="flex items-center justify-between body-md py-1.5 border-b border-[var(--border-light)] last:border-0">
-                  <span className="text-[var(--text-hint)]">
-                    {new Date(p.date).toLocaleDateString('zh-CN')} ({p.monthAge}月)
-                  </span>
-                  <span className="font-medium text-[var(--text-primary)] number-display">{p.value} {trendLabels[trendType].unit}</span>
-                </div>
-              ))}
+      {/* 历史记录 */}
+      {chartPoints.length > 0 && (
+        <motion.div variants={staggerItem}>
+          <SectionHeader title="历史记录" variant="grouped" />
+          <Card padding="none">
+            <div className="ios-list">
+              {chartPoints
+                .slice()
+                .reverse()
+                .slice(0, 10)
+                .map((p, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center justify-between px-4 py-3 min-w-0 gap-3"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
+                        style={{ backgroundColor: cfg.bg, color: cfg.fg }}
+                      >
+                        <span className="caption-1 font-bold number-display">{p.monthAge}m</span>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="callout font-medium truncate" style={{ color: 'var(--label)' }}>
+                          {new Date(p.date).toLocaleDateString('zh-CN', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                          })}
+                        </p>
+                        <p className="caption-1" style={{ color: 'var(--label-tertiary)' }}>
+                          {p.monthAge} 月龄
+                        </p>
+                      </div>
+                    </div>
+                    <span
+                      className="metric-md number-display shrink-0"
+                      style={{ color: cfg.fg }}
+                    >
+                      {p.value}
+                      <span
+                        className="caption-1 font-medium ml-1"
+                        style={{ color: 'var(--label-tertiary)' }}
+                      >
+                        {cfg.unit}
+                      </span>
+                    </span>
+                  </div>
+                ))}
             </div>
-          </div>
-          )}
-        </Card>
+          </Card>
+        </motion.div>
       )}
 
-      {/* WHO Info */}
+      {/* WHO 说明 */}
       {showWHO && (
-        <Card padding="sm" className="flex items-start gap-2">
-          <Info className="h-4 w-4 shrink-0 mt-0.5" style={{ color: 'var(--growth)' }} />
-          <div className="caption space-y-1">
-            <p>WHO 参考线基于世界卫生组织儿童生长标准。P50 为中位数，P3-P97 为正常范围。</p>
-            <p>超出 P3-P97 范围不代表异常，请咨询医生进行专业评估。</p>
-          </div>
-        </Card>
+        <motion.div variants={staggerItem}>
+          <Card
+            padding="md"
+            className="flex items-start gap-2.5"
+            style={{ backgroundColor: 'var(--growth-bg)' }}
+          >
+            <Info
+              className="h-4 w-4 shrink-0 mt-0.5"
+              style={{ color: 'var(--growth-fg)' }}
+            />
+            <div className="caption-1 space-y-1" style={{ color: 'var(--growth-fg)' }}>
+              <p>WHO 参考线基于世界卫生组织儿童生长标准。P50 为中位数，P3-P97 为正常范围。</p>
+              <p>超出 P3-P97 范围不代表异常，请咨询医生进行专业评估。</p>
+            </div>
+          </Card>
+        </motion.div>
       )}
 
       <GrowthDialog
@@ -318,6 +459,6 @@ export function GrowthPage() {
         onClose={growthDialog.closeDialog}
         onSubmit={handleCreateGrowth}
       />
-    </div>
+    </motion.div>
   )
 }

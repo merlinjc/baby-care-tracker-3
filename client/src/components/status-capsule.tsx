@@ -1,19 +1,15 @@
 /**
- * StatusCapsule - 首页状态胶囊（FR-A1）
+ * StatusCapsule v7 — iOS 风状态 Hero 卡片
  *
- * 4 种态：
- * - none：今天还没有记录
- * - sleeping：正在睡觉 · Xh Ym + [结束] 按钮 + 录制指示灯
- * - feeding_ago：上次喂养 Xh Ym 前
- * - sleep_abnormal：睡眠时间异常 + [取消计时] 按钮（红色）
- *
- * v5.0.1 Batch 3：Alert + Button 组合实现
- * - 各种语义态由 <Alert variant> 提供底色与文字色
- * - 右侧按钮使用 <Button size="xs">
- * - 保留 recPulse 录制指示灯（独有动效）
+ * 关键变化：
+ * - 去掉"窄条幅"形态，升级为独立 Hero Card（大圆角 + 浅色底）
+ * - 4 种状态：none（问候）/ sleeping（正在睡眠）/ feeding_ago（上次喂养）/ sleep_abnormal（异常）
+ * - 使用 --*-bg tinted 底色 + 深色前景，完全对齐 iOS Health 情绪卡风格
+ * - sleeping 态附带 呼吸灯（pulse-soft）替代原 breathe-glow
  */
 import { useEffect, useState } from 'react'
-import { Moon, Coffee, AlertTriangle, Sparkles } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { AlertTriangle, Coffee, Moon, Sparkles } from 'lucide-react'
 import type { CareRecord, TodayStats } from '@/types'
 import { Button } from '@/components/ui/button'
 import {
@@ -21,6 +17,7 @@ import {
   computeCapsuleState,
   type CapsuleState,
 } from '@/lib/capsule-state'
+import { cn } from '@/lib/utils'
 
 interface StatusCapsuleProps {
   stats: TodayStats | null
@@ -30,6 +27,45 @@ interface StatusCapsuleProps {
   onCancelAbnormal?: () => void
 }
 
+type StyleConfig = {
+  bg: string
+  fg: string
+  accent: string
+  Icon: typeof Moon
+  label: string
+}
+
+const styleMap: Record<CapsuleState, StyleConfig> = {
+  none: {
+    bg: 'var(--brand-soft)',
+    fg: 'var(--brand-ink)',
+    accent: 'var(--brand)',
+    Icon: Sparkles,
+    label: '今日问候',
+  },
+  sleeping: {
+    bg: 'var(--sleep-bg)',
+    fg: 'var(--sleep-fg)',
+    accent: 'var(--sleep)',
+    Icon: Moon,
+    label: '睡眠中',
+  },
+  feeding_ago: {
+    bg: 'var(--feeding-bg)',
+    fg: 'var(--feeding-fg)',
+    accent: 'var(--feeding)',
+    Icon: Coffee,
+    label: '刚刚喂养',
+  },
+  sleep_abnormal: {
+    bg: 'var(--danger-bg)',
+    fg: 'var(--temperature-fg)',
+    accent: 'var(--danger)',
+    Icon: AlertTriangle,
+    label: '异常',
+  },
+}
+
 export function StatusCapsule({
   stats,
   activeSleep,
@@ -37,7 +73,7 @@ export function StatusCapsule({
   onEndSleep,
   onCancelAbnormal,
 }: StatusCapsuleProps) {
-  // 文案需根据当前时间实时更新（每 60s 重新计算 Xh Ym）
+  // 每 60s 重新计算 Xh Ym
   const [, setTick] = useState(0)
   useEffect(() => {
     if (!activeSleep && !stats?.feeding.lastTimeTs) return
@@ -47,82 +83,85 @@ export function StatusCapsule({
 
   const state = computeCapsuleState(stats, activeSleep)
   const text = buildCapsuleText(state, stats, activeSleep, babyName)
-
-  // none 态保持独立（primary 色系引导）
-  if (state === 'none') {
-    return (
-      <div
-        className="flex items-center gap-3 rounded-2xl px-4 py-3 animate-fade-in"
-        style={{
-          background: 'color-mix(in srgb, var(--primary) 8%, transparent)',
-          border: '1px solid color-mix(in srgb, var(--primary) 16%, transparent)',
-        }}
-      >
-        <Sparkles className="h-4 w-4 shrink-0" style={{ color: 'var(--primary)' }} />
-        <span className="body-md flex-1 text-[var(--text-secondary)]">{text}</span>
-      </div>
-    )
-  }
-
-  const styleMap: Record<
-    Exclude<CapsuleState, 'none'>,
-    { bg: string; btnTextColor: string; Icon: typeof Moon }
-  > = {
-    sleeping: { bg: 'var(--sleep)', btnTextColor: '#3D2D5A', Icon: Moon },
-    feeding_ago: { bg: 'var(--feeding)', btnTextColor: '#2D5A2D', Icon: Coffee },
-    sleep_abnormal: { bg: 'var(--danger)', btnTextColor: '#FFFFFF', Icon: AlertTriangle },
-  }
-  const { bg, btnTextColor, Icon } = styleMap[state]
+  const { bg, fg, accent, Icon, label } = styleMap[state]
+  const isSleeping = state === 'sleeping'
+  const isAbnormal = state === 'sleep_abnormal'
 
   return (
-    <div
-      className="flex items-center gap-3 rounded-2xl px-4 py-3 transition-colors animate-fade-in"
-      style={{
-        background: `color-mix(in srgb, ${bg} 14%, var(--bg-card))`,
-        border: `1px solid color-mix(in srgb, ${bg} 24%, transparent)`,
-      }}
+    <motion.div
+      initial={{ opacity: 0, scale: 0.98, y: 6 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+      data-status-capsule
+      className={cn(
+        'relative overflow-hidden',
+        'rounded-[var(--radius-xl)]',
+      )}
+      style={{ backgroundColor: bg, padding: '20px' }}
     >
-      <Icon className="h-4 w-4 shrink-0" style={{ color: bg }} />
-      <span className="body-md flex-1" style={{ color: 'var(--text-primary)' }}>
-        {text}
-      </span>
-
-      {state === 'sleeping' && (
-        <>
-          <span
-            className="inline-block h-2.5 w-2.5 rounded-full shrink-0"
-            style={{
-              backgroundColor: '#E85454',
-              animation: 'recPulse 1.5s ease-in-out infinite',
-            }}
-            aria-label="正在记录"
-          />
-          {onEndSleep && (
-            <Button
-              variant="primary"
-              size="xs"
-              onClick={onEndSleep}
-              accentColor={bg}
-              className="rounded-full"
-              style={{ color: btnTextColor }}
-            >
-              结束
-            </Button>
-          )}
-        </>
+      {/* 背景装饰光晕（仅 sleeping 态） */}
+      {isSleeping && (
+        <div
+          aria-hidden
+          className="absolute -top-8 -right-8 w-32 h-32 rounded-full opacity-30 blur-2xl"
+          style={{ backgroundColor: accent }}
+        />
       )}
 
-      {state === 'sleep_abnormal' && onCancelAbnormal && (
-        <Button
-          variant="primary"
-          size="xs"
-          onClick={onCancelAbnormal}
-          className="rounded-full"
-          style={{ backgroundColor: '#FFFFFF', color: 'var(--danger)' }}
+      <div className="relative flex items-start gap-3">
+        {/* Icon */}
+        <motion.div
+          className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
+          style={{ backgroundColor: `color-mix(in srgb, ${accent} 20%, transparent)` }}
+          animate={isSleeping ? { opacity: [0.7, 1, 0.7] } : {}}
+          transition={isSleeping ? { duration: 2, repeat: Infinity, ease: 'easeInOut' } : undefined}
         >
-          取消计时
-        </Button>
-      )}
-    </div>
+          <Icon className="w-5 h-5" style={{ color: accent }} />
+        </motion.div>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          <div
+            className="text-[12px] font-semibold mb-1"
+            style={{ color: fg, opacity: 0.7 }}
+          >
+            {label}
+          </div>
+          <div
+            className="text-[16px] font-semibold leading-snug"
+            style={{ color: fg }}
+          >
+            {text}
+          </div>
+
+          {/* Action buttons */}
+          {(isSleeping && onEndSleep) || (isAbnormal && onCancelAbnormal) ? (
+            <div className="mt-3">
+              {isSleeping && onEndSleep && (
+                <Button
+                  variant="filled"
+                  size="sm"
+                  onClick={onEndSleep}
+                  accentColor={accent}
+                  className="rounded-full px-4"
+                >
+                  结束睡眠
+                </Button>
+              )}
+              {isAbnormal && onCancelAbnormal && (
+                <Button
+                  variant="destructive-plain"
+                  size="sm"
+                  onClick={onCancelAbnormal}
+                  className="rounded-full px-4 bg-white/90"
+                >
+                  取消计时
+                </Button>
+              )}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </motion.div>
   )
 }

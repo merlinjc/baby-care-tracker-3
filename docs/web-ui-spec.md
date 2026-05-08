@@ -1,7 +1,158 @@
 # Baby Care Tracker Web 版 UI 交互规范
 
-> **版本**: v1.0 | **日期**: 2026-04-30 | **状态**: 规划中
-> **设计系统**: 美拉德色系 (Maillard) | **UI 框架**: React 18 + shadcn/ui + Tailwind CSS
+> **版本**: v7.0 | **日期**: 2026-05-08 | **状态**: ✅ 已落地
+> **设计系统**: iOS Health 信息架构 × 美拉德（Maillard）暖色系
+> **UI 框架**: React 19 + 自研 UI 层（CVA + Radix）+ Tailwind CSS 4 + framer-motion 12
+
+---
+
+## 🆕 v7.0 大重构总览（2026-05-08 落地）
+
+v7 是项目史上最深入的一次 UI 重构，**14 个页面全部重写**（不是贴皮），完整资料：
+
+- **完整方案**：[`web-ui-refactor-v7-plan.md`](./web-ui-refactor-v7-plan.md)
+- **执行速查**：[`web-ui-refactor-v7-cheatsheet.md`](./web-ui-refactor-v7-cheatsheet.md)（必读）
+
+### 核心变化（与 v6 的区别）
+
+| 维度 | v6（贴皮） | v7（真重构）|
+|------|---|---|
+| 设计语言 | 美拉德扁平 + 渐变 + 玻璃态叠加 | **iOS Health 信息架构 × 美拉德暖色** |
+| 信息架构 | PageHeader（H1+icon）+ Card 列表 | **LargeTitleHeader + SectionHeader + ListRow + 2×2 Metrics 卡** |
+| 业务色 | iOS systemColors（亮绿/电光紫/亮橙/亮红/亮蓝）| **抹茶绿/焦糖紫/奶油橙/蜜桃/暮蓝**（全部莫兰迪暖调）|
+| 页面底色 | `#F2F2F7` 冷灰 | `#F5EFE4` 奶茶白 + 顶部品牌色光晕 |
+| 文字 | `#1C1C1E` 冷黑 | `#2C2520` 深咖黑 |
+| 阴影 | 冷黑透明度 | 暖棕 hairline + 暖棕投影 |
+| 动效 | 纯 CSS keyframes | **framer-motion spring + stagger + whileTap** |
+| Button variant | `primary/secondary/ghost/danger-outline` | **`filled/tinted/plain/secondary/destructive/destructive-plain`**（兼容 alias 保留） |
+| Card variant | `glass/gradient-header/accent/interactive` | **`plain/elevated/interactive/hero/tinted/cta`** |
+| 玻璃态 | 大量 backdrop-filter | **完全废弃** |
+| Tabs/chip | 自定义 chip + ghost button + active | **统一 SegmentedControl**（spring 滑动指示器） |
+
+### v7.0 新增 UI 原子（必须用，不要手写）
+
+```ts
+import { LargeTitleHeader, HeaderLink } from '@/components/ui/large-title-header'
+import { SectionHeader } from '@/components/ui/section-header'
+import { ListRow } from '@/components/ui/list-row'
+```
+
+### v7.0 落地清单（所有 13 个剩余页面 + Pilot 首页 = 全部）
+
+- ✅ Pilot：`pages/home/index.tsx`
+- ✅ Batch A：login / register / auth-layout / record / discover / profile（含 focus-card 重写）
+- ✅ Batch B：ai-assistant / report / growth / settings
+- ✅ Batch C：vaccine / milestone / jaundice / baby / family
+
+### Token 速查表
+
+```css
+/* 业务色（全部美拉德兄弟色，bg+fg+solid 三层） */
+--feeding:      #9BBF7F  --feeding-bg:      #EEF4E4  --feeding-fg:      #4F6B3A
+--sleep:        #A898B8  --sleep-bg:        #EFEAF0  --sleep-fg:        #5E4E72
+--diaper:       #D4A87A  --diaper-bg:       #F7EBD9  --diaper-fg:       #8A5E2B
+--temperature:  #D48E7A  --temperature-bg:  #F7E5DD  --temperature-fg:  #8A4A3A
+--growth:       #7A9CB8  --growth-bg:       #E4EDF4  --growth-fg:       #3A5875
+
+/* 语义色 */
+--success: 同 feeding   --warning: 同 diaper
+--danger: #C86464 (暖玫红, 不是 systemRed)
+--info: 同 growth
+
+/* 表面 */
+--surface-0: #F5EFE4 (页面底·奶茶白)
+--surface-1: #FFFDF8 (卡片底·象牙白)
+--surface-2: #F0EADF (嵌套层)
+
+/* 文字（暖色层级） */
+--label: #2C2520 (深咖黑)
+--label-secondary: 72%   --label-tertiary: 48%   --label-quaternary: 28%
+
+/* 圆角 */
+--radius-md: 14px (按钮、输入)
+--radius-lg: 20px (标准卡片)
+--radius-xl: 28px (Hero)
+
+/* 字阶（语义类） */
+.large-title (34px)  .title-1 (28px)  .title-2 (22px)  .title-3 (20px)
+.headline (17px semibold)  .body (17px)  .callout (16px)
+.subheadline (15px)  .footnote (13px)  .caption-1 (12px)  .caption-2 (11px)
+.metric-xl (48px)  .metric-lg (34px)  .metric-md (28px)
+```
+
+### v7 禁止清单（新代码必须避开）
+
+❌ `uppercase` / `tracking-wider` 作用于中文（视觉无意义且引发字形 bug）
+❌ 写死 `#FFFFFF` / `#F2F2F7` / `#1C1C1E` / iOS systemColors hex（破坏美拉德统一）
+❌ `var(--gradient-*)` 做整卡背景（只能用于按钮或极少数 Hero）
+❌ `var(--glass-bg)` + `backdrop-filter` 玻璃态（已全部移除）
+❌ Card `variant="glass" / "gradient-header" / "accent"`（已废弃）
+❌ Button `variant="primary"` 新代码请用 `"filled"`（兼容 alias 保留可继续用）
+❌ emoji 当 UI icon（🍼 😴 🌡），统一用 `lucide-react`（v5.1.1 起，已移除自制 Solar Linear/Bold 图标）
+
+### v7 页面骨架模板
+
+每个页面根容器都遵循：
+
+```tsx
+<motion.div
+  className="space-y-5"
+  data-page-stack
+  variants={staggerContainer}
+  initial="initial"
+  animate="animate"
+>
+  <motion.div variants={staggerItem}>
+    <LargeTitleHeader title="..." backTo="..." rightAction={...} />
+  </motion.div>
+
+  <motion.div variants={staggerItem}>
+    <SectionHeader title="..." variant="grouped|prominent|default" />
+    <Card padding="none">
+      <div className="ios-list">
+        <ListRow leading={...} title="..." value="..." accentColor={...} interactive />
+      </div>
+    </Card>
+  </motion.div>
+</motion.div>
+```
+
+### Tailwind 4 JIT 漏扫防御（重要）
+
+项目有偶发 JIT 漏扫问题，**关键布局必须加 `data-*` 钩子**，并在 `globals.css` 的"v7 真·CSS 兜底"段写真 CSS：
+
+```
+[data-page-stack] [data-home-stack] [data-profile-stack]
+[data-today-summary] [data-today-card]
+[data-section-header] [data-large-title-header]
+[data-status-capsule] [data-quick-record-bar]
+[data-timeline] [data-timeline-row]
+[data-discover-grid] [data-discover-card]
+```
+
+---
+
+## 0. 设计系统补丁记录（v6 老补丁，保留供参考）
+
+### 2026-05-08：卡片阴影 + Hairline 双层方案
+
+**背景**：原 `--shadow-xs ~ --shadow-xl` 单层弱阴影（透明度 0.06~0.20）在暖米背景 `--surface-0 (#F5EFE4)` 上几乎不可见，导致卡片视觉边界丢失，元素扁平堆砌。
+
+**方案**：所有 shadow token 改为 **hairline 内描边 + 投影** 双层结构，确保卡片在任何亮度下都有清晰边界（iOS Health 风）：
+
+```css
+--shadow-xs: 0 0 0 0.5px rgba(139,123,107,0.10), 0 1px 2px rgba(139,123,107,0.06);
+--shadow-sm: 0 0 0 0.5px rgba(139,123,107,0.10), 0 4px 12px rgba(139,123,107,0.10);
+--shadow-md: 0 0 0 0.5px rgba(139,123,107,0.10), 0 12px 28px rgba(139,123,107,0.14);
+/* ... lg / xl 同步加强 */
+```
+
+**适用**：所有 `<Card>`、`<Dialog>`、`<Sheet>`、`<Popover>` 自动受益，无需逐组件改 className。
+
+**InsightSection 卡片布局微调**：原"日均/参考/环比"三列 `justify-between` 漂浮排列，改为：
+- 第 2 行：日均（22px 大字数字）+ 单位 + 环比（右对齐）
+- 第 3 行：WeeklyRangeBar 进度条 + 右侧"参考 X-Y"小字（合并避免悬空）
+- 第 4 行：智能提示语（line-clamp-2）
 
 ---
 
@@ -358,11 +509,10 @@ App
 │ │ 08:00 😴 午睡 1.5小时            │ │
 │ │ 07:00 🍼 母乳 左侧 15min        │ │
 │ └─────────────────────────────────┘ │
-│                                     │
-├─────────────────────────────────────┤
-│ 🍼  😴  🧷  🌡️  📏               │  ← 快捷记录栏
 └─────────────────────────────────────┘
 ```
+
+> 注：原首页底部「快捷记录栏（5 彩色圆按钮）」已移除（v7.x），其功能与「今日概览」卡片点击入口重复，统一由今日概览承接。
 
 #### 布局线框（桌面端）
 
@@ -397,10 +547,9 @@ App
 1. **页面加载** → 并行请求今日统计 + 时间线 + AI 洞察 → 骨架屏 → 数据到达后渲染
 2. **宝宝切换** → 点击顶栏头像/下拉 → 切换宝宝 → 刷新所有数据
 3. **状态横幅** → 睡眠中：显示"结束睡眠"按钮 → 点击结束睡眠弹窗
-4. **今日概览** → 横向滑动卡片 → 点击卡片展开详情
+4. **今日概览** → 横向滑动卡片 → 点击卡片直接打开对应记录弹窗（同时承接快捷记录入口）
 5. **AI 洞察** → 默认折叠 → 点击展开 → 底部"查看更多"跳转 AI 助手
 6. **时间线** → 左滑编辑/删除 → 点击展开详情弹窗
-7. **快捷记录** → 点击图标 → 打开对应记录弹窗
 
 #### 状态设计
 
@@ -535,6 +684,49 @@ App
 - **成长报告入口（v5.0.0+ 新增）**：在 FocusCard 和功能 Grid **之间**插入一张醒目的「成长报告」入口卡（渐变背景 + 大号装饰字 `W/M` + `BookOpen` 图标 + "周报/月报"pill），点击跳 `/report`。与功能 Grid 中的 5 入口视觉差异化，避免"再加一格"导致信息同质。
 - **历史变迁**：v4.3.2 曾在发现页最底部放 `<WeeklyTrendOverview>`（上周 vs 本周对比）；v5.0.0+ 把该能力**整合进成长报告页**（仅"周报"模式展示），发现页自身不再渲染趋势对比卡，避免与记录页的 `<InsightSection>` 三页信息重叠。记录页仍保留 `<InsightSection>`（本周精细视角），作为"数据细节"入口。
 
+#### v7.1 视觉层次 & 间距重构
+
+发现页之前用统一 `space-y-5`（20px）把"标题 / Focus 卡 / 功能 Grid"三块串成一条等距纵列，导致信息分组不清晰。v7.1 把页面拆成两个明确的 `<section>` 信息组并重新分级间距：
+
+```
+┌─ <section data-discover-overview> 概览顶部（同组紧凑 16px）
+│   LargeTitleHeader "发现 · 照护功能与智能工具"
+│   ↓ 16px
+│   FocusCard（一切顺利 / 疫苗逾期 / 即将到期）
+└─
+   ↓ 28px（明确换段）
+┌─ <section data-discover-features> 功能入口
+│   SectionHeader "功能"（prominent 17px）
+│   ↓ 12px
+│   Grid: 移动 2 列 / sm+ 3 列
+│     ├─ gap mobile 12px / sm+ 16px
+│     └─ 卡内：icon(44×44) → 14px → headline → 4px → footnote
+└─
+```
+
+**间距规范（落于 `globals.css` 真·CSS 兜底，避开 Tailwind 4 JIT 漏扫）**：
+
+| 钩子 | 规则 | 值 |
+|------|------|----|
+| `[data-discover-page] > section + section` | 区段间换段 | 28px |
+| `[data-discover-overview] > * + *` | 概览段内（标题→Focus 卡） | 16px |
+| `[data-discover-grid]` | Grid gap | mobile 12px / `@media (min-width: 640px)` 16px |
+| `[data-discover-card-icon] + [data-discover-card-title]` | 卡内 icon → 标题 | 14px |
+| `[data-discover-card-title] + [data-discover-card-desc]` | 卡内 标题 → 描述 | 4px |
+
+**FocusCard（v7.1）调整**：
+
+- 内边距：原 `padding="md"`（20px）→ `padding="none"` + 自定义 `px-4 py-3.5 sm:px-5 sm:py-4`，移动端少 4-6px、桌面端持平，更适合"单条状态横幅"的 hierarchy。
+- icon 与文字：`gap-3`（12px）→ `gap-3.5`（14px），呼吸感更好。
+- 标题与描述：`mt-0.5`（2px）→ `mt-1`（4px）+ `truncate` → `line-clamp:2`，长文案（如"测测 的成长进展良好，继续保持"）不再被截断。
+
+**功能 Grid 卡片（v7.1）调整**：
+
+- 内边距：原固定 `padding="md"`（20px 全断点）→ 移动 `p-4`（16px）/ 桌面 `sm:p-5`（20px），移动端更紧凑、桌面端维持。
+- 卡内三层间距由 className 改为 `data-discover-card-icon` / `data-discover-card-title` / `data-discover-card-desc` 钩子，间距值在 `globals.css` 真·CSS 段写死（14px / 4px），避免 Tailwind JIT 漏扫造成跑动。
+- 描述去掉 `truncate`：双列窄幅下"身高体重头围"等文案不再被裁切；同时 opacity 0.72 → 0.78 提升阅读对比度。
+- Badge 位置：`top-2.5 right-2.5` → `top-3 right-3`，留出更多透气空间。
+
 ---
 
 ### 2.6 个人中心
@@ -600,6 +792,33 @@ App
 - **快捷入口每行 padding** 从 `py-3 gap-3`（12px / 12px）→ `py-3.5 gap-3.5`（14px / 14px），字号"大 / 特大"档位下不再挤手。
 - **外观两张卡之间额外 +4px 间距**：`[data-profile-stack] > section.card + section.card { margin-top: 28px }`（vs. 其他模块之间 24px），视觉上把「主题」和「字体」拉开一点，避免两张重量级卡片粘连。
 - 兼容 Tailwind 4 JIT 漏扫：Profile 页根容器挂 `data-profile-stack` 钩子，`globals.css` 的 "Layout Fallback" 段用真·CSS 写死 24/28px 间距，不依赖 Tailwind。
+
+#### v7.1 修订：Profile 页视觉层次重梳理
+
+历史问题：v5 之前 `[data-profile-stack]` 仅有"行间 20px / 卡卡间 24px"两条规则，导致：
+1. SectionHeader 与下方卡片间距与"卡片之间"几乎等距，无法形成"组标题紧贴组内容"的视觉关系；
+2. 「账户与数据」和「外观」两组之间的 break 不明显；
+3. 「字体大小」卡内"实时预览"卡用 `bg-[var(--bg-elevated)]!`（在 v7 token 下未必生效），与上方 RadioGroup 网格几乎融为一体。
+
+v7.1 重新定义 Profile 页的"组内紧凑、组间 break"节奏：
+
+| 关系 | 间距 | 实现 |
+|------|------|------|
+| 大标题 → Hero 卡 | 24px | `[data-profile-row='title'] + [data-profile-row='hero']` |
+| Hero 卡 → 第一个组标题 | 32px | `[data-profile-row='hero'] + [data-profile-row='group-header']` |
+| 组标题 → 该组内容 | 6px | `[data-profile-row='group-header'] + [data-profile-row='group-content']` |
+| 同组内容卡之间 | 16px | `[data-profile-row='group-content'] + [data-profile-row='group-content']` |
+| 一组最后内容 → 下一个组标题 | 32px | `[data-profile-row='group-content'] + [data-profile-row='group-header']` |
+| 字体卡 → 退出登录按钮 | 40px | `[data-profile-logout]` 显式覆盖 |
+| 兜底（任意未分类相邻行） | 20px | `[data-profile-stack] > * + *` |
+
+- **Hero 卡**：从 `padding="md"` 升到 `padding="lg"`（24px 内边距），头像-内容 `gap-4 → gap-5`，徽章组与昵称之间 `mt-1.5 → mt-1`（让昵称、邮箱、徽章三段更连贯）；邮箱为空时不再渲染空 `<p>`，避免昵称 + 空白行 + 徽章的破碎感。
+- **「账户与数据」/「外观」组标题**：v7.1 里 `<SectionHeader variant="grouped">` **从所属 Card 中拆出来作为独立 stack 行**（`data-profile-row="group-header"`），让"标题与组内容贴合"和"组与组之间 break"两种关系由全局 CSS 统一控制，避免组件内 `mb-2` 在不同上下文下表现不一致。
+- **主题卡 / 字体卡**：内部 header 的 icon 圆底从 32×32 升到 36×36（`w-9 h-9 rounded-[10px]`），icon 从 16px 升到 18px，header `mb-3 → mb-4`，与下方控件留出更明显的"区块感"。
+- **「实时预览」卡**：从 `bg-[var(--bg-elevated)]!` 改为 `<Card variant="tinted" tintColor="var(--brand)">`，自动获得 brand 10% 柔色底；标题用 `caption-2 uppercase tracking-wide` + `headline` + `body-md` + `caption-1` 四级排版节奏；外层 wrapper `space-y-3 → space-y-4`，避免预览卡与 RadioGroup 网格粘连。
+- **退出登录按钮**：标记 `data-profile-logout`，与上一张卡间距强制 40px，强化"破坏性操作"的视觉断裂。
+
+实现入口：`client/src/pages/profile/index.tsx`（DOM 结构调整 + data 标签），间距规则集中在 `client/src/styles/globals.css` 的 "Profile 页节奏" 段。
 
 ---
 
@@ -1339,8 +1558,11 @@ interface UseThemeReturn {
   --radius-pill: 9999px;
 
   /* === 阴影 (棕色调) === */
-  --shadow-card: 0 2px 12px rgba(139, 123, 107, 0.08);
+  --shadow-card: 0 2px 16px rgba(139, 123, 107, 0.10);
+  --shadow-card-elevated: 0 8px 32px rgba(139, 123, 107, 0.14);
   --shadow-soft: 0 2px 8px rgba(139, 123, 107, 0.06);
+  --shadow-float: 0 16px 48px rgba(139, 123, 107, 0.16);
+  --shadow-glow-primary: 0 0 24px color-mix(in srgb, var(--primary) 24%, transparent);
   --shadow-popup: 0 4px 24px rgba(139, 123, 107, 0.12);
   --elevation-1: 0 1px 4px rgba(139, 123, 107, 0.04);
   --elevation-2: 0 2px 8px rgba(139, 123, 107, 0.06);
@@ -1362,6 +1584,22 @@ interface UseThemeReturn {
   --growth-btn-end: #5B8FAF;
   --fab-start: #D4A574;
   --fab-end: #A67C52;
+
+  /* === v6.0 渐变 Token === */
+  --gradient-primary: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  --gradient-feeding: linear-gradient(135deg, #A8D4A8 0%, #8BC48B 100%);
+  --gradient-sleep: linear-gradient(135deg, #B8A8D4 0%, #9B8BC4 100%);
+  --gradient-diaper: linear-gradient(135deg, #D4C8A8 0%, #A09068 100%);
+  --gradient-temperature: linear-gradient(135deg, #D4A8A8 0%, #C48B8B 100%);
+  --gradient-growth: linear-gradient(135deg, #7BA9C9 0%, #5B8FAF 100%);
+  --gradient-warning: linear-gradient(135deg, var(--warning) 0%, color-mix(in srgb, var(--warning) 70%, var(--danger)) 100%);
+
+  /* === v6.0 玻璃态 Token === */
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-bg-dark: rgba(30, 26, 22, 0.72);
+  --glass-blur: 12px;
+  --glass-border: rgba(139, 123, 107, 0.12);
+  --glass-shadow: 0 4px 24px rgba(139, 123, 107, 0.08);
 
   /* === 密度块色 === */
   --density-level-0: #F5F1EB;
@@ -1399,8 +1637,11 @@ interface UseThemeReturn {
   --border-color: rgba(212, 184, 150, 0.08);
 
   /* === 阴影 (暗色黑阴影) === */
-  --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.3);
+  --shadow-card: 0 2px 16px rgba(0, 0, 0, 0.35);
+  --shadow-card-elevated: 0 8px 32px rgba(0, 0, 0, 0.45);
   --shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.2);
+  --shadow-float: 0 16px 48px rgba(0, 0, 0, 0.55);
+  --shadow-glow-primary: 0 0 24px color-mix(in srgb, var(--primary) 16%, transparent);
   --shadow-popup: 0 4px 24px rgba(0, 0, 0, 0.5);
   --elevation-1: 0 1px 4px rgba(0, 0, 0, 0.15);
   --elevation-2: 0 2px 8px rgba(0, 0, 0, 0.2);
@@ -1418,6 +1659,23 @@ interface UseThemeReturn {
   --growth-btn-end: #4A7A94;
   --fab-start: #B08858;
   --fab-end: #886438;
+
+  /* === v6.0 渐变 Token (暗色降饱和) === */
+  --gradient-primary: linear-gradient(135deg, #B09878 0%, #7A6A58 100%);
+  --gradient-feeding: linear-gradient(135deg, #7CAF7C 0%, #5C8F5C 100%);
+  --gradient-sleep: linear-gradient(135deg, #9488B4 0%, #7A6898 100%);
+  --gradient-diaper: linear-gradient(135deg, #B0A480 0%, #887858 100%);
+  --gradient-temperature: linear-gradient(135deg, #B48888 0%, #A07070 100%);
+  --gradient-growth: linear-gradient(135deg, #5C8CA8 0%, #4A7A94 100%);
+  --gradient-warning: linear-gradient(135deg, #B07838 0%, color-mix(in srgb, #B07838 70%, #C05050) 100%);
+  --gradient-danger: linear-gradient(135deg, #D44444 0%, #B03030 100%);
+
+  /* === v6.0 玻璃态 Token (暗色更透明) === */
+  --glass-bg: rgba(42, 36, 32, 0.72);
+  --glass-bg-dark: rgba(30, 26, 22, 0.85);
+  --glass-blur: 16px;
+  --glass-border: rgba(212, 184, 150, 0.10);
+  --glass-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
 
   /* === 密度块色 === */
   --density-level-0: #3D3428;
@@ -1490,6 +1748,10 @@ interface UseThemeReturn {
   --duration-normal: 0.3s;
   --duration-slow: 0.5s;
 
+  /* v6.0 新增动画时长 */
+  --duration-slower: 0.7s;
+  --duration-spring: 0.3s;
+
   /* 缓动函数 */
   --ease-default: ease;
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
@@ -1517,6 +1779,35 @@ interface UseThemeReturn {
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 @keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
 @keyframes progressGrow { from { width: 0; } }
+
+/* v6.0 新增关键帧 */
+@keyframes numberRoll {
+  0% { transform: translateY(8px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+@keyframes breatheGlow {
+  0%, 100% { opacity: 0.6; box-shadow: 0 0 8px color-mix(in srgb, var(--primary) 20%, transparent); }
+  50% { opacity: 1; box-shadow: 0 0 20px color-mix(in srgb, var(--primary) 40%, transparent); }
+}
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+/* v6.0 prefers-reduced-motion 无障碍 */
+@media (prefers-reduced-motion: reduce) {
+  .animate-number-roll,
+  .animate-breathe-glow,
+  .animate-float,
+  .animate-breathe,
+  .animate-pulse,
+  .animate-shimmer { animation: none !important; }
+  .page-enter { animation: none !important; }
+}
 ```
 
 ### 4.4 响应式断点
@@ -1591,7 +1882,7 @@ interface UseThemeReturn {
               "点击下方添加首条记录"
                      │
                      ▼
-              点击快捷记录按钮
+              点击「今日概览」对应卡片
                      │
                      ▼
               选择记录类型
@@ -1640,7 +1931,7 @@ interface UseThemeReturn {
 ```
 === 创建记录 ===
 
-用户点击快捷记录按钮 (首页) / FAB (记录页) / 时间线空白引导
+用户点击「今日概览」卡片 (首页) / FAB (记录页) / 时间线空白引导
     │
     ▼
 选择记录类型 → 打开对应弹窗
@@ -1877,7 +2168,7 @@ interface UseThemeReturn {
 | 键盘导航 | 所有交互元素可 Tab 聚焦 + Enter 触发 |
 | 焦点指示 | 2px `var(--primary-color)` 外框 |
 | 屏幕阅读器 | 所有图标有 `aria-label`，弹窗有 `aria-describedby` |
-| 动画偏好 | `prefers-reduced-motion` → 禁用所有动画 |
+| 动画偏好 | `prefers-reduced-motion` → 禁用所有动画（全局 `*, *::before, *::after` 覆盖 + 具名类 `.page-enter` / `.animate-*` 双重保险） |
 
 ---
 

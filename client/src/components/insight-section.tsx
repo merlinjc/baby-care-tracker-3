@@ -74,60 +74,85 @@ function DimensionCard({ title, Icon, iconColor, unit, data }: DimensionCardProp
   const changeArrow = (data.changePercent ?? 0) > 0 ? '↑' : '↓'
   const changeColor =
     changeAbs <= 10
-      ? 'var(--text-hint)'
+      ? 'var(--label-tertiary)'
       : (data.changePercent ?? 0) > 0
         ? 'var(--success)'
         : 'var(--warning)'
 
   return (
-    <Card padding="sm" className="space-y-2.5">
+    <Card padding="md" className="space-y-3" data-insight-card>
       {/* 第一行：图标 + 名称 + 状态标签 */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Icon className="h-4 w-4" style={{ color: iconColor }} />
-          <span className="body-md font-medium">{title}</span>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <span
+            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
+            style={{
+              backgroundColor: `color-mix(in srgb, ${iconColor} 14%, transparent)`,
+              color: iconColor,
+            }}
+          >
+            <Icon className="h-3.5 w-3.5" />
+          </span>
+          <span className="callout font-semibold truncate" style={{ color: 'var(--label)' }}>
+            {title}
+          </span>
         </div>
         <Badge size="sm" variant={STATUS_BADGE_VARIANT[data.status]}>
           {STATUS_LABEL[data.status]}
         </Badge>
       </div>
 
-      {/* 第二行：范围条 */}
-      {data.range ? (
-        <WeeklyRangeBar
-          value={data.thisWeekAvg}
-          min={data.range.min}
-          max={data.range.max}
-          unit={data.range.unit}
-          dotColor={STATUS_DOT_COLOR[data.status]}
-        />
-      ) : (
-        <div className="h-2" />
-      )}
-
-      {/* 第三行：日均 + 参考 + 环比 */}
-      <div className="flex items-baseline justify-between gap-2 text-xs">
-        <span className="number-display text-base font-semibold">
-          日均 {data.thisWeekAvg}
-          <span className="text-[var(--text-hint)] ml-0.5">{unit}</span>
+      {/* 第二行：日均（突出大字）+ 环比 */}
+      <div className="flex items-baseline gap-2 flex-wrap">
+        <span className="caption-1" style={{ color: 'var(--label-tertiary)' }}>
+          日均
         </span>
-        {data.range && (
-          <span className="text-[var(--text-hint)]">
-            参考 {data.range.min}-{data.range.max}
-          </span>
-        )}
+        <span
+          className="number-display font-semibold"
+          style={{ fontSize: '22px', lineHeight: 1.1, color: 'var(--label)' }}
+        >
+          {data.thisWeekAvg}
+        </span>
+        <span className="footnote" style={{ color: 'var(--label-tertiary)' }}>
+          {unit}
+        </span>
         {hasChange && (
-          <span style={{ color: changeColor }}>
+          <span
+            className="caption-1 number-display ml-auto font-medium"
+            style={{ color: changeColor }}
+          >
             {changeArrow}
             {changeAbs}%
           </span>
         )}
       </div>
 
+      {/* 第三行：范围条 + 右侧参考值（合并为一行，参考值不再"漂浮"） */}
+      {data.range ? (
+        <div className="space-y-1.5">
+          <WeeklyRangeBar
+            value={data.thisWeekAvg}
+            min={data.range.min}
+            max={data.range.max}
+            unit={data.range.unit}
+            dotColor={STATUS_DOT_COLOR[data.status]}
+          />
+          <div
+            className="flex items-center justify-between caption-1 number-display"
+            style={{ color: 'var(--label-tertiary)' }}
+          >
+            <span>{data.range.min}</span>
+            <span>参考 {data.range.min}-{data.range.max}{unit}</span>
+            <span>{data.range.max}</span>
+          </div>
+        </div>
+      ) : null}
+
       {/* 第四行：智能提示 */}
       {data.tip && (
         <p
-          className="text-xs text-[var(--text-secondary)] leading-snug truncate"
+          className="footnote leading-snug line-clamp-2"
+          style={{ color: 'var(--label-secondary)' }}
           title={data.tip}
         >
           {data.tip}
@@ -139,7 +164,7 @@ function DimensionCard({ title, Icon, iconColor, unit, data }: DimensionCardProp
 
 function CardSkeleton() {
   return (
-    <Card padding="sm" className="space-y-2.5">
+    <Card padding="md" className="space-y-2.5">
       <Skeleton className="h-4 w-24" />
       <Skeleton className="h-2 w-full" />
       <Skeleton className="h-4 w-32" />
@@ -151,7 +176,10 @@ function CardSkeleton() {
 export function InsightSection({ trend, isLoading }: InsightSectionProps) {
   if (isLoading || !trend) {
     return (
-      <div className={cn('grid grid-cols-1 gap-3 sm:grid-cols-2')}>
+      <div
+        className={cn('grid grid-cols-1 gap-3 sm:grid-cols-2')}
+        data-insight-grid
+      >
         {[0, 1, 2, 3].map((i) => (
           <CardSkeleton key={i} />
         ))}
@@ -160,7 +188,10 @@ export function InsightSection({ trend, isLoading }: InsightSectionProps) {
   }
 
   return (
-    <div className={cn('grid grid-cols-1 gap-3 sm:grid-cols-2')}>
+    <div
+      className={cn('grid grid-cols-1 gap-3 sm:grid-cols-2')}
+      data-insight-grid
+    >
       <DimensionCard
         title="喂养"
         Icon={Baby}

@@ -20,7 +20,7 @@ export function FontScaleSelector() {
   const setScale = useFontScaleStore((s) => s.setScale)
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <RadioGroup
         value={scale}
         onValueChange={(v) => setScale(v as FontScale)}
@@ -35,11 +35,14 @@ export function FontScaleSelector() {
             icon={
               // 预览字：A 字母直接用倍率缩放，不依赖当前 root scale，
               // 这样在"当前选中档位"和"未选档位"都能直观看到差别
+              // 用 line-height 1.2（而非 leading-none），避免大字号档下字形被父 line-box 裁切
               <span
-                className="font-semibold leading-none inline-flex items-center justify-center"
+                className="font-semibold inline-flex items-center justify-center"
                 style={{
                   fontSize: `${opt.previewScale * 22}px`,
+                  lineHeight: 1.2,
                   minWidth: 28,
+                  minHeight: `${Math.ceil(opt.previewScale * 22 * 1.2)}px`,
                 }}
               >
                 A
@@ -51,20 +54,47 @@ export function FontScaleSelector() {
       </RadioGroup>
 
       {/* 实时预览条：用当前档位真实 token 渲染示例 */}
-      <Card padding="sm" className="bg-[var(--bg-elevated)]!">
+      <Card
+        variant="tinted"
+        tintColor="var(--brand)"
+        padding="md"
+      >
         <div
-          className="caption mb-1.5"
-          style={{ color: 'var(--text-hint)' }}
+          className="caption-2 mb-2"
+          style={{ color: 'var(--label-tertiary)' }}
         >
           实时预览
         </div>
-        <div className="heading-md" style={{ color: 'var(--text-primary)' }}>
+        <div
+          className="font-semibold"
+          style={{
+            color: 'var(--label)',
+            fontSize: 'var(--text-headline)',
+            lineHeight: 1.45,
+          }}
+        >
           今日宝宝护理摘要
         </div>
-        <div className="body-md mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+        <div
+          className="mt-1"
+          style={{
+            color: 'var(--label-secondary)',
+            fontSize: 'var(--text-subheadline)',
+            lineHeight: 1.55,
+          }}
+        >
           喂养 3 次 · 睡眠 4 小时 · 换尿布 5 次
         </div>
-        <div className="caption mt-1">点击任一档位会立即在整个 App 生效</div>
+        <div
+          className="mt-2"
+          style={{
+            color: 'var(--label-tertiary)',
+            fontSize: 'var(--text-caption-1)',
+            lineHeight: 1.5,
+          }}
+        >
+          点击任一档位会立即在整个 App 生效
+        </div>
       </Card>
     </div>
   )

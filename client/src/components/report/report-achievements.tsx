@@ -24,7 +24,7 @@ export function ReportAchievements({ milestones, vaccines }: ReportAchievementsP
 
   if (!hasMilestones && !hasVaccines) {
     return (
-      <Card padding="md" className="text-center">
+      <Card variant="glass" padding="md" className="text-center">
         <p className="body-sm" style={{ color: 'var(--text-hint)' }}>
           本期还没有新的里程碑和疫苗接种
         </p>
@@ -85,7 +85,7 @@ function AchievementCard(props: {
 }) {
   const { Icon, color, title, toUrl, items, moreCount } = props
   return (
-    <Card padding="sm" className="space-y-2">
+    <Card padding="md" className="space-y-2">
       <div className="flex items-center gap-2">
         <div
           className="icon-circle"

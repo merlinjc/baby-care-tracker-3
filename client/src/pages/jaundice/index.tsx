@@ -1,23 +1,27 @@
 /**
- * /jaundice - 黄疸记录子页
+ * JaundicePage v7 - iOS Health × 美拉德
  *
- * 列表 + 新建 + 编辑 + 删除 + 简单 TSB/TcB 趋势（SVG 迷你折线）。
- * 数据源：localStorage（见 lib/jaundice.ts）；不走后端。
+ * 重构：
+ * - PageHeader → LargeTitleHeader（warning 主题）
+ * - Alert 教育提示 → tinted Card warning
+ * - TrendMini：去 gradient-header
+ * - 列表：tinted warning Card 风
  */
 import { useEffect, useMemo, useState } from 'react'
-import { Sun, Plus, Pencil, Trash2, Baby } from 'lucide-react'
-import { useBabyStore } from '@/stores/baby-store'
+import { motion } from 'framer-motion'
+import { AlertTriangle, Baby, Pencil, PlusCircle, Sun, Trash2 } from 'lucide-react';import { useBabyStore } from '@/stores/baby-store'
 import { usePermission } from '@/hooks/use-permission'
 import { useDialog } from '@/hooks/use-dialog'
-import { PageHeader } from '@/components/page-header'
+import { LargeTitleHeader } from '@/components/ui/large-title-header'
+import { SectionHeader } from '@/components/ui/section-header'
 import { Button } from '@/components/ui/button'
 import { IconButton } from '@/components/ui/icon-button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Alert } from '@/components/ui/alert'
 import { JaundiceDialog } from '@/components/jaundice-dialog'
 import { toast } from '@/components/ui/toast'
 import { useConfirm } from '@/components/ui/confirm-dialog'
+import { staggerContainer, staggerItem } from '@/lib/motion'
 import {
   KRAMER_ZONE_OPTIONS,
   classifyTsb,
@@ -40,7 +44,6 @@ function zoneLabel(zone: JaundiceRecord['kramerZone']): string {
   return hit ? `${hit.desc}（${hit.label}）` : `Ⅰ-${zone} 区`
 }
 
-/** 迷你折线图：展示最近 N 条胆红素（优先 TSB，否则 TcB）随时间变化 */
 function TrendMini({ records }: { records: JaundiceRecord[] }) {
   const points = useMemo(() => {
     const list = records
@@ -56,8 +59,10 @@ function TrendMini({ records }: { records: JaundiceRecord[] }) {
 
   if (points.length < 2) {
     return (
-      <Card padding="sm" className="text-center" style={{ color: 'var(--text-hint)' }}>
-        <p className="body-sm">至少需要 2 条含数值的记录才能显示趋势</p>
+      <Card padding="md" className="text-center">
+        <p className="footnote" style={{ color: 'var(--label-tertiary)' }}>
+          至少需要 2 条含数值的记录才能显示趋势
+        </p>
       </Card>
     )
   }
@@ -74,23 +79,18 @@ function TrendMini({ records }: { records: JaundiceRecord[] }) {
   const minV = Math.min(...values, 0)
   const range = Math.max(1, maxV - minV)
 
-  const xFor = (i: number) =>
-    PAD_L + (i * (W - PAD_L - PAD_R)) / Math.max(1, points.length - 1)
-  const yFor = (v: number) =>
-    PAD_T + (1 - (v - minV) / range) * (H - PAD_T - PAD_B)
-
-  const path = points
-    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${xFor(i)} ${yFor(p.value)}`)
-    .join(' ')
+  const xFor = (i: number) => PAD_L + (i * (W - PAD_L - PAD_R)) / Math.max(1, points.length - 1)
+  const yFor = (v: number) => PAD_T + (1 - (v - minV) / range) * (H - PAD_T - PAD_B)
+  const path = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xFor(i)} ${yFor(p.value)}`).join(' ')
 
   return (
-    <Card padding="sm">
+    <Card padding="md">
       <div className="flex items-center justify-between mb-2">
-        <span className="body-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+        <span className="footnote font-medium" style={{ color: 'var(--label)' }}>
           胆红素趋势（近 {points.length} 次）
         </span>
-        <span className="caption" style={{ color: 'var(--text-hint)' }}>
-          数值单位：mg/dL
+        <span className="caption-1" style={{ color: 'var(--label-tertiary)' }}>
+          单位：mg/dL
         </span>
       </div>
       <svg
@@ -126,7 +126,7 @@ function TrendMini({ records }: { records: JaundiceRecord[] }) {
           d={path}
           fill="none"
           stroke="var(--warning)"
-          strokeWidth={2}
+          strokeWidth={2.5}
           strokeLinecap="round"
           strokeLinejoin="round"
         />
@@ -135,15 +135,17 @@ function TrendMini({ records }: { records: JaundiceRecord[] }) {
             key={i}
             cx={xFor(i)}
             cy={yFor(p.value)}
-            r={3}
+            r={3.5}
             fill={p.isTsb ? 'var(--warning)' : 'var(--info)'}
+            stroke="var(--surface-1)"
+            strokeWidth="1"
           />
         ))}
         <text
           x={4}
           y={PAD_T + 8}
           fontSize={10}
-          fill="var(--text-hint)"
+          fill="var(--label-tertiary)"
           style={{ fontFamily: 'var(--font-mono)' }}
         >
           {maxV.toFixed(0)}
@@ -152,15 +154,15 @@ function TrendMini({ records }: { records: JaundiceRecord[] }) {
           x={4}
           y={H - PAD_B + 2}
           fontSize={10}
-          fill="var(--text-hint)"
+          fill="var(--label-tertiary)"
           style={{ fontFamily: 'var(--font-mono)' }}
         >
           {minV.toFixed(0)}
         </text>
       </svg>
       <div
-        className="caption flex items-center gap-3 mt-1"
-        style={{ color: 'var(--text-hint)' }}
+        className="caption-1 flex items-center gap-3 mt-1"
+        style={{ color: 'var(--label-tertiary)' }}
       >
         <span className="inline-flex items-center gap-1">
           <span
@@ -176,7 +178,7 @@ function TrendMini({ records }: { records: JaundiceRecord[] }) {
           />
           TcB
         </span>
-        <span>虚线：12 / 17 mg/dL 参考警戒</span>
+        <span>虚线：12 / 17 mg/dL 警戒</span>
       </div>
     </Card>
   )
@@ -226,162 +228,207 @@ export function JaundicePage() {
   }
 
   return (
-    <div className="space-y-5 animate-fade-in-up">
-      <PageHeader
-        title="黄疸记录"
-        backTo="/discover"
-        icon={<Sun className="h-5 w-5" />}
-        accentColor="var(--warning)"
-        action={
-          canEdit ? (
-            <Button
-              variant="primary"
-              size="sm"
-              leftIcon={<Plus className="h-3.5 w-3.5" />}
-              accentColor="var(--warning)"
-              onClick={() => dialog.openDialog()}
-            >
-              新增
-            </Button>
-          ) : undefined
-        }
-      />
+    <motion.div
+      className="space-y-5"
+      data-page-stack
+      variants={staggerContainer}
+      initial="initial"
+      animate="animate"
+    >
+      <motion.div variants={staggerItem}>
+        <LargeTitleHeader
+          title="黄疸记录"
+          backTo="/discover"
+          rightAction={
+            canEdit ? (
+              <Button
+                variant="tinted"
+                size="sm"
+                leftIcon={<PlusCircle className="h-3.5 w-3.5" />}
+                onClick={() => dialog.openDialog()}
+              >
+                新增
+              </Button>
+            ) : undefined
+          }
+        />
+      </motion.div>
 
-      {/* 教育提示条 */}
-      <Alert
-        variant="warning"
-        size="compact"
-        icon={<Sun className="h-3.5 w-3.5" />}
-      >
-        观察皮肤黄染范围（Kramer 分区）+ 经皮胆红素数值，
-        严重或持续时间 &gt; 2 周请及时就医。
-      </Alert>
+      {/* 教育提示 - tinted warning Hero */}
+      <motion.div variants={staggerItem}>
+        <Card
+          padding="md"
+          className="flex items-start gap-3"
+          style={{ backgroundColor: 'var(--warning-bg)' }}
+        >
+          <div
+            className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center"
+            style={{
+              backgroundColor: 'color-mix(in srgb, var(--warning) 22%, transparent)',
+              color: 'var(--warning-fg)',
+            }}
+          >
+            <AlertTriangle className="h-4 w-4" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="headline" style={{ color: 'var(--warning-fg)' }}>
+              黄疸观察提醒
+            </p>
+            <p
+              className="footnote mt-0.5"
+              style={{ color: 'var(--warning-fg)', opacity: 0.78 }}
+            >
+              观察皮肤黄染范围（Kramer 分区）+ 经皮胆红素数值，严重或持续 &gt; 2 周请及时就医。
+            </p>
+          </div>
+        </Card>
+      </motion.div>
 
       {/* 趋势 */}
-      <TrendMini records={records} />
+      <motion.div variants={staggerItem}>
+        <SectionHeader title="趋势" variant="prominent" />
+        <TrendMini records={records} />
+      </motion.div>
 
       {/* 列表 */}
       {records.length === 0 ? (
-        <div className="empty-state">
-          <Sun className="h-10 w-10 empty-state__icon" style={{ color: 'var(--warning)' }} />
-          <p className="empty-state__title">暂无黄疸记录</p>
-          <p className="empty-state__desc">点击右上角"新增"记录第一条观察</p>
-        </div>
+        <motion.div variants={staggerItem}>
+          <Card variant="cta" padding="lg" className="text-center">
+            <Sun
+              className="h-10 w-10 mx-auto mb-2"
+              style={{ color: 'var(--warning)' }}
+            />
+            <p className="headline" style={{ color: 'var(--label)' }}>
+              开始记录黄疸变化
+            </p>
+            <p className="footnote mt-1" style={{ color: 'var(--label-tertiary)' }}>
+              点击右上角"新增"记录第一条观察
+            </p>
+          </Card>
+        </motion.div>
       ) : (
-        <div className="space-y-2">
-          {records.map((r) => {
-            const tsbMeta = classifyTsb(r.tsb ?? r.tcb)
-            return (
-              <Card
-                key={r.id}
-                padding="sm"
-                className="flex items-start gap-3"
-                style={{ borderLeft: '3px solid var(--warning)' }}
-              >
-                <div
-                  className="icon-circle icon-circle--sm shrink-0 mt-0.5"
-                  style={{
-                    backgroundColor:
-                      'color-mix(in srgb, var(--warning) 12%, transparent)',
-                  }}
-                >
-                  <Sun className="h-4 w-4" style={{ color: 'var(--warning)' }} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <span
-                      className="body-md font-medium"
-                      style={{ color: 'var(--text-primary)' }}
-                    >
-                      日龄 {r.ageDays} 天
-                    </span>
-                    <span className="caption number-display">
-                      {formatDateTime(r.date)}
-                    </span>
-                  </div>
-
-                  <p
-                    className="body-sm mt-0.5"
-                    style={{ color: 'var(--text-secondary)' }}
+        <motion.div variants={staggerItem}>
+          <SectionHeader title="历史记录" variant="grouped" />
+          <Card padding="none">
+            <div className="ios-list">
+              {records.map((r) => {
+                const tsbMeta = classifyTsb(r.tsb ?? r.tcb)
+                return (
+                  <div
+                    key={r.id}
+                    className="relative flex items-start gap-3 px-4 py-3.5 min-w-0"
                   >
-                    {zoneLabel(r.kramerZone)}
-                    {r.scleraYellow ? ' · 巩膜发黄' : ''}
-                  </p>
-
-                  {/* 指标 */}
-                  {(typeof r.tsb === 'number' || typeof r.tcb === 'number') && (
-                    <div className="mt-1.5 flex flex-wrap gap-1.5">
-                      {typeof r.tsb === 'number' && (
-                        <Badge size="xs" accentColor={tsbMeta.color}>
-                          TSB {r.tsb} mg/dL
-                          {tsbMeta.label ? ` · ${tsbMeta.label}` : ''}
-                        </Badge>
-                      )}
-                      {typeof r.tcb === 'number' && (
-                        <Badge size="xs" variant="info">
-                          TcB {r.tcb} mg/dL
-                        </Badge>
-                      )}
-                      {r.jaundiceType && (
-                        <Badge size="xs" variant="default">
-                          {r.jaundiceType === 'physiologic'
-                            ? '生理性'
-                            : r.jaundiceType === 'pathologic'
-                              ? '病理性'
-                              : '母乳性'}
-                        </Badge>
-                      )}
-                    </div>
-                  )}
-
-                  {/* 标签行（symptoms + actions） */}
-                  {(r.symptoms.length > 0 || r.actions.length > 0) && (
-                    <div className="mt-1.5 flex flex-wrap gap-1">
-                      {r.symptoms.map((s) => (
-                        <Badge key={`s-${s}`} size="xs" variant="info">
-                          {s}
-                        </Badge>
-                      ))}
-                      {r.actions.map((s) => (
-                        <Badge key={`a-${s}`} size="xs" variant="warning">
-                          {s}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-
-                  {r.note && (
-                    <p
-                      className="caption mt-1 line-clamp-2"
-                      title={r.note}
-                      style={{ color: 'var(--text-hint)' }}
+                    <span
+                      className="absolute left-0 top-3 bottom-3 w-1 rounded-r-full"
+                      style={{ backgroundColor: 'var(--warning)' }}
+                      aria-hidden
+                    />
+                    <div
+                      className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center"
+                      style={{
+                        backgroundColor: 'var(--warning-bg)',
+                        color: 'var(--warning-fg)',
+                      }}
                     >
-                      📝 {r.note}
-                    </p>
-                  )}
-                </div>
-                {canEdit && (
-                  <div className="flex items-center gap-0.5 shrink-0">
-                    <IconButton
-                      variant="ghost"
-                      size="sm"
-                      icon={<Pencil className="h-3.5 w-3.5" />}
-                      onClick={() => dialog.openDialog(r)}
-                      aria-label="编辑"
-                    />
-                    <IconButton
-                      variant="danger-ghost"
-                      size="sm"
-                      icon={<Trash2 className="h-3.5 w-3.5" />}
-                      onClick={() => handleDelete(r)}
-                      aria-label="删除"
-                    />
+                      <Sun className="h-4 w-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span
+                          className="callout font-semibold"
+                          style={{ color: 'var(--label)' }}
+                        >
+                          日龄 {r.ageDays} 天
+                        </span>
+                        <span
+                          className="caption-1 number-display"
+                          style={{ color: 'var(--label-tertiary)' }}
+                        >
+                          {formatDateTime(r.date)}
+                        </span>
+                      </div>
+                      <p
+                        className="footnote mt-0.5"
+                        style={{ color: 'var(--label-secondary)' }}
+                      >
+                        {zoneLabel(r.kramerZone)}
+                        {r.scleraYellow ? ' · 巩膜发黄' : ''}
+                      </p>
+
+                      {(typeof r.tsb === 'number' || typeof r.tcb === 'number') && (
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                          {typeof r.tsb === 'number' && (
+                            <Badge size="xs" accentColor={tsbMeta.color}>
+                              TSB {r.tsb} mg/dL
+                              {tsbMeta.label ? ` · ${tsbMeta.label}` : ''}
+                            </Badge>
+                          )}
+                          {typeof r.tcb === 'number' && (
+                            <Badge size="xs" variant="info">
+                              TcB {r.tcb} mg/dL
+                            </Badge>
+                          )}
+                          {r.jaundiceType && (
+                            <Badge size="xs" variant="default">
+                              {r.jaundiceType === 'physiologic'
+                                ? '生理性'
+                                : r.jaundiceType === 'pathologic'
+                                  ? '病理性'
+                                  : '母乳性'}
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+
+                      {(r.symptoms.length > 0 || r.actions.length > 0) && (
+                        <div className="mt-1.5 flex flex-wrap gap-1">
+                          {r.symptoms.map((s) => (
+                            <Badge key={`s-${s}`} size="xs" variant="info">
+                              {s}
+                            </Badge>
+                          ))}
+                          {r.actions.map((s) => (
+                            <Badge key={`a-${s}`} size="xs" variant="warning">
+                              {s}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+
+                      {r.note && (
+                        <p
+                          className="caption-1 mt-1 line-clamp-2"
+                          title={r.note}
+                          style={{ color: 'var(--label-tertiary)' }}
+                        >
+                          {r.note}
+                        </p>
+                      )}
+                    </div>
+                    {canEdit && (
+                      <div className="flex items-center gap-0.5 shrink-0">
+                        <IconButton
+                          variant="ghost"
+                          size="sm"
+                          icon={<Pencil className="h-3.5 w-3.5" />}
+                          onClick={() => dialog.openDialog(r)}
+                          aria-label="编辑"
+                        />
+                        <IconButton
+                          variant="danger-ghost"
+                          size="sm"
+                          icon={<Trash2 className="h-3.5 w-3.5" />}
+                          onClick={() => handleDelete(r)}
+                          aria-label="删除"
+                        />
+                      </div>
+                    )}
                   </div>
-                )}
-              </Card>
-            )
-          })}
-        </div>
+                )
+              })}
+            </div>
+          </Card>
+        </motion.div>
       )}
 
       <JaundiceDialog
@@ -391,6 +438,6 @@ export function JaundicePage() {
         editRecord={dialog.payload ?? null}
         onSubmit={handleSave}
       />
-    </div>
+    </motion.div>
   )
 }

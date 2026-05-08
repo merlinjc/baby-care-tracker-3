@@ -1,18 +1,16 @@
 /**
- * LoginPage - 用户登录页
+ * LoginPage v7 - iOS Health × 美拉德暖色
  *
- * Batch 1 改造要点：
- * - 裸 <input className="input-base"> → <Input leftIcon> + <FormField>
- * - 手写错误横条 → <Alert variant="danger">（暂缓到 Batch 2 引入 Alert 时替换；
- *   本期保留原 div 错误条，但结构复用 var(--danger) 色阶）
- * - 复选框 → 暂保留原生 input（Switch 在 Batch 2 引入）
- * - 主/微信按钮 → <Button>
- * - 或分隔 → <Separator label="或">
+ * 改造：
+ * - heading-md → title-2（SF Pro Display 字阶）
+ * - 错误横条：改用 --danger-bg / --danger-fg（暖玫红而非 iOS systemRed）
+ * - Button 升级到 v7：filled（主）/ secondary（微信，保留 06C160 自定义色）
+ * - 不改业务逻辑
  */
 import { useEffect, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Mail, Lock } from 'lucide-react'
-import { useAuthStore } from '@/stores/auth-store'
+import { motion } from 'framer-motion'
+import { Lock, Mail } from 'lucide-react';import { useAuthStore } from '@/stores/auth-store'
 import {
   detectIdentifierKind,
   readRememberMe,
@@ -26,6 +24,7 @@ import { Input } from '@/components/ui/input'
 import { FormField } from '@/components/ui/form-field'
 import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
+import { staggerContainer, staggerItem } from '@/lib/motion'
 
 export function LoginPage() {
   const [identifier, setIdentifier] = useState('')
@@ -36,7 +35,6 @@ export function LoginPage() {
   const login = useAuthStore((s) => s.login)
   const navigate = useNavigate()
 
-  // 进入页面时回填：上次登录的标识 + 「记住我」开关
   useEffect(() => {
     const remembered = readRememberedIdentifier()
     if (remembered) setIdentifier(remembered.identifier)
@@ -50,14 +48,12 @@ export function LoginPage() {
     try {
       const trimmed = identifier.trim()
       const kind = detectIdentifierKind(trimmed)
-      // 根据用户输入自动判定走 email 还是 phone 字段
       await login(
         kind === 'email'
           ? { email: trimmed, password }
           : { phone: trimmed, password },
       )
 
-      // 登录成功后按「记住我」决定是否记忆用户名
       writeRememberMe(rememberMe)
       writeRememberedIdentifier(rememberMe ? { identifier: trimmed, kind } : null)
 
@@ -73,58 +69,74 @@ export function LoginPage() {
   const wechatEnabled = isWechatLoginEnabled()
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4" autoComplete="on">
-      <h2 className="heading-md text-center" style={{ color: 'var(--text-primary)' }}>
-        登录
-      </h2>
+    <motion.form
+      onSubmit={handleSubmit}
+      className="space-y-5"
+      autoComplete="on"
+      variants={staggerContainer}
+      initial="initial"
+      animate="animate"
+    >
+      <motion.h2
+        variants={staggerItem}
+        className="title-2 text-center"
+        style={{ color: 'var(--label)' }}
+      >
+        欢迎回来
+      </motion.h2>
 
       {error && (
-        <div
-          className="px-3 py-2 rounded-lg text-sm leading-snug"
+        <motion.div
+          initial={{ opacity: 0, y: -4 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="px-3.5 py-2.5 rounded-[var(--radius-md)] footnote"
           style={{
-            background: 'color-mix(in srgb, var(--danger) 10%, transparent)',
-            color: 'var(--danger)',
+            backgroundColor: 'var(--danger-bg)',
+            color: 'var(--danger-fg)',
           }}
           role="alert"
         >
           {error}
-        </div>
+        </motion.div>
       )}
 
-      <FormField label="邮箱 / 手机号" htmlFor="login-identifier">
-        <Input
-          id="login-identifier"
-          // 用 text 而非 email：支持手机号；浏览器密码管理器仍会按 username 字段记忆
-          type="text"
-          inputMode="email"
-          name="username"
-          autoComplete="username"
-          value={identifier}
-          onChange={(e) => setIdentifier(e.target.value)}
-          required
-          placeholder="请输入邮箱或手机号"
-          leftIcon={<Mail className="h-4 w-4" />}
-        />
-      </FormField>
+      <motion.div variants={staggerItem}>
+        <FormField label="邮箱 / 手机号" htmlFor="login-identifier">
+          <Input
+            id="login-identifier"
+            type="text"
+            inputMode="email"
+            name="username"
+            autoComplete="username"
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
+            required
+            placeholder="请输入邮箱或手机号"
+            leftIcon={<Mail className="h-4 w-4" />}
+          />
+        </FormField>
+      </motion.div>
 
-      <FormField label="密码" htmlFor="login-password">
-        <Input
-          id="login-password"
-          type="password"
-          name="password"
-          // current-password 触发浏览器原生密码管理器自动填充；这是保存密码的"正确"方式
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          placeholder="请输入密码"
-          leftIcon={<Lock className="h-4 w-4" />}
-        />
-      </FormField>
+      <motion.div variants={staggerItem}>
+        <FormField label="密码" htmlFor="login-password">
+          <Input
+            id="login-password"
+            type="password"
+            name="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            placeholder="请输入密码"
+            leftIcon={<Lock className="h-4 w-4" />}
+          />
+        </FormField>
+      </motion.div>
 
-      <label
-        className="flex items-center gap-2.5 text-sm cursor-pointer select-none"
-        style={{ color: 'var(--text-secondary)' }}
+      <motion.label
+        variants={staggerItem}
+        className="flex items-center gap-2.5 footnote cursor-pointer select-none"
+        style={{ color: 'var(--label-secondary)' }}
       >
         <Switch
           size="sm"
@@ -133,46 +145,49 @@ export function LoginPage() {
           aria-label="记住我"
         />
         <span>记住我（保留账号 7 天，下次自动登录）</span>
-      </label>
+      </motion.label>
 
-      <Button type="submit" loading={isLoading} block size="md">
-        {isLoading ? '登录中...' : '登录'}
-      </Button>
+      <motion.div variants={staggerItem}>
+        <Button type="submit" variant="filled" loading={isLoading} block size="lg">
+          {isLoading ? '登录中...' : '登录'}
+        </Button>
+      </motion.div>
 
       {wechatEnabled && (
-        <>
+        <motion.div variants={staggerItem} className="space-y-4">
           <Separator label="或" />
-
           <Button
             type="button"
             onClick={() => startWechatLogin()}
             block
-            size="md"
-            accentColor="#07C160"
+            size="lg"
             leftIcon={<WechatGlyph />}
             className="!text-white"
             style={{ backgroundColor: '#07C160' }}
           >
             微信扫码登录
           </Button>
-        </>
+        </motion.div>
       )}
 
-      <p className="text-center text-sm" style={{ color: 'var(--text-hint)' }}>
+      <motion.p
+        variants={staggerItem}
+        className="text-center footnote"
+        style={{ color: 'var(--label-tertiary)' }}
+      >
         还没有账号？{' '}
         <Link
           to="/register"
-          style={{ color: 'var(--primary-dark)' }}
-          className="font-medium hover:underline"
+          style={{ color: 'var(--brand-ink)' }}
+          className="font-semibold hover:underline"
         >
           注册
         </Link>
-      </p>
-    </form>
+      </motion.p>
+    </motion.form>
   )
 }
 
-/** 微信图标（精简内联 SVG，避免单独装 lucide 之外的图标包） */
 function WechatGlyph() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>

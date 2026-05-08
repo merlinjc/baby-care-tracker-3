@@ -1,9 +1,59 @@
 # Web 版组件库（v5.0.0 alpha 新增组件）
 
-> 版本：v1.0 | 日期：2026-05-06
+> 版本：v7.0 | 日期：2026-05-08
 >
 > 本文档列出 Web 版本期新增的组件、hooks、lib 和 service 方法。
 > 小程序版组件库请参考根目录 [`component-library.md`](../component-library.md)。
+
+---
+
+## 🆕 v7.0 新增（2026-05-08）
+
+iOS Health × 美拉德 大重构带来的新原子组件、新动画 lib：
+
+### 新原子组件
+
+| 组件 | 文件 | 用途 | 关键 Props |
+|------|------|------|-----------|
+| `<LargeTitleHeader>` | `ui/large-title-header.tsx` | 页面顶部 iOS 大标题（替代 PageHeader） | `title / subtitle / variant: large \| nav / backTo: string \| 'back' / rightAction` |
+| `<HeaderLink>` | 同文件子组件 | nav header 内的链接按钮 | `to / children` |
+| `<SectionHeader>` | `ui/section-header.tsx` | 段标题 | `title / subtitle / action / variant: default \| prominent \| grouped` |
+| `<ListRow>` | `ui/list-row.tsx` | iOS Settings 风列表项 | `leading / title / subtitle / value / trailing / accentColor / interactive / onClick` |
+
+### 新增动画预设（`lib/motion.ts`）
+
+```ts
+import {
+  spring, springSoft, springPop,        // 三档 spring 强度
+  pageTransition,                        // 页面切换
+  staggerContainer, staggerItem, staggerCompact, // 列表 stagger
+  cardEnter,                            // 卡片入场
+  sheetMobile, sheetDesktop, overlayFade, // Dialog/Sheet 动画
+  pressable, pressableSubtle,           // 按压
+  easeIOS,                              // iOS 标准缓动 cubic-bezier
+} from '@/lib/motion'
+```
+
+### v7 升级的 UI Primitive
+
+| 组件 | 新 variants | 兼容旧 variants |
+|------|-------------|----------------|
+| `<Button>` | `filled / tinted / plain / secondary / destructive / destructive-plain` + 自带 `whileTap={scale:0.96}` | `primary` → 映射到 `filled`；`danger` → `destructive`（继续可用） |
+| `<Card>` | `plain / elevated / interactive / hero / tinted / cta` | `glass / gradient-header / accent` 已**废弃**（不要在新代码中使用） |
+| `<Badge>` | 全部走 `--*-bg` + `--*-fg`（暖调），新增 `tone: tinted \| filled \| filled-solid \| outline` | 兼容 |
+| `<Input>` | iOS 风：浅灰底 + focus 变白底 + 外阴影（不再有左色条） | 兼容 |
+| `<Dialog>` | 动画由 framer-motion 接管（spring slide-up / scale） | 兼容 |
+| `<SegmentedControl>` | `layoutId` spring 滑动指示器 | 兼容 |
+
+### v7 重写的业务组件
+
+`today-summary.tsx`（2×2 tinted 卡片 + metric-lg 大数字）、`status-capsule.tsx`（Hero radius-xl + tinted bg + 呼吸 icon）、`timeline.tsx`（ListRow 风 + 左色条）、`focus-card.tsx`（tinted Hero）、`quick-record-bar.tsx`（**新增**，5 个彩色圆按钮快捷条）。
+
+### v7 全部页面落地
+
+✅ Pilot home + Batch A（login/register/auth-layout/record/discover/profile）+ Batch B（ai-assistant/report/growth/settings）+ Batch C（vaccine/milestone/jaundice/baby/family）
+
+详细设计语言、Token 速查、骨架模板见 [`web-ui-spec.md`](./web-ui-spec.md) 顶部 v7 章节，以及 [`web-ui-refactor-v7-cheatsheet.md`](./web-ui-refactor-v7-cheatsheet.md)。
 
 ---
 
@@ -19,14 +69,14 @@
 
 | 组件 | 文件 | 对标 shadcn | 关键 Variants |
 |------|------|-------------|---------------|
-| `<Button>` | `ui/button.tsx` | `button` | `variant: primary / secondary / ghost / outline / danger / danger-outline / link` × `size: xs / sm / md / lg / icon` + `loading / leftIcon / rightIcon / block / active / accentColor` |
+| `<Button>` | `ui/button.tsx` | `button` | `variant: primary / secondary / ghost / outline / danger / danger-outline / link / gradient-primary / gradient-feeding / gradient-sleep / gradient-diaper / gradient-temperature / gradient-growth / glass` × `size: xs / sm / md / lg / icon` + `loading / leftIcon / rightIcon / block / active / accentColor` |
 | `<IconButton>` | `ui/icon-button.tsx` | `button size=icon` | `variant: ghost / danger-ghost / primary-ghost` × `size: xs / sm / md` |
-| `<Input>` | `ui/input.tsx` | `input` | `variant: default / warning / danger` × `size: sm / md / lg` + `leftIcon / rightIcon / wrapperClassName` |
+| `<Input>` | `ui/input.tsx` | `input` | `variant: default / warning / danger` × `size: sm / md / lg` + `leftIcon / rightIcon / wrapperClassName / accentColor`（v6.0：focus 时左侧 3px 色条，spring 缓动动画） |
 | `<Textarea>` | `ui/textarea.tsx` | `textarea` | `variant × size` + `autoResize?: boolean` |
 | `<Label>` | `ui/label.tsx` | `label` | `required?: boolean`（自动加红 `*`） |
 | `<FormField>` | `ui/form-field.tsx` | form 组合 | `label / htmlFor / required / error / hint`；`<Label> + control + <message>` 三段布局 |
-| `<Card>` + `<CardHeader/Title/Description/Content/Footer>` | `ui/card.tsx` | `card` | `variant: default / interactive / ghost / accent` × `padding: none / sm / md / lg` + `accentColor`（accent 左侧 3px 色条） |
-| `<Badge>` | `ui/badge.tsx` | `badge` | `variant: default / primary / feeding / sleep / diaper / temperature / growth / success / warning / danger / info / outline / ghost` × `size: xs(10px) / sm(12px) / md` + `interactive / icon / accentColor` |
+| `<Card>` + `<CardHeader/Title/Description/Content/Footer>` | `ui/card.tsx` | `card` | `variant: default / interactive / ghost / accent / glass / gradient-header` × `padding: none / sm / md / lg` + `accentColor`（accent 左侧 3px 色条）+ `gradientColor`（v6.0：gradient-header 顶部 3px 渐变色条，值如 `var(--gradient-primary)`） |
+| `<Badge>` | `ui/badge.tsx` | `badge` | `variant: default / primary / feeding / sleep / diaper / temperature / growth / success / warning / danger / info / outline / ghost / gradient-primary / gradient-feeding / gradient-sleep / gradient-diaper / gradient-temperature / gradient-growth / glass` × `size: xs(10px) / sm(12px) / md` + `interactive / icon / accentColor` |
 | `<Separator>` | `ui/separator.tsx` | `separator` (radix) | `orientation: horizontal / vertical` × `variant: solid / dashed / light` + `label?: ReactNode`（水平分隔线中间文字） |
 
 #### Batch 2（表单 & 菜单 · 7 个）
@@ -56,6 +106,100 @@
 | `<Checkbox>` | `ui/checkbox.tsx` | `checkbox` (radix) | `size: sm / md`；支持 `indeterminate` 三态；键盘 Space 切换 |
 | `<Sheet>` + `<SheetContent>` + `<SheetHeader/Title/Description>` + `<SheetBody>` + `<SheetFooter>` + `<SheetTrigger>` + `<SheetClose>` | `ui/sheet.tsx` | `sheet` (radix-dialog 底座) | `side: right(默认) / left / top / bottom` × `size: sm / md / lg`；**与 Dialog 区别**：Sheet 在所有断点都是侧滑/底部滑出，用于桌面端右侧抽屉 / 左侧导航抽屉 |
 | `<ScrollArea>` | `ui/scroll-area.tsx` | `scroll-area` (radix) | 把原生 scrollbar 统一为美拉德细滚动条；A11y 友好；必须外层有固定高度 |
+
+### 1.A.7 v6.0 UI 重构新增
+
+#### NumberRoll 数字滚动组件
+
+| 组件 | 文件 | 说明 |
+|------|------|------|
+| `<NumberRoll>` | `components/number-roll.tsx` | 数字从 0 滚动到目标值的动画组件，使用 `requestAnimationFrame` + `easeOutCubic` 缓动 |
+
+```tsx
+import { NumberRoll } from '@/components/number-roll'
+
+// 基础用法（默认 800ms 动画时长）
+<NumberRoll value={42} />
+
+// 自定义时长
+<NumberRoll value={stats.achieved} duration={1200} />
+```
+
+**Props**：
+| 名称 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `value` | `number` | 必填 | 目标数字 |
+| `duration` | `number` | `800` | 动画时长（ms） |
+| `className` | `string?` | — | 外层容器类名 |
+
+**使用场景**：TodaySummary 4 格大数字、ReportMetricsGrid 关键指标、MilestonePage 统计卡片。
+
+**实现原理**：组件首次渲染时从 0 开始，通过 `requestAnimationFrame` 逐帧递增到 `value`，缓动函数 `easeOutCubic(t) = 1 - (1-t)^3` 使动画末尾减速，视觉更自然。后续 `value` 变化时不重新触发动画（仅首次挂载时执行）。
+
+#### Card gradient-header / glass 变体（v6.0）
+
+```tsx
+// gradient-header：顶部 3px 渐变色条（borderImage 实现）
+<Card variant="gradient-header" gradientColor="var(--gradient-feeding)" padding="md">
+  ...
+</Card>
+
+// glass：玻璃态（半透明背景 + backdrop-filter 模糊 + 毛玻璃边框）
+<Card variant="glass" padding="md">
+  ...
+</Card>
+
+// 自定义色条宽度（默认 3px）
+<Card variant="gradient-header" gradientColor="var(--gradient-primary)" accentWidth={5} padding="md">
+  ...
+</Card>
+```
+
+**新增 Props**（Card 组件）：
+| 名称 | 类型 | 说明 |
+|------|------|------|
+| `gradientColor` | `string?` | 渐变色值（如 `var(--gradient-primary)`），仅 `variant="gradient-header"` 时生效 |
+| `accentWidth` | `number \| string?` | 色条宽度（默认 3px），对 accent 和 gradient-header 变体均生效 |
+
+#### Button gradient-* / glass 变体（v6.0）
+
+```tsx
+// 渐变按钮（6 种语义渐变 + primary）
+<Button variant="gradient-primary" size="sm">保存</Button>
+<Button variant="gradient-feeding" size="xs">喂养</Button>
+<Button variant="gradient-sleep">睡眠</Button>
+<Button variant="gradient-growth">生长</Button>
+
+// 玻璃态按钮
+<Button variant="glass">取消</Button>
+```
+
+**渐变 Variant 列表**：`gradient-primary` / `gradient-feeding` / `gradient-sleep` / `gradient-diaper` / `gradient-temperature` / `gradient-growth`
+
+**Glass Variant**：`background: var(--glass-bg)` + `backdrop-filter: var(--glass-blur)` + `border: 1px solid var(--glass-border)`
+
+#### Badge gradient-* / glass 变体（v6.0）
+
+与 Button 渐变变体一致，Badge 也新增了 6 种 `gradient-*` 变体和 `glass` 变体。
+
+```tsx
+<Badge variant="gradient-feeding" size="xs">喂养·3</Badge>
+<Badge variant="glass" size="sm">标签</Badge>
+```
+
+#### Dialog glass prop（v6.0）
+
+```tsx
+<Dialog open={open} onClose={onClose} title="AI 总结" glass>
+  ...
+</Dialog>
+```
+
+启用 `glass` prop 后，Dialog 内容区域采用玻璃态效果：`backdrop-filter: var(--glass-blur)` + `background: var(--glass-bg)` + `border: 1px solid var(--glass-border)`。
+
+#### Input accentColor prop 增强（v6.0）
+
+Input 的 `accentColor` prop 新增左侧 3px 色条 + spring 缓动动画效果。focus 时色条以 spring 缓动从 0 宽度展开到 3px。
 
 ### 1.A.1 用法示例（Batch 1）
 
@@ -527,7 +671,7 @@ export { xxxVariants }
 
 | 组件 | 文件 | 说明 |
 |------|------|------|
-| `<Dialog>` + `<DialogFooter>` | `ui/dialog.tsx` | 响应式弹窗（基于 `@radix-ui/react-dialog`）：移动底部 sheet / 桌面居中；可选 sticky footer 和 size；内置 focus trap / inert 背景 / ESC / return focus |
+| `<Dialog>` + `<DialogFooter>` | `ui/dialog.tsx` | 响应式弹窗（基于 `@radix-ui/react-dialog`）：移动底部 sheet / 桌面居中；可选 sticky footer 和 size；内置 focus trap / inert 背景 / ESC / return focus；v6.0 新增 `glass` prop（启用玻璃态效果：backdrop-blur + 半透明背景 + 毛玻璃边框） |
 | `<ConfirmHost>` + `useConfirm()` | `ui/confirm-dialog.tsx` | 全局 Promise 式确认弹窗，替代 `window.confirm` |
 | `<Skeleton>` | `ui/skeleton.tsx` | 占位骨架（FR-A5） |
 | `<ListSkeleton>` | `ui/list-skeleton.tsx` | 列表卡片骨架（首次加载列表型页面用） |
@@ -649,7 +793,7 @@ import { ChartSkeleton } from '@/components/ui/chart-skeleton'
 |------|------|--------|
 | `<StatusCapsule>` | `status-capsule.tsx` | FR-A1（4 态：none/sleeping/feeding_ago/sleep_abnormal） |
 | `<BabySwitcher>` | `baby-switcher.tsx` | FR-A2（多宝头像组） |
-| `<TodaySummary>` | `today-summary.tsx` | FR-A3（4 列大数字 + 进度条；睡眠卡片右上角支持嵌入「开始/结束」实时计时按钮，配合 `useActiveSleep` 使用） |
+| `<TodaySummary>` | `today-summary.tsx` | FR-A3（4 列大数字 + 进度条；睡眠卡片右上角支持嵌入「开始/结束」实时计时按钮，配合 `useActiveSleep` 使用）v6.0：Card 升级为 `gradient-header` + `NumberRoll` 数字动画 |
 | `<HomeSkeleton>` | `home-skeleton.tsx` | FR-A5（首页骨架屏） |
 | `<InsightSection>` | `insight-section.tsx` | FR-B（记录页精细趋势：4 张卡含范围条/参考/环比/建议） |
 | `<WeeklyTrendOverview>` | `weekly-trend-overview.tsx` | 发现页「上周 vs 本周」趋势对比：单卡 4 行（指标 / 上周日均 / 本周日均 / 对比箭头），异常行整行高亮；头部含偏离徽章 + 「详情 →」跳记录页；底部「向 AI 咨询建议」按钮，会把趋势摘要拼为预填问题，通过 `navigate('/ai-assistant', { state: { autoPrompt } })` 跳转，AI 助手页自动发送一次 |

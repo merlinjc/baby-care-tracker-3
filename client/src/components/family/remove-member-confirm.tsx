@@ -6,8 +6,7 @@
  * v5.0.1 Batch 2：裸 input + 手写警告条 → <Input> + <FormField> + <Alert variant="danger">
  */
 import { useState } from 'react'
-import { UserX, AlertTriangle } from 'lucide-react'
-import { Dialog, DialogFooter } from '@/components/ui/dialog'
+import { AlertTriangle, UserX } from 'lucide-react';import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { FormField } from '@/components/ui/form-field'
 import { Alert, AlertDescription } from '@/components/ui/alert'

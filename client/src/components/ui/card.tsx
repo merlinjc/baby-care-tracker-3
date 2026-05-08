@@ -1,51 +1,76 @@
 /**
- * Card - 统一容器 Primitive
+ * Card v7 - iOS Health 风卡片
  *
- * 对标 shadcn/ui 的 `card.tsx` 组件族：<Card> / <CardHeader> / <CardTitle> /
- * <CardDescription> / <CardContent> / <CardFooter>。
+ * Variant（iOS 标准）：
+ * - 'plain'（默认）：surface-1 + radius-lg + 无边框（仅阴影做层次）
+ * - 'elevated'：同 plain 但阴影加重（Hero/关键数据卡）
+ * - 'interactive'：可点击卡片（hover 轻抬 + active 微缩）
+ * - 'hero'：Hero 区（radius-xl 28px + 更大 padding + 阴影）
+ * - 'tinted'：柔和底色卡（配合 accentColor 生成 12% 底色，用于状态提示）
  *
- * Variant：
- * - 'default'（默认）：等价旧 .card（bg-card + 1px border-light + radius-lg + padding 20px）
- * - 'interactive'：等价旧 .card-interactive（hover border-primary + bg-elevated）
- * - 'ghost'：无背景无边框，仅提供 header/content/footer 的布局语义
- * - 'accent'：左侧 3px 色条 + 其他同 default；配合 accentColor prop 使用
+ * 兼容旧 variant（default/ghost/accent/glass/gradient-header/cta）继续可用。
  *
- * 注意：Card 自带 padding 20px；内部使用 <CardHeader> / <CardContent> / <CardFooter>
- * 做分区时，这些子组件自身不带 padding（因为整体已由父 Card 提供）。若需要
- * "分区之间有视觉分隔线"，传 `<CardContent separated>` 或自行加 Separator。
+ * Padding：none / sm / md (默认) / lg / xl
  */
 import { cva, type VariantProps } from 'class-variance-authority'
 import { forwardRef, type HTMLAttributes } from 'react'
 import { cn } from '@/lib/utils'
 
 const cardVariants = cva(
-  [
-    'bg-[var(--bg-card)] rounded-[var(--radius-lg)]',
-    'border border-[var(--border-light)]',
-    'transition-[border-color,background-color,box-shadow] duration-200',
-  ].join(' '),
+  ['transition-[box-shadow,background-color,border-color,transform] duration-200 ease-[var(--ease-ios)]'].join(' '),
   {
     variants: {
       variant: {
-        default: 'hover:border-[var(--border)]',
-        interactive: [
-          // v5.1.0：hover 增加 shadow-soft 形成"微抬升"视觉
-          'cursor-pointer',
-          'hover:border-[var(--primary)] hover:bg-[var(--bg-elevated)]',
-          'hover:shadow-[var(--shadow-soft)]',
-          'active:opacity-95 active:shadow-none',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/40',
+        // ── v7 标准 ──
+        plain: [
+          'bg-[var(--surface-1)] rounded-[var(--radius-lg)]',
+          'shadow-[var(--shadow-xs)]',
         ].join(' '),
-        ghost: 'bg-transparent border-transparent',
-        accent: 'hover:border-[var(--border)]',
-        // v5.1.0：cta —— 引导性空态 / 大型 CTA 卡；虚线 border + 中心对齐
-        cta: [
-          'border-dashed',
-          'text-center',
+        elevated: [
+          'bg-[var(--surface-1)] rounded-[var(--radius-lg)]',
+          'shadow-[var(--shadow-sm)]',
+        ].join(' '),
+        interactive: [
+          'bg-[var(--surface-1)] rounded-[var(--radius-lg)]',
+          'shadow-[var(--shadow-xs)]',
           'cursor-pointer',
-          'hover:border-[var(--primary)]',
-          'hover:bg-[color-mix(in_srgb,var(--primary)_4%,var(--bg-card))]',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/40',
+          'hover:shadow-[var(--shadow-sm)] hover:-translate-y-[1px]',
+          'active:scale-[0.985] active:shadow-[var(--shadow-xs)]',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--brand)_40%,transparent)]',
+        ].join(' '),
+        hero: [
+          'bg-[var(--surface-1)] rounded-[var(--radius-xl)]',
+          'shadow-[var(--shadow-md)]',
+        ].join(' '),
+        tinted: [
+          'rounded-[var(--radius-lg)]',
+        ].join(' '),
+
+        // ── 兼容旧 variant ──
+        default: [
+          'bg-[var(--surface-1)] rounded-[var(--radius-lg)]',
+          'shadow-[var(--shadow-xs)]',
+        ].join(' '),
+        ghost: 'bg-transparent',
+        accent: [
+          'bg-[var(--surface-1)] rounded-[var(--radius-lg)]',
+          'shadow-[var(--shadow-xs)]',
+        ].join(' '),
+        glass: [
+          'bg-[var(--glass-bg)] backdrop-blur-[20px] rounded-[var(--radius-lg)]',
+          'border border-[var(--separator)]',
+          'shadow-[var(--shadow-sm)]',
+        ].join(' '),
+        'gradient-header': [
+          'bg-[var(--surface-1)] rounded-[var(--radius-lg)]',
+          'shadow-[var(--shadow-xs)]',
+        ].join(' '),
+        cta: [
+          'bg-[var(--surface-1)] rounded-[var(--radius-lg)]',
+          'border border-dashed border-[var(--border-default)]',
+          'text-center cursor-pointer',
+          'hover:border-[var(--brand)] hover:bg-[var(--surface-2)]',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color-mix(in_srgb,var(--brand)_40%,transparent)]',
         ].join(' '),
       },
       padding: {
@@ -53,36 +78,72 @@ const cardVariants = cva(
         sm: 'p-4',
         md: 'p-5',
         lg: 'p-6',
+        xl: 'p-7',
       },
     },
-    defaultVariants: { variant: 'default', padding: 'md' },
+    defaultVariants: { variant: 'plain', padding: 'md' },
   },
 )
 
 export interface CardProps
   extends HTMLAttributes<HTMLDivElement>,
     VariantProps<typeof cardVariants> {
-  /** 仅 variant=accent 生效，左侧 3px 色条 */
+  /** 仅 accent 生效：左侧色条 */
   accentColor?: string
-  /** 容器语义，默认 div；交互式 Card 建议 article / section */
+  accentWidth?: number | string
+  /** 仅 gradient-header 兼容：顶部渐变色条 */
+  gradientColor?: string
+  /** tinted variant：柔和底色（基于 accentColor 生成 12% 底） */
+  tintColor?: string
   as?: 'div' | 'article' | 'section'
 }
 
 export const Card = forwardRef<HTMLDivElement, CardProps>(
   (
-    { className, variant, padding, accentColor, as: Comp = 'div', style, ...props },
+    {
+      className,
+      variant,
+      padding,
+      accentColor,
+      accentWidth,
+      gradientColor,
+      tintColor,
+      as: Comp = 'div',
+      style,
+      ...props
+    },
     ref,
   ) => {
-    const accentStyle: React.CSSProperties | undefined =
-      variant === 'accent' && accentColor
-        ? { ...style, borderLeft: `3px solid ${accentColor}` }
-        : style
+    const aw = accentWidth ?? 3
+    const computedStyle: React.CSSProperties | undefined = (() => {
+      if (variant === 'accent' && accentColor) {
+        return { ...style, borderLeft: `${aw}px solid ${accentColor}` }
+      }
+      if (variant === 'gradient-header' && gradientColor) {
+        return {
+          ...style,
+          borderTop: `${aw}px solid`,
+          borderImage: `${gradientColor} 1`,
+        }
+      }
+      if (variant === 'tinted' && (tintColor || accentColor)) {
+        const c = tintColor ?? accentColor!
+        return {
+          ...style,
+          backgroundColor: `color-mix(in srgb, ${c} 10%, var(--surface-1))`,
+        }
+      }
+      return style
+    })()
 
     return (
       <Comp
         ref={ref as React.Ref<HTMLDivElement>}
+        data-card
+        data-card-variant={variant ?? 'plain'}
+        data-card-padding={padding ?? 'md'}
         className={cn(cardVariants({ variant, padding }), className)}
-        style={accentStyle}
+        style={computedStyle}
         {...props}
       />
     )
@@ -90,10 +151,7 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
 )
 Card.displayName = 'Card'
 
-/**
- * Card 内部语义区：Header（标题区）
- * 默认 flex（title 左、action 右），下方自带 12px margin-bottom
- */
+/** CardHeader - 标题区（iOS 风紧凑） */
 export const CardHeader = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
     <div
@@ -105,56 +163,47 @@ export const CardHeader = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivEleme
 )
 CardHeader.displayName = 'CardHeader'
 
-/** CardTitle - 标题文案 */
-export const CardTitle = forwardRef<
-  HTMLHeadingElement,
-  HTMLAttributes<HTMLHeadingElement>
->(({ className, ...props }, ref) => (
-  <h3
-    ref={ref}
-    className={cn(
-      'text-base font-semibold text-[var(--text-primary)] leading-snug tracking-tight',
-      className,
-    )}
-    {...props}
-  />
-))
+export const CardTitle = forwardRef<HTMLHeadingElement, HTMLAttributes<HTMLHeadingElement>>(
+  ({ className, ...props }, ref) => (
+    <h3
+      ref={ref}
+      className={cn('headline text-[var(--label)]', className)}
+      {...props}
+    />
+  ),
+)
 CardTitle.displayName = 'CardTitle'
 
-/** CardDescription - 描述副标题 */
-export const CardDescription = forwardRef<
-  HTMLParagraphElement,
-  HTMLAttributes<HTMLParagraphElement>
->(({ className, ...props }, ref) => (
-  <p
-    ref={ref}
-    className={cn('text-xs leading-relaxed text-[var(--text-hint)] mt-0.5', className)}
-    {...props}
-  />
-))
+export const CardDescription = forwardRef<HTMLParagraphElement, HTMLAttributes<HTMLParagraphElement>>(
+  ({ className, ...props }, ref) => (
+    <p
+      ref={ref}
+      className={cn('footnote text-[var(--label-secondary)] mt-0.5', className)}
+      {...props}
+    />
+  ),
+)
 CardDescription.displayName = 'CardDescription'
 
-/** CardContent - 正文区 */
-export const CardContent = forwardRef<
-  HTMLDivElement,
-  HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div ref={ref} className={cn('', className)} {...props} />
-))
+export const CardContent = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => (
+    <div ref={ref} className={cn('', className)} {...props} />
+  ),
+)
 CardContent.displayName = 'CardContent'
 
-/** CardFooter - 底部操作区 */
-export const CardFooter = forwardRef<
-  HTMLDivElement,
-  HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn('flex items-center gap-2 mt-4 pt-3', className)}
-    style={{ borderTop: '1px solid var(--border-light)' }}
-    {...props}
-  />
-))
+export const CardFooter = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => (
+    <div
+      ref={ref}
+      className={cn(
+        'flex items-center gap-2 mt-4 pt-3 border-t border-[var(--separator)]',
+        className,
+      )}
+      {...props}
+    />
+  ),
+)
 CardFooter.displayName = 'CardFooter'
 
 export { cardVariants }

@@ -1,38 +1,30 @@
 /**
- * TodaySummary - 4 列进度条摘要（FR-A3）
+ * TodaySummary v7 — iOS Health 风今日指标卡（2×2 格）
  *
- * 列：feeding（次数/8）/ sleep（时长/月龄目标）/ diaper（次数/6）/ temperature（最新值，无进度条）
- * - 点击任一列调用对应回调（推荐打开对应 Dialog）
- * - 体温 ≥38.5 整列变红 + 顶部警示横条由父组件渲染
- * - 睡眠列右上角支持嵌入「开始/结束」实时计时按钮（v4.3.2）：
- *   传入 `sleepActive` 时显示「结束」按钮，否则显示「开始」按钮；
- *   点击按钮不会触发卡片本身的 onSelect。
- *
- * v5.0.1 Batch 3：
- * - 4 格容器 `.card-base` → `<Card variant="accent" accentColor>`
- * - 睡眠开始/结束按钮 → `<Button size="xs">`
- * - 条形进度 `.progress-bar` → `<Progress accentColor size="sm">`
- * - 发烧警示条 → `<Alert variant="danger" size="compact">`
+ * 关键变化（相对 v6）：
+ * - 从 4 列并排改为 2×2 网格（更接近 iOS Health 的 Summary 布局）
+ * - 每格 iOS tinted 风：浅底色（--feeding-bg 等）+ 深色主字 + 柔和副字
+ * - 大数字用 metric-md (22px SF Rounded)，去掉 Progress 条（iOS Health 风不用）
+ * - 睡眠计时按钮：放在 "睡眠" 卡片右下角，圆形 icon button
+ * - 发烧预警：整卡背景变 --danger-bg + 主字变 --danger-fg
+ * - 卡片入场：staggerCompact
  */
-import { Baby, Moon, Droplets, Thermometer, Play, Square } from 'lucide-react'
-import type { TodayStats } from '@/types'
-import { Card } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Progress } from '@/components/ui/progress'
-import { Alert } from '@/components/ui/alert'
+import { motion } from 'framer-motion'
+import type { ComponentType, SVGProps } from 'react'
+import { Baby as BabyIcon, Droplets, Moon, Play, Square, Thermometer } from 'lucide-react';import type { TodayStats } from '@/types'
+import { staggerContainer, staggerItem, pressableSubtle } from '@/lib/motion'
 import { computeDailyGoals } from '@/lib/age-goals'
+import { cn } from '@/lib/utils'
+
+type IconComponent = ComponentType<SVGProps<SVGSVGElement> & { size?: number | string }>
 
 interface TodaySummaryProps {
   stats: TodayStats
   birthDateIso?: string
   onSelect?: (key: 'feeding' | 'sleep' | 'diaper' | 'temperature') => void
-  /** 是否存在进行中睡眠（用于切换按钮形态） */
   sleepActive?: boolean
-  /** 是否允许写操作（viewer / 未授权时为 false，按钮禁用） */
   canControlSleep?: boolean
-  /** 点击睡眠卡片右上角按钮：开始计时 */
   onStartSleep?: () => void
-  /** 点击睡眠卡片右上角按钮：结束计时 */
   onEndSleep?: () => void
 }
 
@@ -54,164 +46,194 @@ export function TodaySummary({
   onEndSleep,
 }: TodaySummaryProps) {
   const goals = computeDailyGoals(birthDateIso)
-
   const tempValue = stats.temperature.latestValue
-  const tempColor =
-    tempValue == null
-      ? 'var(--temperature)'
-      : tempValue >= 38.5
-        ? 'var(--danger)'
-        : tempValue >= 37.5
-          ? 'var(--warning)'
-          : 'var(--temperature)'
 
-  const items = [
+  // 体温预警级别
+  const tempLevel =
+    tempValue == null
+      ? 'normal'
+      : tempValue >= 38.5
+        ? 'danger'
+        : tempValue >= 37.5
+          ? 'warning'
+          : 'normal'
+
+  type Item = {
+    key: 'feeding' | 'sleep' | 'diaper' | 'temperature'
+    label: string
+    Icon: IconComponent
+    mainValue: string
+    subValue: string
+    bg: string // --feeding-bg / --sleep-bg / ...
+    fg: string // --feeding-fg / --sleep-fg / ...
+    accent: string // --feeding / --sleep / ... (图标+按钮色)
+  }
+
+  const items: Item[] = [
     {
-      key: 'feeding' as const,
+      key: 'feeding',
       label: '喂养',
-      Icon: Baby,
-      value: stats.feeding.count,
-      detail:
+      Icon: BabyIcon,
+      mainValue: `${stats.feeding.count}`,
+      subValue:
         stats.feeding.totalAmount > 0
-          ? `共 ${stats.feeding.totalAmount}ml`
+          ? `共 ${stats.feeding.totalAmount} ml`
           : `目标 ${goals.feeding} 次`,
-      progress: Math.min(1, stats.feeding.count / goals.feeding),
-      color: 'var(--feeding)',
-      showProgress: true,
+      bg: 'var(--feeding-bg)',
+      fg: 'var(--feeding-fg)',
+      accent: 'var(--feeding)',
     },
     {
-      key: 'sleep' as const,
+      key: 'sleep',
       label: '睡眠',
       Icon: Moon,
-      value: formatSleepDuration(stats.sleep.totalDuration),
-      detail: `共 ${stats.sleep.count} 次`,
-      progress: Math.min(1, stats.sleep.totalDuration / goals.sleep),
-      color: 'var(--sleep)',
-      showProgress: true,
-      isText: true,
+      mainValue: formatSleepDuration(stats.sleep.totalDuration),
+      subValue: `共 ${stats.sleep.count} 次`,
+      bg: 'var(--sleep-bg)',
+      fg: 'var(--sleep-fg)',
+      accent: 'var(--sleep)',
     },
     {
-      key: 'diaper' as const,
-      label: '换尿布',
+      key: 'diaper',
+      label: '尿布',
       Icon: Droplets,
-      value: stats.diaper.count,
-      detail: `尿 ${stats.diaper.peeCount} / 便 ${stats.diaper.poopCount}`,
-      progress: Math.min(1, stats.diaper.count / goals.diaper),
-      color: 'var(--diaper)',
-      showProgress: true,
+      mainValue: `${stats.diaper.count}`,
+      subValue: `尿 ${stats.diaper.peeCount} · 便 ${stats.diaper.poopCount}`,
+      bg: 'var(--diaper-bg)',
+      fg: 'var(--diaper-fg)',
+      accent: 'var(--diaper)',
     },
     {
-      key: 'temperature' as const,
+      key: 'temperature',
       label: '体温',
       Icon: Thermometer,
-      value: tempValue != null ? `${tempValue}°C` : '--',
-      detail:
+      mainValue: tempValue != null ? `${tempValue}°` : '—',
+      subValue:
         tempValue == null
           ? '尚未测量'
-          : tempValue >= 38.5
+          : tempLevel === 'danger'
             ? '发烧'
-            : tempValue >= 37.5
+            : tempLevel === 'warning'
               ? '低烧'
               : '正常',
-      progress: 0,
-      color: tempColor,
-      showProgress: false,
-      isText: true,
+      bg: tempLevel === 'danger' ? 'var(--danger-bg)' : tempLevel === 'warning' ? 'var(--warning-bg)' : 'var(--temperature-bg)',
+      fg: tempLevel === 'danger' ? 'var(--temperature-fg)' : tempLevel === 'warning' ? 'var(--diaper-fg)' : 'var(--temperature-fg)',
+      accent: tempLevel === 'danger' ? 'var(--danger)' : tempLevel === 'warning' ? 'var(--warning)' : 'var(--temperature)',
     },
   ]
 
-  const showFeverWarning = tempValue != null && tempValue >= 38.5
-
   return (
-    <div className="space-y-2">
-      {showFeverWarning && (
-        <Alert
-          variant="danger"
-          size="compact"
-          icon={<Thermometer className="h-3.5 w-3.5" />}
-          className="animate-fade-in"
-        >
-          宝宝体温偏高，请注意观察
-        </Alert>
-      )}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {items.map((item) => {
-          const isSleep = item.key === 'sleep'
-          const showSleepAction = isSleep && (onStartSleep || onEndSleep)
-          return (
-            <Card
-              key={item.key}
-              variant="accent"
-              accentColor={item.color}
-              padding="sm"
-              role="button"
-              tabIndex={0}
-              onClick={() => onSelect?.(item.key)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  onSelect?.(item.key)
-                }
-              }}
-              className="cursor-pointer flex flex-col gap-2.5 transition-all hover:border-[var(--primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/40"
-              // accent 在左侧 3px，这里用 borderTop 代替（保持旧视觉）
-              style={{ borderLeft: 'none', borderTop: `3px solid ${item.color}` }}
-            >
-              <div className="flex items-center justify-between">
-                <span className="caption">{item.label}</span>
-                {showSleepAction ? (
-                  <Button
-                    type="button"
-                    variant="primary"
-                    size="xs"
-                    disabled={!canControlSleep}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      if (sleepActive) onEndSleep?.()
-                      else onStartSleep?.()
-                    }}
-                    title={sleepActive ? '结束当前睡眠' : '开始睡眠计时'}
-                    aria-label={sleepActive ? '结束当前睡眠' : '开始睡眠计时'}
-                    accentColor={
-                      sleepActive
-                        ? 'var(--danger)'
-                        : `color-mix(in srgb, ${item.color} 18%, transparent)`
-                    }
-                    className="rounded-full"
-                    style={{ color: sleepActive ? '#FFFFFF' : item.color }}
-                    leftIcon={
-                      sleepActive ? (
-                        <Square className="h-3 w-3 fill-current" />
-                      ) : (
-                        <Play className="h-3 w-3 fill-current" />
-                      )
-                    }
-                  >
-                    {sleepActive ? '结束' : '开始'}
-                  </Button>
-                ) : (
-                  <item.Icon className="h-4 w-4" style={{ color: item.color }} />
-                )}
-              </div>
-              <div
-                className="flex items-baseline display-number"
-                style={{ minHeight: 32, color: item.color }}
+    <motion.div
+      className="grid grid-cols-2 gap-3"
+      data-today-summary
+      variants={staggerContainer}
+      initial="initial"
+      animate="animate"
+    >
+      {items.map((item) => {
+        const isSleep = item.key === 'sleep'
+        const showSleepAction = isSleep && (onStartSleep || onEndSleep)
+
+        return (
+          <motion.div
+            key={item.key}
+            variants={staggerItem}
+            data-today-card
+            className={cn(
+              'relative overflow-hidden',
+              'rounded-[var(--radius-lg)]',
+              'p-4 cursor-pointer select-none min-w-0',
+              'transition-shadow duration-200',
+              'focus-visible:outline-none focus-visible:ring-2',
+              'focus-visible:ring-[color-mix(in_srgb,var(--brand)_40%,transparent)]',
+            )}
+            style={{ backgroundColor: item.bg }}
+            role="button"
+            tabIndex={0}
+            onClick={() => onSelect?.(item.key)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                onSelect?.(item.key)
+              }
+            }}
+            whileTap={pressableSubtle.whileTap}
+            transition={pressableSubtle.transition}
+          >
+            {/* Header: label + icon */}
+            <div className="flex items-center justify-between mb-3 min-w-0 gap-2">
+              <span
+                className="text-[13px] font-semibold truncate"
+                style={{ color: item.fg, opacity: 0.8 }}
               >
-                <span className="text-2xl leading-none">{item.value}</span>
-              </div>
-              <div className="caption text-[var(--text-hint)]">{item.detail}</div>
-              {item.showProgress && (
-                <Progress
-                  value={Math.round(item.progress * 100)}
-                  max={100}
-                  size="sm"
-                  accentColor={item.color}
+                {item.label}
+              </span>
+              <div
+                className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+                style={{
+                  backgroundColor: `color-mix(in srgb, ${item.accent} 18%, transparent)`,
+                }}
+              >
+                <item.Icon
+                  className="h-4 w-4"
+                  style={{ color: item.accent }}
                 />
-              )}
-            </Card>
-          )
-        })}
-      </div>
-    </div>
+              </div>
+            </div>
+
+            {/* Main value */}
+            <div
+              className="metric-lg mb-1 truncate"
+              style={{ color: item.fg }}
+            >
+              {item.mainValue}
+            </div>
+
+            {/* Sub value */}
+            <div
+              className="text-[12px] font-medium truncate"
+              style={{ color: item.fg, opacity: 0.7 }}
+            >
+              {item.subValue}
+            </div>
+
+            {/* Sleep action button — 右下角悬浮 */}
+            {showSleepAction && (
+              <motion.button
+                type="button"
+                disabled={!canControlSleep}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (sleepActive) onEndSleep?.()
+                  else onStartSleep?.()
+                }}
+                className={cn(
+                  'absolute bottom-3 right-3',
+                  'w-8 h-8 rounded-full flex items-center justify-center',
+                  'shadow-[var(--shadow-sm)]',
+                  'transition-opacity disabled:opacity-40',
+                  'focus-visible:outline-none focus-visible:ring-2',
+                  'focus-visible:ring-[color-mix(in_srgb,var(--brand)_40%,transparent)]',
+                )}
+                style={{
+                  backgroundColor: sleepActive ? 'var(--danger)' : item.accent,
+                  color: '#fff',
+                }}
+                whileTap={{ scale: 0.9 }}
+                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                aria-label={sleepActive ? '结束睡眠' : '开始睡眠'}
+                title={sleepActive ? '结束当前睡眠' : '开始睡眠计时'}
+              >
+                {sleepActive ? (
+                  <Square className="h-3.5 w-3.5 fill-current" />
+                ) : (
+                  <Play className="h-3.5 w-3.5 fill-current ml-0.5" />
+                )}
+              </motion.button>
+            )}
+          </motion.div>
+        )
+      })}
+    </motion.div>
   )
 }

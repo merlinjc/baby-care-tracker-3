@@ -8,8 +8,7 @@
  */
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Sparkles, Loader2, ChevronRight } from 'lucide-react'
-import { aiService } from '@/services/ai'
+import { ChevronRight, Loader2, Sparkles } from 'lucide-react';import { aiService } from '@/services/ai'
 import { toast } from '@/components/ui/toast'
 import { Card } from '@/components/ui/card'
 import type { Baby } from '@/types'
@@ -87,12 +86,9 @@ export function ReportAiSummary({ baby, data }: ReportAiSummaryProps) {
 
   return (
     <Card
-      padding="sm"
+      padding="md"
+      variant="glass"
       className="space-y-3"
-      style={{
-        background:
-          'linear-gradient(135deg, color-mix(in srgb, var(--sleep) 8%, var(--bg-card)), var(--bg-card))',
-      }}
     >
       <div className="flex items-center gap-2">
         <div

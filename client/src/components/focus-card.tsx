@@ -1,19 +1,19 @@
 /**
- * FocusCard - 发现页聚焦卡片
+ * FocusCard v7.1 - iOS Hero 风聚焦卡（视觉层次微调）
  *
- * 动态展示"最紧急事项"：优先级 overdue > upcoming > encouragement。
- * 左侧 3px 色条 + 图标 + 标题 + 描述 + 右侧跳转指示。
- *
- * v5.0.1 Batch 3：
- * - 外层 `.card-interactive` + inline borderLeft → `<Card variant="accent" accentColor>`
- * - 右上角徽章 → `<Badge size="xs">`（根据 urgency 映射 variant）
- * - 保持"点击整卡"交互（以及 Enter/Space 键盘可达）
+ * v7.1 改动：
+ * - icon 与文字间距 gap-3 → gap-3.5（更呼吸）
+ * - 标题与描述行间距 mt-0.5 → mt-1（4px，避免标题压描述）
+ * - 描述 truncate → line-clamp-2（长文案优雅折行而非截断）
+ * - 卡片内 padding md → 上下各 +2px（更稳重）
  */
 import type { ReactNode } from 'react'
+import { ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { Card } from '@/components/ui/card'
 import { Badge, type BadgeProps } from '@/components/ui/badge'
+import { pressableSubtle } from '@/lib/motion'
 
 export type FocusUrgency = 'overdue' | 'upcoming' | 'normal'
 
@@ -22,23 +22,33 @@ interface FocusCardProps {
   title: string
   description: string
   icon?: ReactNode
-  /** 跳转路由；传 targetUrl 则渲染为可跳转卡 */
   targetUrl?: string
   onClick?: () => void
-  /** 可选右上角标签文案（例如"1 项逾期"） */
   badge?: string
 }
 
-const URGENCY_COLOR: Record<FocusUrgency, string> = {
-  overdue: 'var(--danger)',
-  upcoming: 'var(--warning)',
-  normal: 'var(--success)',
-}
-
-const URGENCY_BADGE_VARIANT: Record<FocusUrgency, BadgeProps['variant']> = {
-  overdue: 'danger',
-  upcoming: 'warning',
-  normal: 'success',
+const URGENCY_CONFIG: Record<
+  FocusUrgency,
+  { color: string; bg: string; fg: string; badge: BadgeProps['variant'] }
+> = {
+  overdue: {
+    color: 'var(--danger)',
+    bg: 'var(--danger-bg)',
+    fg: 'var(--danger-fg)',
+    badge: 'danger',
+  },
+  upcoming: {
+    color: 'var(--warning)',
+    bg: 'var(--warning-bg)',
+    fg: 'var(--warning-fg)',
+    badge: 'warning',
+  },
+  normal: {
+    color: 'var(--success)',
+    bg: 'var(--success-bg)',
+    fg: 'var(--success-fg)',
+    badge: 'success',
+  },
 }
 
 const URGENCY_LABEL: Record<FocusUrgency, string> = {
@@ -57,7 +67,7 @@ export function FocusCard({
   badge,
 }: FocusCardProps) {
   const navigate = useNavigate()
-  const color = URGENCY_COLOR[urgency]
+  const cfg = URGENCY_CONFIG[urgency]
 
   const handleClick = () => {
     if (onClick) onClick()
@@ -65,45 +75,66 @@ export function FocusCard({
   }
 
   return (
-    <Card
-      as="article"
-      variant="accent"
-      accentColor={color}
-      padding="md"
-      onClick={handleClick}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          handleClick()
-        }
-      }}
-      className="cursor-pointer w-full flex items-center gap-3 text-left transition-transform hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/40"
-    >
-      {icon && (
-        <div
-          className="icon-circle icon-circle--md shrink-0"
-          style={{
-            backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)`,
-            color,
-          }}
-        >
-          {icon}
+    <motion.div whileTap={pressableSubtle.whileTap} transition={pressableSubtle.transition}>
+      <Card
+        as="article"
+        variant="tinted"
+        tintColor={cfg.color}
+        padding="none"
+        onClick={handleClick}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            handleClick()
+          }
+        }}
+        className="cursor-pointer w-full flex items-center gap-3.5 text-left px-4 py-3.5 sm:px-5 sm:py-4 focus-visible:outline-none focus-visible:ring-2"
+        style={{
+          backgroundColor: cfg.bg,
+        }}
+        data-focus-card
+      >
+        {icon && (
+          <div
+            className="shrink-0 w-11 h-11 rounded-full flex items-center justify-center"
+            style={{
+              backgroundColor: `color-mix(in srgb, ${cfg.color} 22%, transparent)`,
+              color: cfg.fg,
+            }}
+          >
+            {icon}
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="headline truncate" style={{ color: cfg.fg }}>
+              {title}
+            </span>
+            <Badge size="xs" variant={cfg.badge}>
+              {badge ?? URGENCY_LABEL[urgency]}
+            </Badge>
+          </div>
+          <p
+            className="footnote mt-1"
+            style={{
+              color: cfg.fg,
+              opacity: 0.78,
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+            }}
+          >
+            {description}
+          </p>
         </div>
-      )}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="body-md font-medium text-[var(--text-primary)] truncate">
-            {title}
-          </span>
-          <Badge size="xs" variant={URGENCY_BADGE_VARIANT[urgency]}>
-            {badge ?? URGENCY_LABEL[urgency]}
-          </Badge>
-        </div>
-        <p className="caption mt-0.5 truncate">{description}</p>
-      </div>
-      <ChevronRight className="h-4 w-4 shrink-0" style={{ color: 'var(--text-hint)' }} />
-    </Card>
+        <ChevronRight
+          className="h-4 w-4 shrink-0"
+          style={{ color: cfg.fg, opacity: 0.55 }}
+        />
+      </Card>
+    </motion.div>
   )
 }

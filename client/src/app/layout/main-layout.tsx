@@ -1,9 +1,9 @@
-import { Outlet, NavLink } from 'react-router-dom';
-import { Home, ClipboardList, Compass, User, Check, ChevronsUpDown, Baby as BabyIcon } from 'lucide-react';
+import { Outlet, NavLink, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Check, ChevronDown, Clipboard, Compass, Home, User, UserCircle } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth-store';
-import { Navigate } from 'react-router-dom';
-import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useFamilyStore } from '@/stores/family-store';
 import { useBabyStore } from '@/stores/baby-store';
@@ -20,17 +20,13 @@ import { Avatar, BabyAvatar } from '@/components/ui/avatar';
 
 const navItems = [
   { to: '/', icon: Home, label: '首页' },
-  { to: '/record', icon: ClipboardList, label: '记录' },
+  { to: '/record', icon: Clipboard, label: '记录' },
   { to: '/discover', icon: Compass, label: '发现' },
-  { to: '/profile', icon: User, label: '我的' },
+  { to: '/profile', icon: UserCircle, label: '我的' },
 ];
 
 /**
- * SidebarBabyCard - 桌面 Sidebar 底部的"当前宝宝"卡
- * 点击展开下拉列表，切换宝宝。
- *
- * v5.0.1 Batch 2：重写为基于 <DropdownMenu> (radix) 驱动。
- * v5.0.1 Batch 3：头像统一迁移到 <BabyAvatar> / <Avatar>。
+ * SidebarBabyCard v7 — 桌面 Sidebar 底部当前宝宝卡（iOS 风圆润）
  */
 function SidebarBabyCard() {
   const babies = useBabyStore((s) => s.babies);
@@ -38,9 +34,7 @@ function SidebarBabyCard() {
   const selectBaby = useBabyStore((s) => s.selectBaby);
   const queryClient = useQueryClient();
 
-  if (babies.length === 0) {
-    return null;
-  }
+  if (babies.length === 0) return null;
 
   const handleSelect = (baby: Baby) => {
     selectBaby(baby.id);
@@ -55,19 +49,23 @@ function SidebarBabyCard() {
         <button
           type="button"
           className={cn(
-            'w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors',
-            'border border-[var(--border-light)] bg-[var(--bg-card)] hover:border-[var(--primary)]',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/40'
+            'w-full flex items-center gap-3 px-3 py-2.5',
+            'rounded-[14px] transition-colors',
+            'bg-[var(--surface-2)] hover:bg-[var(--surface-hover)]',
+            'focus-visible:outline-none focus-visible:ring-2',
+            'focus-visible:ring-[color-mix(in_srgb,var(--brand)_40%,transparent)]',
           )}
         >
           {currentBaby ? (
             <>
               <BabyAvatar baby={currentBaby} size="md" />
               <div className="flex-1 min-w-0 text-left">
-                <p className="body-md font-medium text-[var(--text-primary)] truncate">
+                <p className="text-[14px] font-semibold text-[var(--label)] truncate">
                   {currentBaby.name}
                 </p>
-                <p className="caption truncate">{getAgeLabel(currentBaby.birthDate)}</p>
+                <p className="text-[12px] text-[var(--label-tertiary)] truncate">
+                  {getAgeLabel(currentBaby.birthDate)}
+                </p>
               </div>
             </>
           ) : (
@@ -75,18 +73,21 @@ function SidebarBabyCard() {
               <Avatar size="md">
                 <div
                   className="flex h-full w-full items-center justify-center"
-                  style={{ backgroundColor: 'var(--bg-elevated)' }}
+                  style={{ backgroundColor: 'var(--surface-hover)' }}
                 >
-                  <BabyIcon className="h-4 w-4" style={{ color: 'var(--text-hint)' }} />
+                  <User className="h-4 w-4" style={{ color: 'var(--label-tertiary)' }} />
                 </div>
               </Avatar>
               <div className="flex-1 min-w-0 text-left">
-                <p className="body-md font-medium text-[var(--text-secondary)]">选择宝宝</p>
-                <p className="caption">{babies.length} 位可选</p>
+                <p className="text-[14px] font-semibold text-[var(--label-secondary)]">选择宝宝</p>
+                <p className="text-[12px] text-[var(--label-tertiary)]">{babies.length} 位可选</p>
               </div>
             </>
           )}
-          <ChevronsUpDown className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--text-hint)' }} />
+          <ChevronDown
+            className="h-3.5 w-3.5 shrink-0"
+            style={{ color: 'var(--label-tertiary)' }}
+          />
         </button>
       </DropdownMenuTrigger>
 
@@ -102,11 +103,13 @@ function SidebarBabyCard() {
             <DropdownMenuItem key={baby.id} onSelect={() => handleSelect(baby)}>
               <BabyAvatar baby={baby} size="sm" />
               <div className="flex-1 min-w-0 text-left">
-                <p className="body-md text-[var(--text-primary)] truncate">{baby.name}</p>
-                <p className="caption truncate">{getAgeLabel(baby.birthDate)}</p>
+                <p className="text-[14px] text-[var(--label)] truncate">{baby.name}</p>
+                <p className="text-[12px] text-[var(--label-tertiary)] truncate">
+                  {getAgeLabel(baby.birthDate)}
+                </p>
               </div>
               {isCurrent && (
-                <Check className="h-4 w-4 shrink-0" style={{ color: 'var(--primary)' }} />
+                <Check className="h-4 w-4 shrink-0" style={{ color: 'var(--brand)' }} />
               )}
             </DropdownMenuItem>
           );
@@ -116,6 +119,14 @@ function SidebarBabyCard() {
   );
 }
 
+/**
+ * MainLayout v7 — iOS 风主框架
+ *
+ * 关键改造：
+ * - 桌面 Sidebar：圆角 Brand Logo + 激活态 tinted filled + spring icon
+ * - 移动端 TabBar：iOS 标准 hairline 分隔 + 激活色 --brand + bold icon 切换
+ * - 内容区默认 surface-0 底
+ */
 export function MainLayout() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const family = useFamilyStore((s) => s.family);
@@ -136,21 +147,35 @@ export function MainLayout() {
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-[var(--surface-0)]">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex lg:w-60 lg:flex-col lg:fixed lg:inset-y-0 bg-[var(--bg-secondary)] border-r border-[var(--border)]">
-        <div className="flex items-center h-16 px-5 border-b border-[var(--border)]">
+      <aside
+        className={cn(
+          'hidden lg:flex lg:w-60 lg:flex-col lg:fixed lg:inset-y-0',
+          'bg-[var(--surface-1)]',
+          'border-r border-[var(--separator)]',
+        )}
+      >
+        {/* Brand Logo */}
+        <div className="flex items-center h-16 px-5">
           <div className="flex items-center gap-2.5">
             <div
-              className="icon-circle icon-circle--sm"
-              style={{ backgroundColor: 'var(--primary)' }}
+              className="w-9 h-9 rounded-[10px] flex items-center justify-center"
+              style={{
+                background: 'linear-gradient(135deg, var(--brand) 0%, var(--brand-ink) 100%)',
+                boxShadow: 'var(--shadow-xs)',
+              }}
             >
-              <span className="text-white text-xs font-bold">B</span>
+              <span className="text-white text-[16px] font-bold">B</span>
             </div>
-            <h1 className="heading-md text-[var(--primary-dark)]">Baby Care</h1>
+            <h1 className="text-[18px] font-bold tracking-tight text-[var(--label)]">
+              Baby Care
+            </h1>
           </div>
         </div>
-        <nav className="flex-1 px-3 py-4 space-y-1">
+
+        {/* Nav */}
+        <nav className="flex-1 px-3 py-2 space-y-1">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
@@ -158,10 +183,12 @@ export function MainLayout() {
               end={item.to === '/'}
               className={({ isActive }) =>
                 cn(
-                  'flex items-center gap-3 px-3 py-2.5 rounded-xl body-md font-medium transition-all',
+                  'flex items-center gap-3 px-3 py-2.5 rounded-[10px]',
+                  'text-[15px] font-semibold',
+                  'transition-colors duration-150',
                   isActive
-                    ? 'bg-[color-mix(in_srgb,_var(--primary)_12%,_transparent)] text-[var(--primary-dark)]'
-                    : 'text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text-primary)]'
+                    ? 'bg-[color-mix(in_srgb,var(--brand)_14%,transparent)] text-[var(--brand-ink)]'
+                    : 'text-[var(--label-secondary)] hover:bg-[var(--surface-2)] hover:text-[var(--label)]',
                 )
               }
             >
@@ -170,23 +197,38 @@ export function MainLayout() {
             </NavLink>
           ))}
         </nav>
-        <div className="px-3 pb-3 space-y-2 border-t border-[var(--border)] pt-3">
+
+        {/* Bottom: Baby card + version */}
+        <div className="px-3 pb-4 space-y-2 pt-3 border-t border-[var(--separator)]">
           <SidebarBabyCard />
-          <p className="caption text-center">v4.3</p>
+          <p className="text-[11px] text-center text-[var(--label-tertiary)] font-medium">
+            v7.0
+          </p>
         </div>
       </aside>
 
-      {/* Main Content
-          data-app-main / data-app-content：CSS 兜底钩子，避免 Tailwind 4 JIT 偶发漏扫 */}
+      {/* Main Content */}
       <main data-app-main className="flex-1 lg:ml-60 pb-20 lg:pb-0 flex flex-col">
-        <div data-app-content className="flex-1 max-w-3xl mx-auto w-full px-5 sm:px-6 py-7 lg:py-8">
+        <div data-app-content className="flex-1 max-w-3xl mx-auto w-full px-5 sm:px-6 py-6 lg:py-8">
           <Outlet />
         </div>
         <Footer />
       </main>
 
-      {/* Mobile TabBar */}
-      <nav data-app-tabbar className="lg:hidden fixed bottom-0 left-0 right-0 bg-[var(--bg-secondary)] border-t border-[var(--border)] z-50" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      {/* Mobile TabBar — iOS 风 hairline + 激活态 */}
+      <nav
+        data-app-tabbar
+        className={cn(
+          'lg:hidden fixed bottom-0 left-0 right-0 z-50',
+          'bg-[var(--surface-1)]/92 backdrop-blur-xl',
+          'border-t border-[var(--separator)]',
+        )}
+        style={{
+          paddingBottom: 'env(safe-area-inset-bottom)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+        }}
+      >
         <div data-app-tabbar-inner className="flex items-center justify-around h-16">
           {navItems.map((item) => (
             <NavLink
@@ -195,20 +237,26 @@ export function MainLayout() {
               end={item.to === '/'}
               className={({ isActive }) =>
                 cn(
-                  'flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors',
-                  isActive ? 'text-[var(--primary-dark)]' : 'text-[var(--text-hint)]'
+                  'flex flex-col items-center justify-center gap-0.5',
+                  'flex-1 h-full transition-colors',
+                  isActive ? 'text-[var(--brand-ink)]' : 'text-[var(--label-tertiary)]',
                 )
               }
             >
               {({ isActive }) => (
                 <>
-                  <div className="relative">
-                    <item.icon className={cn('w-5 h-5 transition-all', isActive && 'scale-110')} strokeWidth={isActive ? 2.5 : 2} />
-                    {isActive && (
-                      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[var(--primary)]" />
+                  <motion.div
+                    animate={isActive ? { scale: 1.08 } : { scale: 1 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                  >
+                    <item.icon className="w-6 h-6" />
+                  </motion.div>
+                  <span
+                    className={cn(
+                      'text-[10px] transition-all',
+                      isActive ? 'font-semibold' : 'font-medium',
                     )}
-                  </div>
-                  <span className={cn('transition-all', isActive ? 'text-[10px] font-semibold' : 'text-[10px] font-medium')}>
+                  >
                     {item.label}
                   </span>
                 </>

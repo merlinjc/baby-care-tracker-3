@@ -9,6 +9,7 @@
  */
 import { Baby, Moon, Droplets, Thermometer } from 'lucide-react'
 import { Card } from '@/components/ui/card'
+import { NumberRoll } from '@/components/number-roll'
 import type { ReportMetrics } from '@/hooks/use-report-data'
 
 interface ReportMetricsGridProps {
@@ -31,6 +32,7 @@ interface Cell {
   Icon: typeof Baby
   color: string
   value: string
+  numericValue: number
   unit?: string
   subText: string
 }
@@ -47,6 +49,7 @@ export function ReportMetricsGrid({ metrics, days }: ReportMetricsGridProps) {
       Icon: Baby,
       color: 'var(--feeding)',
       value: String(metrics.feeding.count),
+      numericValue: metrics.feeding.count,
       unit: '次',
       subText:
         metrics.feeding.totalAmount > 0
@@ -59,6 +62,7 @@ export function ReportMetricsGrid({ metrics, days }: ReportMetricsGridProps) {
       Icon: Moon,
       color: 'var(--sleep)',
       value: sleep.value,
+      numericValue: Math.round(metrics.sleep.totalDurationSec / 3600),
       unit: sleep.unit,
       subText: `共 ${metrics.sleep.count} 段`,
     },
@@ -68,6 +72,7 @@ export function ReportMetricsGrid({ metrics, days }: ReportMetricsGridProps) {
       Icon: Droplets,
       color: 'var(--diaper)',
       value: String(metrics.diaper.count),
+      numericValue: metrics.diaper.count,
       unit: '次',
       subText: `尿 ${metrics.diaper.peeCount} / 便 ${metrics.diaper.poopCount} · 日均 ${diaperAvg}`,
     },
@@ -78,6 +83,7 @@ export function ReportMetricsGrid({ metrics, days }: ReportMetricsGridProps) {
       color:
         metrics.temperature.abnormalCount > 0 ? 'var(--danger)' : 'var(--temperature)',
       value: String(metrics.temperature.count),
+      numericValue: metrics.temperature.count,
       unit: '次',
       subText:
         metrics.temperature.abnormalCount > 0
@@ -88,8 +94,8 @@ export function ReportMetricsGrid({ metrics, days }: ReportMetricsGridProps) {
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-      {cells.map((cell) => (
-        <Card key={cell.key} padding="sm">
+      {cells.map((cell, idx) => (
+        <Card key={cell.key} padding="md" className="page-enter" style={{ animationDelay: `${idx * 80}ms` }}>
           <div className="flex items-center gap-2 mb-2">
             <div
               className="icon-circle"
@@ -110,7 +116,7 @@ export function ReportMetricsGrid({ metrics, days }: ReportMetricsGridProps) {
             className="display-number flex items-baseline gap-0.5"
             style={{ color: cell.color, fontSize: 'var(--text-2xl)' }}
           >
-            {cell.value}
+            <NumberRoll value={cell.numericValue} />
             {cell.unit && (
               <span
                 className="font-medium"

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Moon } from 'lucide-react'
+import { Moon } from 'lucide-react';
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { SegmentedControl } from '@/components/ui/segmented-control'
 import { Input } from '@/components/ui/input'

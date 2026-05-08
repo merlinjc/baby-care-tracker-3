@@ -21,7 +21,7 @@ export function BabyCard({ baby, isActive, onClick }: BabyCardProps) {
     <Card
       as="article"
       variant="interactive"
-      padding="sm"
+      padding="md"
       onClick={onClick}
       role="button"
       tabIndex={0}

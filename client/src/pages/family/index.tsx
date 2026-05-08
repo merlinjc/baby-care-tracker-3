@@ -1,13 +1,23 @@
+/**
+ * FamilyPage v7 - iOS Settings × 美拉德
+ *
+ * 重构：
+ * - PageHeader → LargeTitleHeader
+ * - 未加入家庭：tinted Card 大入口（创建/加入）
+ * - 已加入：family Hero（家庭名 + 当前角色 Badge）+ 邀请码段 + 成员段 + 危险操作段
+ * - 危险操作改为 destructive-plain Button block
+ */
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Users, Plus, LogOut, Trash2, Crown, Edit3, Eye } from 'lucide-react'
-import { useFamilyStore } from '@/stores/family-store'
+import { motion } from 'framer-motion'
+import { Crown, Edit3, Eye, LogOut, PlusCircle, Trash2, Users } from 'lucide-react';import { useFamilyStore } from '@/stores/family-store'
 import { InviteSection } from '@/components/family/invite-section'
 import { MembersSection } from '@/components/family/members-section'
 import { TransferAdminDialog } from '@/components/family/transfer-admin-dialog'
 import { toast } from '@/components/ui/toast'
 import { useConfirm } from '@/components/ui/confirm-dialog'
-import { PageHeader } from '@/components/page-header'
+import { LargeTitleHeader } from '@/components/ui/large-title-header'
+import { SectionHeader } from '@/components/ui/section-header'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -15,13 +25,17 @@ import { Input } from '@/components/ui/input'
 import { FormField } from '@/components/ui/form-field'
 import { CareRoleSelector } from '@/components/care-role-selector'
 import { getCareRoleMeta } from '@/lib/care-role'
+import { staggerContainer, staggerItem, pressableSubtle } from '@/lib/motion'
 import type { CareRole } from '@/types'
 import { ApiError } from '@/lib/api-error'
 
-const ROLE_BADGE: Record<'admin' | 'editor' | 'viewer', { icon: typeof Crown; label: string; color: string }> = {
-  admin: { icon: Crown, label: '管理员', color: 'var(--primary)' },
-  editor: { icon: Edit3, label: '成员', color: 'var(--sleep)' },
-  viewer: { icon: Eye, label: '仅查看', color: 'var(--text-hint)' },
+const ROLE_BADGE: Record<
+  'admin' | 'editor' | 'viewer',
+  { icon: typeof Crown; label: string; variant: 'brand' | 'sleep' | 'default' }
+> = {
+  admin: { icon: Crown, label: '管理员', variant: 'brand' },
+  editor: { icon: Edit3, label: '成员', variant: 'sleep' },
+  viewer: { icon: Eye, label: '仅查看', variant: 'default' },
 }
 
 export function FamilyPage() {
@@ -49,7 +63,6 @@ export function FamilyPage() {
 
   const isAdmin = currentRole === 'admin'
 
-  // 选定身份时若昵称仍为空，自动填入身份默认名（如"妈妈"），用户仍可覆盖
   const handleSelectCareRole = (next: CareRole) => {
     setCareRole(next)
     if (!nickname.trim()) {
@@ -101,7 +114,6 @@ export function FamilyPage() {
     }
   }
 
-  // FR-C5：退出家庭状态机
   const handleLeave = async () => {
     const ok = await confirm({
       title: '退出当前家庭？',
@@ -124,11 +136,13 @@ export function FamilyPage() {
         case 'need_transfer':
           setTransferDialog({
             open: true,
-            candidates: (result.otherMembers ?? []).map((m: { id: string; nickname: string; avatar: string | null }) => ({
-              id: m.id,
-              nickname: m.nickname,
-              avatar: m.avatar ?? null,
-            })),
+            candidates: (result.otherMembers ?? []).map(
+              (m: { id: string; nickname: string; avatar: string | null }) => ({
+                id: m.id,
+                nickname: m.nickname,
+                avatar: m.avatar ?? null,
+              }),
+            ),
             thenLeave: true,
           })
           break
@@ -163,161 +177,209 @@ export function FamilyPage() {
   // ========== 未加入家庭 ==========
   if (!family) {
     return (
-      <div className="space-y-5 animate-fade-in-up">
-        <PageHeader title="家庭" backTo="/profile" />
-        <div className="empty-state">
-          <Users className="h-12 w-12 empty-state__icon" />
-          <p className="empty-state__title">您还未加入家庭</p>
-          <p className="empty-state__desc">创建或加入一个家庭开始使用</p>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <Card
-            as="article"
-            variant="interactive"
-            padding="lg"
-            role="button"
-            tabIndex={0}
-            onClick={() => {
-              setShowCreate(true)
-              setShowJoin(false)
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
+      <motion.div
+        className="space-y-5"
+        data-page-stack
+        variants={staggerContainer}
+        initial="initial"
+        animate="animate"
+      >
+        <motion.div variants={staggerItem}>
+          <LargeTitleHeader title="家庭" backTo="/profile" />
+        </motion.div>
+
+        <motion.div variants={staggerItem}>
+          <Card variant="cta" padding="lg" className="text-center">
+            <Users
+              className="h-10 w-10 mx-auto mb-2"
+              style={{ color: 'var(--brand)' }}
+            />
+            <p className="headline" style={{ color: 'var(--label)' }}>
+              您还未加入家庭
+            </p>
+            <p
+              className="footnote mt-1"
+              style={{ color: 'var(--label-tertiary)' }}
+            >
+              创建或加入一个家庭开始使用
+            </p>
+          </Card>
+        </motion.div>
+
+        <motion.div variants={staggerItem} className="grid grid-cols-2 gap-3" data-grid-2>
+          <motion.div whileTap={pressableSubtle.whileTap} transition={pressableSubtle.transition}>
+            <Card
+              as="article"
+              padding="lg"
+              role="button"
+              tabIndex={0}
+              onClick={() => {
                 setShowCreate(true)
                 setShowJoin(false)
-              }
-            }}
-            className="flex flex-col items-center gap-2 text-center"
-          >
-            <div
-              className="icon-circle icon-circle--md"
-              style={{ backgroundColor: 'color-mix(in srgb, var(--primary) 12%, transparent)' }}
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  setShowCreate(true)
+                  setShowJoin(false)
+                }
+              }}
+              className="flex flex-col items-center gap-2 text-center cursor-pointer"
+              style={{ backgroundColor: 'var(--brand-soft)' }}
             >
-              <Plus className="h-5 w-5" style={{ color: 'var(--primary)' }} />
-            </div>
-            <span className="body-md font-medium">创建家庭</span>
-          </Card>
-          <Card
-            as="article"
-            variant="interactive"
-            padding="lg"
-            role="button"
-            tabIndex={0}
-            onClick={() => {
-              setShowJoin(true)
-              setShowCreate(false)
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
+              <div
+                className="w-12 h-12 rounded-[14px] flex items-center justify-center"
+                style={{
+                  backgroundColor: 'color-mix(in srgb, var(--brand) 22%, transparent)',
+                  color: 'var(--brand-ink)',
+                }}
+              >
+                <PlusCircle className="h-6 w-6" />
+              </div>
+              <span className="headline" style={{ color: 'var(--brand-ink)' }}>
+                创建家庭
+              </span>
+            </Card>
+          </motion.div>
+          <motion.div whileTap={pressableSubtle.whileTap} transition={pressableSubtle.transition}>
+            <Card
+              as="article"
+              padding="lg"
+              role="button"
+              tabIndex={0}
+              onClick={() => {
                 setShowJoin(true)
                 setShowCreate(false)
-              }
-            }}
-            className="flex flex-col items-center gap-2 text-center"
-          >
-            <div
-              className="icon-circle icon-circle--md"
-              style={{ backgroundColor: 'color-mix(in srgb, var(--sleep) 12%, transparent)' }}
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  setShowJoin(true)
+                  setShowCreate(false)
+                }
+              }}
+              className="flex flex-col items-center gap-2 text-center cursor-pointer"
+              style={{ backgroundColor: 'var(--sleep-bg)' }}
             >
-              <Users className="h-5 w-5" style={{ color: 'var(--sleep)' }} />
-            </div>
-            <span className="body-md font-medium">加入家庭</span>
-          </Card>
-        </div>
+              <div
+                className="w-12 h-12 rounded-[14px] flex items-center justify-center"
+                style={{
+                  backgroundColor: 'color-mix(in srgb, var(--sleep) 22%, transparent)',
+                  color: 'var(--sleep-fg)',
+                }}
+              >
+                <Users className="h-6 w-6" />
+              </div>
+              <span className="headline" style={{ color: 'var(--sleep-fg)' }}>
+                加入家庭
+              </span>
+            </Card>
+          </motion.div>
+        </motion.div>
 
         {showCreate && (
-          <Card as="section" className="animate-slide-up">
-            <form onSubmit={handleCreate} className="space-y-4">
-              <h2 className="heading-sm">创建家庭</h2>
-            <FormField label="家庭名称" htmlFor="family-name" required>
-              <Input
-                id="family-name"
-                type="text"
-                value={familyName}
-                onChange={(e) => setFamilyName(e.target.value)}
-                required
-                placeholder="如：小明的家"
-              />
-            </FormField>
-            <FormField
-              label="我的身份"
-              htmlFor="family-create-role"
-              required
-              hint="用于 AI 每日洞察个性化称呼与建议，日后可在家庭页调整"
-            >
-              <CareRoleSelector value={careRole} onChange={handleSelectCareRole} />
-            </FormField>
-            <FormField
-              label="在家庭中的昵称"
-              htmlFor="family-create-nickname"
-              required
-              hint="家庭成员列表里显示的名字，默认跟随身份"
-            >
-              <Input
-                id="family-create-nickname"
-                type="text"
-                value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
-                required
-                placeholder="如：妈妈、爸爸"
-              />
-            </FormField>
-            <Button type="submit" loading={isSubmitting} block>
-              {isSubmitting ? '创建中...' : '创建家庭'}
-            </Button>
-            </form>
-          </Card>
+          <motion.div
+            variants={staggerItem}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <Card as="section">
+              <form onSubmit={handleCreate} className="space-y-4">
+                <h2 className="headline" style={{ color: 'var(--label)' }}>
+                  创建家庭
+                </h2>
+                <FormField label="家庭名称" htmlFor="family-name" required>
+                  <Input
+                    id="family-name"
+                    value={familyName}
+                    onChange={(e) => setFamilyName(e.target.value)}
+                    required
+                    placeholder="如：小明的家"
+                  />
+                </FormField>
+                <FormField
+                  label="我的身份"
+                  htmlFor="family-create-role"
+                  required
+                  hint="用于 AI 每日洞察个性化称呼与建议，日后可在家庭页调整"
+                >
+                  <CareRoleSelector value={careRole} onChange={handleSelectCareRole} />
+                </FormField>
+                <FormField
+                  label="在家庭中的昵称"
+                  htmlFor="family-create-nickname"
+                  required
+                  hint="家庭成员列表里显示的名字，默认跟随身份"
+                >
+                  <Input
+                    id="family-create-nickname"
+                    value={nickname}
+                    onChange={(e) => setNickname(e.target.value)}
+                    required
+                    placeholder="如：妈妈、爸爸"
+                  />
+                </FormField>
+                <Button type="submit" variant="filled" loading={isSubmitting} block>
+                  {isSubmitting ? '创建中...' : '创建家庭'}
+                </Button>
+              </form>
+            </Card>
+          </motion.div>
         )}
 
         {showJoin && (
-          <Card as="section" className="animate-slide-up">
-            <form onSubmit={handleJoin} className="space-y-4">
-              <h2 className="heading-sm">加入家庭</h2>
-            <FormField label="邀请码" htmlFor="family-invite-code" required>
-              <Input
-                id="family-invite-code"
-                type="text"
-                value={inviteCode}
-                onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-                required
-                placeholder="ABC 123"
-                className="font-mono text-center"
-                style={{ fontSize: 'var(--text-lg)' }}
-                maxLength={10}
-              />
-            </FormField>
-            <FormField
-              label="我的身份"
-              htmlFor="family-join-role"
-              required
-              hint="用于 AI 每日洞察个性化称呼与建议，日后可在家庭页调整"
-            >
-              <CareRoleSelector value={careRole} onChange={handleSelectCareRole} />
-            </FormField>
-            <FormField
-              label="在家庭中的昵称"
-              htmlFor="family-join-nickname"
-              required
-              hint="家庭成员列表里显示的名字，默认跟随身份"
-            >
-              <Input
-                id="family-join-nickname"
-                type="text"
-                value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
-                required
-                placeholder="如：妈妈、爸爸"
-              />
-            </FormField>
-            <Button type="submit" loading={isSubmitting} block>
-              {isSubmitting ? '加入中...' : '加入家庭'}
-            </Button>
-            </form>
-          </Card>
+          <motion.div
+            variants={staggerItem}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <Card as="section">
+              <form onSubmit={handleJoin} className="space-y-4">
+                <h2 className="headline" style={{ color: 'var(--label)' }}>
+                  加入家庭
+                </h2>
+                <FormField label="邀请码" htmlFor="family-invite-code" required>
+                  <Input
+                    id="family-invite-code"
+                    value={inviteCode}
+                    onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                    required
+                    placeholder="ABC 123"
+                    className="font-mono text-center"
+                    style={{ fontSize: '20px', letterSpacing: '0.1em' }}
+                    maxLength={10}
+                  />
+                </FormField>
+                <FormField
+                  label="我的身份"
+                  htmlFor="family-join-role"
+                  required
+                  hint="用于 AI 每日洞察个性化称呼与建议，日后可在家庭页调整"
+                >
+                  <CareRoleSelector value={careRole} onChange={handleSelectCareRole} />
+                </FormField>
+                <FormField
+                  label="在家庭中的昵称"
+                  htmlFor="family-join-nickname"
+                  required
+                  hint="家庭成员列表里显示的名字，默认跟随身份"
+                >
+                  <Input
+                    id="family-join-nickname"
+                    value={nickname}
+                    onChange={(e) => setNickname(e.target.value)}
+                    required
+                    placeholder="如：妈妈、爸爸"
+                  />
+                </FormField>
+                <Button type="submit" variant="filled" loading={isSubmitting} block>
+                  {isSubmitting ? '加入中...' : '加入家庭'}
+                </Button>
+              </form>
+            </Card>
+          </motion.div>
         )}
-      </div>
+      </motion.div>
     )
   }
 
@@ -326,64 +388,81 @@ export function FamilyPage() {
 
   return (
     <>
-      <div className="space-y-5 animate-fade-in-up">
-        <PageHeader
-          title={family.name}
-          backTo="/profile"
-          action={
-            roleBadge ? (
-              <Badge
-                size="xs"
-                accentColor={roleBadge.color}
-                icon={<roleBadge.icon className="h-2.5 w-2.5" />}
-              >
-                {roleBadge.label}
-              </Badge>
-            ) : null
-          }
-        />
-
-        {/* 邀请码区 —— 仅 admin 可见 */}
-        {isAdmin && (
-          <InviteSection
-            inviteCode={family.inviteCode}
-            inviteCodeExpiry={family.inviteCodeExpiry}
-            canRefresh={isAdmin}
+      <motion.div
+        className="space-y-5"
+        data-page-stack
+        variants={staggerContainer}
+        initial="initial"
+        animate="animate"
+      >
+        <motion.div variants={staggerItem}>
+          <LargeTitleHeader
+            title={family.name}
+            subtitle={`${family.members.length} 位成员`}
+            backTo="/profile"
+            rightAction={
+              roleBadge ? (
+                <Badge
+                  size="sm"
+                  variant={roleBadge.variant}
+                  icon={<roleBadge.icon className="h-3 w-3" />}
+                >
+                  {roleBadge.label}
+                </Badge>
+              ) : null
+            }
           />
+        </motion.div>
+
+        {/* 邀请码段 - 仅 admin */}
+        {isAdmin && (
+          <motion.div variants={staggerItem}>
+            <SectionHeader title="邀请新成员" variant="grouped" />
+            <InviteSection
+              inviteCode={family.inviteCode}
+              inviteCodeExpiry={family.inviteCodeExpiry}
+              canRefresh={isAdmin}
+            />
+          </motion.div>
         )}
 
-        {/* 家庭成员列表 */}
-        <Card>
-          <div className="section-header">
-            <span className="section-header__title">家庭成员 · {family.members.length}</span>
-          </div>
-          <MembersSection />
-        </Card>
+        {/* 成员段 */}
+        <motion.div variants={staggerItem}>
+          <SectionHeader
+            title={`成员 · ${family.members.length}`}
+            variant="grouped"
+          />
+          <Card padding="md">
+            <MembersSection />
+          </Card>
+        </motion.div>
 
-        {/* 危险操作区 */}
-        <div className="space-y-2 pt-2">
-          <Button
-            variant="danger-outline"
-            block
-            onClick={handleLeave}
-            leftIcon={<LogOut className="h-4 w-4" />}
-          >
-            退出家庭
-          </Button>
-          {isAdmin && (
+        {/* 危险操作 */}
+        <motion.div variants={staggerItem} className="space-y-2 pt-2">
+          <SectionHeader title="危险操作" variant="grouped" />
+          <Card padding="md" className="space-y-2">
             <Button
-              variant="danger-outline"
+              variant="destructive-plain"
               block
-              onClick={handleDissolve}
-              leftIcon={<Trash2 className="h-4 w-4" />}
+              onClick={handleLeave}
+              leftIcon={<LogOut className="h-4 w-4" />}
             >
-              解散家庭
+              退出家庭
             </Button>
-          )}
-        </div>
-      </div>
+            {isAdmin && (
+              <Button
+                variant="destructive-plain"
+                block
+                onClick={handleDissolve}
+                leftIcon={<Trash2 className="h-4 w-4" />}
+              >
+                解散家庭
+              </Button>
+            )}
+          </Card>
+        </motion.div>
+      </motion.div>
 
-      {/* leaveFamily.need_transfer 触发的转让对话框 */}
       <TransferAdminDialog
         open={transferDialog.open}
         onClose={() => setTransferDialog({ ...transferDialog, open: false })}

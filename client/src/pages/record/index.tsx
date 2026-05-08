@@ -1,5 +1,16 @@
+/**
+ * RecordPage v7 - iOS Health × 美拉德暖色
+ *
+ * 重构：
+ * - PageHeader → LargeTitleHeader（rightAction 放筛选 + 添加）
+ * - 类型 Tabs → SegmentedControl
+ * - 记录卡：每条用 ListRow 风（左色条 accentColor + 圆 icon + 标题 badge + 时间 + 详情/备注）
+ * - 按日期分组用 SectionHeader variant="grouped"
+ * - 业务逻辑（useInfiniteQuery / IntersectionObserver / 增删改）完全保留
+ */
 import { useEffect, useState, useRef, useMemo } from 'react'
-import { Baby, Moon, Droplets, Thermometer, Ruler, Trash2, Pencil, Calendar, Lock, ClipboardList, UserCircle2 } from 'lucide-react'
+import { Calendar, ClipboardList, Droplets, Lock, Moon, Pencil, Ruler, Thermometer, Trash2, User, UserCircle } from 'lucide-react';
+import { motion } from 'framer-motion'
 import { useInfiniteQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query'
 import { useBabyStore } from '@/stores/baby-store'
 import { usePermission } from '@/hooks/use-permission'
@@ -9,7 +20,9 @@ import { recordService } from '@/services/record'
 import { getRecordSummary, getRecordDetails } from '@/lib/record'
 import { parseNote } from '@/lib/note-tags'
 import { buildTodaySummaryText } from '@/lib/today-summary'
-import { PageHeader } from '@/components/page-header'
+import { LargeTitleHeader } from '@/components/ui/large-title-header'
+import { SectionHeader } from '@/components/ui/section-header'
+import { SegmentedControl } from '@/components/ui/segmented-control'
 import { Button } from '@/components/ui/button'
 import { IconButton } from '@/components/ui/icon-button'
 import { Card } from '@/components/ui/card'
@@ -26,13 +39,46 @@ import { GrowthDialog } from '@/components/growth-dialog'
 import { InsightSection } from '@/components/insight-section'
 import { useConfirm } from '@/components/ui/confirm-dialog'
 import type { CareRecord, RecordType, PaginatedResponse } from '@baby-care-tracker/shared'
+import { staggerContainer, staggerItem } from '@/lib/motion'
 
-const recordTypeConfig: { [K in RecordType]: { icon: typeof Baby; label: string; color: string } } = {
-  feeding: { icon: Baby, label: '喂养', color: 'var(--feeding)' },
-  sleep: { icon: Moon, label: '睡眠', color: 'var(--sleep)' },
-  diaper: { icon: Droplets, label: '换尿布', color: 'var(--diaper)' },
-  temperature: { icon: Thermometer, label: '体温', color: 'var(--temperature)' },
-  growth: { icon: Ruler, label: '生长', color: 'var(--growth)' },
+const recordTypeConfig: {
+  [K in RecordType]: { icon: React.FC<{ className?: string }>; label: string; color: string; bg: string; fg: string }
+} = {
+  feeding: {
+    icon: User,
+    label: '喂养',
+    color: 'var(--feeding)',
+    bg: 'var(--feeding-bg)',
+    fg: 'var(--feeding-fg)',
+  },
+  sleep: {
+    icon: Moon,
+    label: '睡眠',
+    color: 'var(--sleep)',
+    bg: 'var(--sleep-bg)',
+    fg: 'var(--sleep-fg)',
+  },
+  diaper: {
+    icon: Droplets,
+    label: '换尿布',
+    color: 'var(--diaper)',
+    bg: 'var(--diaper-bg)',
+    fg: 'var(--diaper-fg)',
+  },
+  temperature: {
+    icon: Thermometer,
+    label: '体温',
+    color: 'var(--temperature)',
+    bg: 'var(--temperature-bg)',
+    fg: 'var(--temperature-fg)',
+  },
+  growth: {
+    icon: Ruler,
+    label: '生长',
+    color: 'var(--growth)',
+    bg: 'var(--growth-bg)',
+    fg: 'var(--growth-fg)',
+  },
 }
 
 export function RecordPage() {
@@ -44,7 +90,6 @@ export function RecordPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const observerRef = useRef<HTMLDivElement>(null)
 
-  // Date filter
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [showDateFilter, setShowDateFilter] = useState(false)
@@ -57,10 +102,8 @@ export function RecordPage() {
 
   const PAGE_SIZE = 20
 
-  // FR-B：本周趋势（从首页迁入）
   const { data: weeklyTrend, isLoading: trendLoading } = useWeeklyTrend(currentBaby?.id)
 
-  // Records: useInfiniteQuery（基于后端 hasMore，避免"正好一满页触发空请求"的临界问题）
   const recordsQueryKey = useMemo(
     () => ['records', currentBaby?.id, 'list', activeType, startDate || null, endDate || null] as const,
     [currentBaby?.id, activeType, startDate, endDate],
@@ -73,7 +116,13 @@ export function RecordPage() {
     hasNextPage,
     fetchNextPage,
     refetch: refetchRecords,
-  } = useInfiniteQuery<PaginatedResponse<CareRecord>, Error, InfiniteData<PaginatedResponse<CareRecord>>, typeof recordsQueryKey, number>({
+  } = useInfiniteQuery<
+    PaginatedResponse<CareRecord>,
+    Error,
+    InfiniteData<PaginatedResponse<CareRecord>>,
+    typeof recordsQueryKey,
+    number
+  >({
     queryKey: recordsQueryKey,
     enabled: !!currentBaby,
     initialPageParam: 1,
@@ -99,7 +148,6 @@ export function RecordPage() {
     [recordsData],
   )
 
-  // IntersectionObserver 触发分页
   useEffect(() => {
     const target = observerRef.current
     if (!target || !hasNextPage) return
@@ -137,7 +185,6 @@ export function RecordPage() {
           ...(meta.endTime !== undefined ? { endTime: meta.endTime } : {}),
         } as Parameters<typeof recordService.createRecord>[0])
       }
-      // 创建/更新后重新拉取（保持分页首页对齐）
       refetchRecords()
     } catch (err) {
       console.error('Failed to create/update record:', err)
@@ -155,7 +202,6 @@ export function RecordPage() {
     setDeletingId(id)
     try {
       await recordService.deleteRecord(id)
-      // 乐观更新：在所有分页数据里过滤掉该条
       queryClient.setQueryData<InfiniteData<PaginatedResponse<CareRecord>>>(
         recordsQueryKey,
         (old) => {
@@ -188,16 +234,13 @@ export function RecordPage() {
     dialogMap[type].openDialog(record)
   }
 
-  const handleEdit = (record: CareRecord) => {
-    openDialogForType(record.recordType, record)
-  }
+  const handleEdit = (record: CareRecord) => openDialogForType(record.recordType, record)
 
   const clearDateFilter = () => {
     setStartDate('')
     setEndDate('')
   }
 
-  // Group records by date label (今天/昨天/更早或 yyyy-mm-dd)
   const groupedRecords = (() => {
     const groups: { label: string; items: CareRecord[] }[] = []
     const todayKey = new Date().toDateString()
@@ -223,7 +266,6 @@ export function RecordPage() {
     return groups
   })()
 
-  // FR-D1.AC2：今日速览副标题（仅当筛选范围包含今日时显示动态文案）
   const pageSubtitle = useMemo(() => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -248,263 +290,310 @@ export function RecordPage() {
     })
   }, [records, startDate, endDate])
 
+  const typeOptions = [
+    { value: 'all', label: '全部' },
+    ...(Object.keys(recordTypeConfig) as RecordType[]).map((t) => ({
+      value: t,
+      label: recordTypeConfig[t].label,
+    })),
+  ]
+
   if (!currentBaby) {
     return (
       <div className="empty-state min-h-[50vh]">
-        <Baby className="h-12 w-12 empty-state__icon" />
+        <User className="h-12 w-12 empty-state__icon" />
         <p className="empty-state__title">请先选择一个宝宝</p>
       </div>
     )
   }
 
   return (
-    <div className="space-y-5">
-      {/* FR-D1：page-header + 今日速览副标题 */}
-      <PageHeader
-        title="记录"
-        variant="tab"
-        icon={<ClipboardList className="h-6 w-6" />}
-        accentColor="var(--primary)"
-        subtitle={pageSubtitle}
-        action={
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              leftIcon={<Calendar className="h-3.5 w-3.5" />}
-              active={showDateFilter}
-              onClick={() => setShowDateFilter(!showDateFilter)}
-            >
-              筛选
-            </Button>
-            {canEdit && (
-              <AddRecordMenu onPick={(type) => openDialogForType(type)} />
-            )}
-          </div>
-        }
-      />
+    <motion.div
+      className="space-y-6"
+      data-page-stack
+      variants={staggerContainer}
+      initial="initial"
+      animate="animate"
+    >
+      <motion.div variants={staggerItem}>
+        <LargeTitleHeader
+          title="记录"
+          subtitle={pageSubtitle}
+          rightAction={
+            <div className="flex items-center gap-2">
+              <Button
+                variant="plain"
+                size="sm"
+                leftIcon={<Calendar className="h-3.5 w-3.5" />}
+                active={showDateFilter}
+                onClick={() => setShowDateFilter(!showDateFilter)}
+              >
+                筛选
+              </Button>
+              {canEdit && <AddRecordMenu onPick={(type) => openDialogForType(type)} />}
+            </div>
+          }
+        />
+      </motion.div>
 
-      {/* FR-B：本周趋势（从首页迁入） */}
-      <div>
-        <div className="section-header">
-          <span className="section-header__title">本周趋势</span>
-        </div>
+      {/* 本周趋势 */}
+      <motion.div variants={staggerItem} className="space-y-3">
+        <SectionHeader title="本周趋势" variant="prominent" />
         <InsightSection trend={weeklyTrend ?? null} isLoading={trendLoading} />
-      </div>
+      </motion.div>
 
-      {/* Date Filter */}
+      {/* 日期筛选 */}
       {showDateFilter && (
-        <Card padding="sm" className="space-y-3 animate-slide-up">
-          <div className="flex items-center justify-between">
-            <span className="body-md font-medium text-[var(--text-secondary)]">日期范围</span>
-            {(startDate || endDate) && (
-              <button onClick={clearDateFilter} className="body-sm text-[var(--primary)] hover:underline font-medium">
-                清除筛选
-              </button>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <Input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              placeholder="开始日期"
-              wrapperClassName="flex-1"
-            />
-            <span className="body-sm text-[var(--text-hint)]">至</span>
-            <Input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              placeholder="结束日期"
-              wrapperClassName="flex-1"
-            />
-          </div>
-        </Card>
+        <motion.div
+          initial={{ opacity: 0, y: -8, height: 0 }}
+          animate={{ opacity: 1, y: 0, height: 'auto' }}
+          exit={{ opacity: 0, y: -8, height: 0 }}
+        >
+          <Card padding="md" className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="footnote font-medium" style={{ color: 'var(--label-secondary)' }}>
+                日期范围
+              </span>
+              {(startDate || endDate) && (
+                <button
+                  onClick={clearDateFilter}
+                  className="footnote font-semibold hover:underline"
+                  style={{ color: 'var(--brand-ink)' }}
+                >
+                  清除筛选
+                </button>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                placeholder="开始日期"
+                wrapperClassName="flex-1"
+              />
+              <span
+                className="footnote shrink-0"
+                style={{ color: 'var(--label-tertiary)' }}
+                aria-hidden
+              >
+                —
+              </span>
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                placeholder="结束日期"
+                wrapperClassName="flex-1"
+              />
+            </div>
+          </Card>
+        </motion.div>
       )}
 
-      {/* Type Tabs - 使用 Button ghost+active 实现"类型色切换" */}
-      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-        <Button
-          variant="ghost"
-          size="sm"
-          active={activeType === 'all'}
-          onClick={() => setActiveType('all')}
-          accentColor="var(--primary)"
-          className="rounded-full"
-        >
-          全部
-        </Button>
-        {(Object.keys(recordTypeConfig) as RecordType[]).map((type) => (
-          <Button
-            key={type}
-            variant="ghost"
-            size="sm"
-            active={activeType === type}
-            onClick={() => setActiveType(type)}
-            accentColor={recordTypeConfig[type].color}
-            className="rounded-full"
-          >
-            {recordTypeConfig[type].label}
-          </Button>
-        ))}
-      </div>
+      {/* 类型筛选 - SegmentedControl */}
+      <motion.div variants={staggerItem}>
+        <SegmentedControl
+          options={typeOptions}
+          value={activeType}
+          onChange={(v) => setActiveType(v as RecordType | 'all')}
+          size="md"
+        />
+      </motion.div>
 
-      {/* Records List */}
+      {/* 记录列表 */}
       {isLoading ? (
         <ListSkeleton count={5} />
       ) : records.length === 0 ? (
-        <div className="empty-state">
-          <ClipboardIcon className="h-12 w-12 empty-state__icon" />
-          <p className="empty-state__title">暂无记录</p>
-          <p className="empty-state__desc">点击添加按钮创建第一条记录</p>
-        </div>
+        <Card variant="cta" padding="lg" className="text-center">
+          <ClipboardList className="h-10 w-10 mx-auto mb-2" style={{ color: 'var(--label-tertiary)' }} />
+          <p className="headline" style={{ color: 'var(--label)' }}>
+            暂无记录
+          </p>
+          <p className="footnote mt-1" style={{ color: 'var(--label-tertiary)' }}>
+            点击右上角「添加」创建第一条记录
+          </p>
+        </Card>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-6">
           {groupedRecords.map((group) => (
-            <div key={group.label} className="space-y-2">
-              <div className="flex items-center gap-2 px-1">
-                <span className="caption font-semibold">
-                  {group.label}
-                </span>
-                <Badge size="xs" variant="default">
-                  {group.items.length}
-                </Badge>
-                <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border-light)' }} />
-              </div>
-              {group.items.map((record) => {
-                const config = recordTypeConfig[record.recordType]
-                const Icon = config.icon
-                const details = getRecordDetails(record)
-                const creatorLabel = record.creator?.nickname?.trim() || null
-                return (
-                  <Card
-                    key={record.id}
-                    padding="sm"
-                    className="flex items-start gap-3"
-                    style={{ borderLeft: `3px solid ${config.color}` }}
+            <motion.div
+              key={group.label}
+              variants={staggerItem}
+              className="space-y-2.5"
+            >
+              <SectionHeader
+                title={group.label}
+                variant="grouped"
+                action={
+                  <span
+                    className="caption-1 number-display"
+                    style={{ color: 'var(--label-tertiary)' }}
                   >
-                    <div
-                      className="icon-circle icon-circle--sm shrink-0 mt-0.5"
-                      style={{ backgroundColor: `color-mix(in srgb, ${config.color} 12%, transparent)` }}
-                    >
-                      <Icon className="h-4 w-4" style={{ color: config.color }} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="body-md font-medium text-[var(--text-primary)]">
-                          {config.label}
-                        </span>
-                        <span className="caption number-display shrink-0">
-                          {new Date(record.startTime).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
+                    {group.items.length} 条
+                  </span>
+                }
+              />
+              <Card padding="none">
+                <div className="ios-list">
+                  {group.items.map((record) => {
+                    const config = recordTypeConfig[record.recordType]
+                    const Icon = config.icon
+                    const details = getRecordDetails(record)
+                    const creatorLabel = record.creator?.nickname?.trim() || null
+                    const parsed = record.note ? parseNote(record.note) : null
 
-                      {/* 一行总览 */}
-                      <p className="body-sm text-[var(--text-secondary)] mt-0.5 truncate">
-                        {getRecordSummary(record)}
-                      </p>
+                    return (
+                      <div
+                        key={record.id}
+                        data-record-row
+                        className="relative flex items-start gap-3 px-4 py-3.5 min-w-0"
+                      >
+                        {/* 左色条 */}
+                        <span
+                          className="absolute left-0 top-3 bottom-3 w-1 rounded-r-full"
+                          style={{ backgroundColor: config.color }}
+                          aria-hidden
+                        />
+                        {/* 圆 icon */}
+                        <div
+                          className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center"
+                          style={{ backgroundColor: config.bg, color: config.fg }}
+                        >
+                          <Icon className="h-4 w-4" />
+                        </div>
 
-                      {/* 详细字段（key:value 标签组） */}
-                      {details.length > 0 && (
-                        <div className="mt-1.5 flex flex-wrap gap-1.5">
-                          {details.map((d) => (
-                            <span
-                              key={d.key}
-                              className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px]"
-                              style={{
-                                backgroundColor: 'var(--bg-elevated)',
-                                color: 'var(--text-secondary)',
-                              }}
-                            >
-                              <span className="opacity-60">{d.key}</span>
-                              <span className="number-display font-medium text-[var(--text-primary)]">
-                                {d.value}
-                              </span>
+                        {/* 主内容 */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="callout font-semibold truncate" style={{ color: 'var(--label)' }}>
+                              {config.label}
                             </span>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* 备注：标签 + 自由文本分别渲染 */}
-                      {record.note && (() => {
-                        const parsed = parseNote(record.note)
-                        if (parsed.tags.length === 0 && !parsed.freeText) return null
-                        return (
-                          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                            {parsed.tags.map((tag) => (
-                              <Badge key={tag} size="xs" accentColor={config.color}>
-                                #{tag}
-                              </Badge>
-                            ))}
-                            {parsed.freeText && (
-                              <span
-                                className="caption line-clamp-2"
-                                title={parsed.freeText}
-                                style={{ color: 'var(--text-hint)' }}
-                              >
-                                📝 {parsed.freeText}
-                              </span>
-                            )}
+                            <span
+                              className="caption-1 number-display shrink-0"
+                              style={{ color: 'var(--label-tertiary)' }}
+                            >
+                              {new Date(record.startTime).toLocaleTimeString('zh-CN', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </span>
                           </div>
-                        )
-                      })()}
 
-                      {/* 记录者昵称 */}
-                      {creatorLabel && (
-                        <div className="mt-1 flex items-center gap-1 caption" style={{ color: 'var(--text-hint)' }}>
-                          <UserCircle2 className="h-3 w-3" />
-                          <span className="truncate">由 {creatorLabel} 记录</span>
+                          <p className="footnote mt-0.5 truncate" style={{ color: 'var(--label-secondary)' }}>
+                            {getRecordSummary(record)}
+                          </p>
+
+                          {details.length > 0 && (
+                            <div className="mt-1.5 flex flex-wrap gap-1.5">
+                              {details.map((d) => (
+                                <span
+                                  key={d.key}
+                                  className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px]"
+                                  style={{
+                                    backgroundColor: 'var(--surface-2)',
+                                    color: 'var(--label-secondary)',
+                                  }}
+                                >
+                                  <span style={{ opacity: 0.6 }}>{d.key}</span>
+                                  <span
+                                    className="number-display font-semibold"
+                                    style={{ color: 'var(--label)' }}
+                                  >
+                                    {d.value}
+                                  </span>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          {parsed && (parsed.tags.length > 0 || parsed.freeText) && (
+                            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                              {parsed.tags.map((tag) => (
+                                <Badge key={tag} size="xs" accentColor={config.color}>
+                                  #{tag}
+                                </Badge>
+                              ))}
+                              {parsed.freeText && (
+                                <span
+                                  className="caption-1 line-clamp-2"
+                                  title={parsed.freeText}
+                                  style={{ color: 'var(--label-tertiary)' }}
+                                >
+                                  {parsed.freeText}
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          {creatorLabel && (
+                            <div
+                              className="mt-1 flex items-center gap-1 caption-1"
+                              style={{ color: 'var(--label-tertiary)' }}
+                            >
+                              <UserCircle className="h-3 w-3" />
+                              <span className="truncate">由 {creatorLabel} 记录</span>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-0.5 shrink-0">
-                      {canEdit && (
-                        <IconButton
-                          variant="ghost"
-                          size="sm"
-                          icon={<Pencil className="h-3.5 w-3.5" />}
-                          onClick={() => handleEdit(record)}
-                          aria-label="编辑"
-                        />
-                      )}
-                      {canEdit && (
-                        <IconButton
-                          variant="danger-ghost"
-                          size="sm"
-                          icon={<Trash2 className="h-3.5 w-3.5" />}
-                          onClick={() => deleteRecord(record.id)}
-                          disabled={deletingId === record.id}
-                          aria-label="删除"
-                        />
-                      )}
-                    </div>
-                  </Card>
-                )
-              })}
-            </div>
+
+                        {/* 操作 */}
+                        {canEdit && (
+                          <div className="flex items-center gap-0.5 shrink-0">
+                            <IconButton
+                              variant="ghost"
+                              size="sm"
+                              icon={<Pencil className="h-3.5 w-3.5" />}
+                              onClick={() => handleEdit(record)}
+                              aria-label="编辑"
+                            />
+                            <IconButton
+                              variant="danger-ghost"
+                              size="sm"
+                              icon={<Trash2 className="h-3.5 w-3.5" />}
+                              onClick={() => deleteRecord(record.id)}
+                              disabled={deletingId === record.id}
+                              aria-label="删除"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </Card>
+            </motion.div>
           ))}
-          {/* Infinite scroll trigger */}
+
+          {/* 分页触发 */}
           {hasNextPage ? (
             <div ref={observerRef} className="flex items-center justify-center py-4">
               {isFetchingNextPage ? (
-                <div className="flex items-center gap-2 text-[var(--text-hint)]">
+                <div
+                  className="flex items-center gap-2"
+                  style={{ color: 'var(--label-tertiary)' }}
+                >
                   <div className="spinner spinner--sm" />
-                  <span className="body-sm">加载更多...</span>
+                  <span className="footnote">加载更多...</span>
                 </div>
               ) : (
-                <span className="caption">下拉加载更多</span>
+                <span className="caption-1" style={{ color: 'var(--label-tertiary)' }}>
+                  下拉加载更多
+                </span>
               )}
             </div>
-          ) : records.length > 0 && (
-            <div className="flex items-center justify-center py-4">
-              <span className="caption">— 没有更多了 —</span>
-            </div>
+          ) : (
+            records.length > 0 && (
+              <div className="flex items-center justify-center py-4">
+                <span className="caption-1" style={{ color: 'var(--label-tertiary)' }}>
+                  — 没有更多了 —
+                </span>
+              </div>
+            )
           )}
         </div>
       )}
 
-      {/* Viewer notice */}
       {isViewer && (
         <Alert variant="info" size="compact" icon={<Lock className="h-3.5 w-3.5" />}>
           您是查看者，无法添加或修改记录
@@ -542,20 +631,6 @@ export function RecordPage() {
         editRecord={growthDialog.payload}
         onSubmit={(data, meta) => createRecord('growth', { growthData: data }, meta)}
       />
-    </div>
-  )
-}
-
-/** Simple clipboard icon component for empty state */
-function ClipboardIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
-      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
-      <path d="M12 11h4" />
-      <path d="M12 16h4" />
-      <path d="M8 11h.01" />
-      <path d="M8 16h.01" />
-    </svg>
+    </motion.div>
   )
 }

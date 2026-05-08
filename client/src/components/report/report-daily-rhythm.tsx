@@ -46,7 +46,7 @@ export function ReportDailyRhythm({ daily }: ReportDailyRhythmProps) {
   }
 
   return (
-    <Card padding="sm">
+    <Card padding="md">
       {/* 图例 */}
       <div className="flex items-center gap-4 mb-3">
         <LegendDot color="var(--feeding)" label={`喂养（次/日，峰值 ${maxFeeding}）`} />
@@ -65,12 +65,12 @@ export function ReportDailyRhythm({ daily }: ReportDailyRhythmProps) {
             return (
               <div
                 key={d.date}
-                className="flex-1 flex items-end gap-[2px] min-w-0"
+                className="group flex-1 flex items-end gap-[2px] min-w-0"
                 title={`${d.label}\n喂养 ${d.feedingCount} 次 · 睡眠 ${d.sleepHours}h · 排便 ${d.diaperCount} 次`}
                 style={{ height: CHART_HEIGHT }}
               >
                 <div
-                  className="flex-1 rounded-t-sm transition-all"
+                  className="flex-1 rounded-t-sm transition-all group-hover:opacity-100"
                   style={{
                     height: Math.max(2, feedingH),
                     backgroundColor:
@@ -81,7 +81,7 @@ export function ReportDailyRhythm({ daily }: ReportDailyRhythmProps) {
                   }}
                 />
                 <div
-                  className="flex-1 rounded-t-sm transition-all"
+                  className="flex-1 rounded-t-sm transition-all group-hover:opacity-100"
                   style={{
                     height: Math.max(2, sleepH),
                     backgroundColor:

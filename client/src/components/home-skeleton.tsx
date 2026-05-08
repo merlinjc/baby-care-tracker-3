@@ -22,7 +22,7 @@ export function HomeSkeleton() {
       {/* TodaySummary 4 列 */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[0, 1, 2, 3].map((i) => (
-          <Card key={i} padding="sm" className="flex flex-col gap-3">
+          <Card key={i} padding="md" className="flex flex-col gap-3">
             <Skeleton className="h-4 w-12" />
             <Skeleton className="h-8 w-16" />
             <Skeleton className="h-3 w-20" />

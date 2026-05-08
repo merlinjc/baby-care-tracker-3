@@ -85,7 +85,7 @@ export function ReportGrowthSection({ start, end }: ReportGrowthSectionProps) {
   const sameRecord = !!start && !!end && start.measuredAt === end.measuredAt
 
   return (
-    <Card padding="sm" className="space-y-3">
+    <Card variant="gradient-header" gradientColor="var(--gradient-growth)" accentWidth={2} padding="md" className="space-y-3">
       {rows.map((row) => {
         const delta = formatDelta(row.startValue, row.endValue, row.unit)
         return (

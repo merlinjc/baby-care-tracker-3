@@ -1,17 +1,36 @@
+/**
+ * ProfilePage v7.1 - iOS Settings × 美拉德暖色（视觉层次重梳理）
+ *
+ * 节奏（组内紧凑 / 组间 break）：
+ *   - 大标题 → Hero 卡：24px
+ *   - Hero 卡 → 「账户与数据」组标题：32px
+ *   - 组标题 → 该组卡片：6px
+ *   - 「账户与数据」组 → 「外观」组标题：32px
+ *   - 「外观」组内 主题卡 → 字体卡：16px
+ *   - 字体卡 → 退出登录：40px（destructive break）
+ *
+ * 所有节奏由 globals.css 的 [data-profile-*] 选择器集中管理，
+ * 该组件只负责给每个 stack 子项打上正确的 data 标签。
+ */
+import { useState } from 'react'
+import { Download, LogOut, Palette, Settings, Type, User, UserCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom'
-import { Users, Baby, Settings, ChevronRight, LogOut, Download, Palette, Type } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { useAuthStore } from '@/stores/auth-store'
 import { useBabyStore } from '@/stores/baby-store'
 import { useFamilyStore } from '@/stores/family-store'
 import { authService } from '@/services/auth'
 import { useConfirm } from '@/components/ui/confirm-dialog'
+import { LargeTitleHeader } from '@/components/ui/large-title-header'
+import { SectionHeader } from '@/components/ui/section-header'
+import { ListRow } from '@/components/ui/list-row'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { UserAvatar } from '@/components/ui/avatar'
 import { ThemeSelector } from '@/components/theme-selector'
 import { FontScaleSelector } from '@/components/font-scale-selector'
-import { useState } from 'react'
+import { staggerContainer, staggerItem } from '@/lib/motion'
 
 export function ProfilePage() {
   const user = useAuthStore((s) => s.user)
@@ -41,24 +60,17 @@ export function ProfilePage() {
     }
   }
 
-  /** 快捷入口配置 */
-  const menuItems: {
-    to: string
-    icon: typeof Users
-    label: string
-    detail?: string
-    color: string
-  }[] = [
+  const menuItems = [
     {
       to: '/baby',
-      icon: Baby,
+      icon: User,
       label: '宝宝管理',
       detail: babies.length > 0 ? `${babies.length} 位` : '未添加',
-      color: 'var(--primary)',
+      color: 'var(--brand)',
     },
     {
       to: '/family',
-      icon: Users,
+      icon: UserCircle,
       label: '家庭管理',
       detail: family?.name ?? '未加入',
       color: 'var(--sleep)',
@@ -67,123 +79,194 @@ export function ProfilePage() {
       to: '/settings?tab=export',
       icon: Download,
       label: '数据导出',
+      detail: undefined,
       color: 'var(--temperature)',
     },
     {
       to: '/settings',
       icon: Settings,
       label: '设置',
-      color: 'var(--text-hint)',
+      detail: undefined,
+      color: 'var(--label-tertiary)',
     },
   ]
 
   return (
-    // v5.0.0+：用 data-profile-stack 作为 CSS 兜底钩子，避免 Tailwind 4 JIT
-    // 偶发漏扫导致 space-y-* 失效时各模块挤在一起（与 MainLayout 同样的防御思路）。
-    <div data-profile-stack className="space-y-6 animate-fade-in-up">
-      {/* 用户卡（放大版） */}
-      <Card className="flex items-center gap-4">
-        <UserAvatar user={{ nickname: user?.nickname, avatar: null }} size="xl" />
-        <div className="flex-1 min-w-0">
-          <h2 className="heading-md text-[var(--text-primary)] truncate">
-            {user?.nickname || '未登录'}
-          </h2>
-          <p className="body-sm text-[var(--text-hint)] truncate">{user?.email || ''}</p>
-          {currentBaby && (
-            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-              <Badge size="xs" variant="primary" icon={<Baby className="h-3 w-3" />}>
-                {currentBaby.name}
-              </Badge>
-              {family && (
-                <Badge size="xs" variant="sleep">
-                  {family.name}
-                </Badge>
-              )}
-            </div>
-          )}
-        </div>
-      </Card>
+    <motion.div
+      data-page-stack
+      data-profile-stack
+      variants={staggerContainer}
+      initial="initial"
+      animate="animate"
+    >
+      {/* —— 1. Large Title —— */}
+      <motion.div variants={staggerItem} data-profile-row="title">
+        <LargeTitleHeader title="我的" />
+      </motion.div>
 
-      {/* 快捷入口分组列表（iOS 分组 Cell 风格） */}
-      <Card padding="none" className="overflow-hidden">
-        {menuItems.map((item, idx) => (
-          <button
-            key={item.to}
-            type="button"
-            onClick={() => navigate(item.to)}
-            className="w-full flex items-center gap-3.5 px-4 py-3.5 transition-colors hover:bg-[var(--bg-elevated)]"
-            style={{
-              borderTop: idx === 0 ? undefined : '1px solid var(--border-light)',
-            }}
-          >
-            <div
-              className="icon-circle icon-circle--sm"
-              style={{
-                backgroundColor: `color-mix(in srgb, ${item.color} 12%, transparent)`,
-              }}
-            >
-              <item.icon className="h-4 w-4" style={{ color: item.color }} />
-            </div>
-            <span className="body-md text-[var(--text-primary)] flex-1 text-left">
-              {item.label}
-            </span>
-            {item.detail && (
-              <span className="caption text-[var(--text-hint)] truncate max-w-[140px]">
-                {item.detail}
-              </span>
+      {/* —— 2. Hero 用户卡 —— */}
+      <motion.div variants={staggerItem} data-profile-row="hero">
+        <Card
+          variant="hero"
+          padding="lg"
+          className="flex items-center gap-5"
+          style={{ backgroundColor: 'var(--brand-soft)' }}
+        >
+          <UserAvatar user={{ nickname: user?.nickname, avatar: null }} size="xl" />
+          <div className="flex-1 min-w-0 flex flex-col gap-1">
+            <h2 className="title-3 truncate" style={{ color: 'var(--brand-ink)' }}>
+              {user?.nickname || '未登录'}
+            </h2>
+            {user?.email && (
+              <p
+                className="footnote truncate"
+                style={{ color: 'var(--label-secondary)' }}
+              >
+                {user.email}
+              </p>
             )}
-            <ChevronRight className="h-4 w-4 shrink-0" style={{ color: 'var(--text-hint)' }} />
-          </button>
-        ))}
-      </Card>
+            {(currentBaby || family) && (
+              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                {currentBaby && (
+                  <Badge size="xs" variant="brand" icon={<User className="h-3 w-3" />}>
+                    {currentBaby.name}
+                  </Badge>
+                )}
+                {family && (
+                  <Badge size="xs" variant="sleep">
+                    {family.name}
+                  </Badge>
+                )}
+              </div>
+            )}
+          </div>
+        </Card>
+      </motion.div>
 
-      {/* 外观（主题 + 字体大小）—— 放在"我的"直接可见可改，避免再跳设置页 */}
-      <Card as="section" className="space-y-4">
-        <div className="flex items-center gap-2">
-          <div
-            className="icon-circle icon-circle--sm"
-            style={{ backgroundColor: 'color-mix(in srgb, var(--primary) 12%, transparent)' }}
-          >
-            <Palette className="h-4 w-4" style={{ color: 'var(--primary)' }} />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="heading-sm" style={{ color: 'var(--text-primary)' }}>
-              主题外观
-            </h3>
-            <p className="caption mt-0.5">深夜照顾宝宝时建议切换为暖夜模式</p>
-          </div>
-        </div>
-        <ThemeSelector />
-      </Card>
+      {/* —— 3. 「账户与数据」分组标题 —— */}
+      <motion.div variants={staggerItem} data-profile-row="group-header">
+        <SectionHeader title="账户与数据" variant="grouped" />
+      </motion.div>
 
-      <Card as="section" className="space-y-4">
-        <div className="flex items-center gap-2">
-          <div
-            className="icon-circle icon-circle--sm"
-            style={{ backgroundColor: 'color-mix(in srgb, var(--primary) 12%, transparent)' }}
-          >
-            <Type className="h-4 w-4" style={{ color: 'var(--primary)' }} />
+      {/* —— 4. 「账户与数据」列表卡 —— */}
+      <motion.div variants={staggerItem} data-profile-row="group-content">
+        <Card padding="none">
+          <div className="ios-list">
+            {menuItems.map((item) => (
+              <ListRow
+                key={item.to}
+                leading={
+                  <div
+                    className="w-8 h-8 rounded-[8px] flex items-center justify-center"
+                    style={{
+                      backgroundColor: `color-mix(in srgb, ${item.color} 18%, transparent)`,
+                    }}
+                  >
+                    <item.icon className="h-4 w-4" style={{ color: item.color }} />
+                  </div>
+                }
+                title={item.label}
+                value={item.detail}
+                interactive
+                onClick={() => navigate(item.to)}
+              />
+            ))}
           </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="heading-sm" style={{ color: 'var(--text-primary)' }}>
-              字体大小
-            </h3>
-            <p className="caption mt-0.5">"特大"档位专为老年人 / 低视力场景优化</p>
-          </div>
-        </div>
-        <FontScaleSelector />
-      </Card>
+        </Card>
+      </motion.div>
 
-      {/* Logout */}
-      <Button
-        variant="danger-outline"
-        block
-        onClick={handleLogout}
-        loading={isLoggingOut}
-        leftIcon={<LogOut className="h-4 w-4" />}
-      >
-        {isLoggingOut ? '退出中...' : '退出登录'}
-      </Button>
-    </div>
+      {/* —— 5. 「外观」分组标题 —— */}
+      <motion.div variants={staggerItem} data-profile-row="group-header">
+        <SectionHeader title="外观" variant="grouped" />
+      </motion.div>
+
+      {/* —— 6. 主题模式卡 —— */}
+      <motion.div variants={staggerItem} data-profile-row="group-content">
+        <Card as="section" padding="lg">
+          <div className="flex items-center gap-3 mb-4">
+            <div
+              className="w-9 h-9 rounded-[10px] flex items-center justify-center shrink-0"
+              style={{ backgroundColor: 'var(--brand-soft)' }}
+            >
+              <Palette className="h-[18px] w-[18px]" style={{ color: 'var(--brand)' }} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3
+                className="font-semibold"
+                style={{
+                  color: 'var(--label)',
+                  fontSize: 'var(--text-headline)',
+                  lineHeight: 1.45,
+                }}
+              >
+                主题模式
+              </h3>
+              <p
+                className="mt-1"
+                style={{
+                  color: 'var(--label-tertiary)',
+                  fontSize: 'var(--text-caption-1)',
+                  lineHeight: 1.5,
+                }}
+              >
+                深夜照顾宝宝时建议切换为暖夜模式
+              </p>
+            </div>
+          </div>
+          <ThemeSelector />
+        </Card>
+      </motion.div>
+
+      {/* —— 7. 字体大小卡 —— */}
+      <motion.div variants={staggerItem} data-profile-row="group-content">
+        <Card as="section" padding="lg">
+          <div className="flex items-center gap-3 mb-4">
+            <div
+              className="w-9 h-9 rounded-[10px] flex items-center justify-center shrink-0"
+              style={{ backgroundColor: 'var(--brand-soft)' }}
+            >
+              <Type className="h-[18px] w-[18px]" style={{ color: 'var(--brand)' }} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3
+                className="font-semibold"
+                style={{
+                  color: 'var(--label)',
+                  fontSize: 'var(--text-headline)',
+                  lineHeight: 1.45,
+                }}
+              >
+                字体大小
+              </h3>
+              <p
+                className="mt-1"
+                style={{
+                  color: 'var(--label-tertiary)',
+                  fontSize: 'var(--text-caption-1)',
+                  lineHeight: 1.5,
+                }}
+              >
+                "特大"档位专为老年人 / 低视力场景优化
+              </p>
+            </div>
+          </div>
+          <FontScaleSelector />
+        </Card>
+      </motion.div>
+
+      {/* —— 8. 退出登录 —— */}
+      <motion.div variants={staggerItem} data-profile-logout>
+        <Button
+          variant="destructive-plain"
+          block
+          size="lg"
+          onClick={handleLogout}
+          loading={isLoggingOut}
+          leftIcon={<LogOut className="h-4 w-4" />}
+        >
+          {isLoggingOut ? '退出中...' : '退出登录'}
+        </Button>
+      </motion.div>
+    </motion.div>
   )
 }

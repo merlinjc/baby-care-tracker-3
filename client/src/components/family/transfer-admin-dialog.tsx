@@ -9,8 +9,7 @@
  * - thenLeave 场景顶部加 <Alert variant="warning"> 强调警告
  */
 import { useState } from 'react'
-import { Crown, ArrowRight } from 'lucide-react'
-import { Dialog, DialogFooter } from '@/components/ui/dialog'
+import { ChevronRight, Crown } from 'lucide-react';import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { RadioGroup, RadioGroupCard } from '@/components/ui/radio-group'
 import { Alert } from '@/components/ui/alert'
 import { useFamilyStore } from '@/stores/family-store'
@@ -146,7 +145,7 @@ export function TransferAdminDialog({
                 description="将变为管理员"
                 icon={<CandidateAvatar candidate={c} />}
                 accentColor="var(--primary)"
-                checkedAdornment={<ArrowRight className="h-4 w-4" />}
+                checkedAdornment={<ChevronRight className="h-4 w-4" />}
               />
             ))}
           </RadioGroup>

@@ -4,8 +4,8 @@
  * 编辑感设计：非对称留白 + 大号宝宝名 + 小号报告周期副标题；
  * 与发现页 FocusCard 差异化：不用色条，用渐变背景 + "一本册子"的视觉。
  */
-import { BookOpen } from 'lucide-react'
 import type { Baby } from '@/types'
+import { BookOpen } from 'lucide-react';
 import type { ReportPeriod, ReportPeriodRange } from '@/hooks/use-report-data'
 
 interface ReportCoverProps {
@@ -33,18 +33,17 @@ export function ReportCover({ baby, period, range }: ReportCoverProps) {
     <section
       className="relative overflow-hidden rounded-2xl p-6 md:p-8"
       style={{
-        background:
-          'linear-gradient(135deg, color-mix(in srgb, var(--primary) 18%, var(--bg-card)) 0%, color-mix(in srgb, var(--primary) 6%, var(--bg-card)) 60%, var(--bg-card) 100%)',
+        background: 'var(--gradient-primary)',
         border: '1px solid color-mix(in srgb, var(--primary) 20%, transparent)',
       }}
     >
-      {/* 右上角大号装饰字 */}
+      {/* 右下角大号装饰字 */}
       <div
-        className="pointer-events-none absolute -right-4 -top-4 select-none font-bold"
+        className="pointer-events-none absolute -right-4 -bottom-4 select-none font-bold"
         style={{
-          fontSize: 120,
+          fontSize: 140,
           lineHeight: 1,
-          color: 'color-mix(in srgb, var(--primary) 12%, transparent)',
+          color: 'color-mix(in srgb, var(--primary) 10%, transparent)',
           letterSpacing: '-0.04em',
         }}
         aria-hidden

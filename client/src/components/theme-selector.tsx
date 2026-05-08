@@ -7,8 +7,7 @@
  * v5.0.1 Batch 4：重构为基于 <RadioGroup> + <RadioGroupCard>（竖向网格布局）。
  * 由 radix 提供键盘 ← → 导航、roving tabindex、aria-checked。
  */
-import { Sun, Moon, Monitor } from 'lucide-react'
-import { useThemeStore, type ThemeMode } from '@/stores/theme-store'
+import { Monitor, Moon, Sun } from 'lucide-react';import { useThemeStore, type ThemeMode } from '@/stores/theme-store'
 import { RadioGroup, RadioGroupCard } from '@/components/ui/radio-group'
 
 const OPTIONS: { value: ThemeMode; label: string; desc: string; Icon: typeof Sun }[] = [

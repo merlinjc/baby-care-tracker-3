@@ -1,7 +1,21 @@
+/**
+ * HomePage v7 — iOS Health 风首页
+ *
+ * 信息架构（自上而下）：
+ *   1. LargeTitleHeader - 问候语 + 宝宝状态 + 右上角 BabySwitcher
+ *   2. StatusCapsule (Hero) - 仅在有 activeSleep / 异常 / 刚喂养时显示
+ *   3. TodaySummary (2x2) - 今日四大指标 tinted 色卡（点击可直接打开对应记录弹窗）
+ *   4. AI 洞察（去折叠，单卡 chip 风）
+ *   5. Today Timeline - ListRow 风时间线
+ *
+ * 注：原 QuickRecordBar（5 个彩色圆按钮快捷记录）已移除，
+ *     其功能与 TodaySummary 点击入口重复，统一由今日概览承接快捷记录。
+ */
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, Sparkles, Clock, RefreshCw, ChevronDown, ChevronUp, Lightbulb } from 'lucide-react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { motion } from 'framer-motion'
+import { AlertCircle, Clock, Lightbulb, PlusCircle, RefreshCw, Sparkles } from 'lucide-react';import { useQuery, useQueryClient } from '@tanstack/react-query'
+
 import { useAuthStore } from '@/stores/auth-store'
 import { useBabyStore } from '@/stores/baby-store'
 import { useFamilyStore } from '@/stores/family-store'
@@ -11,25 +25,36 @@ import { useLocalStorageState } from '@/hooks/use-local-storage-state'
 import { usePermission } from '@/hooks/use-permission'
 import { recordService } from '@/services/record'
 import { aiService } from '@/services/ai'
+
+// Dialogs
 import { FeedingDialog } from '@/components/feeding-dialog'
 import { SleepDialog } from '@/components/sleep-dialog'
 import { DiaperDialog } from '@/components/diaper-dialog'
 import { TemperatureDialog } from '@/components/temperature-dialog'
 import { GrowthDialog } from '@/components/growth-dialog'
+
+// Components
 import { Timeline } from '@/components/timeline'
 import { BabySwitcher } from '@/components/baby-switcher'
 import { StatusCapsule } from '@/components/status-capsule'
 import { TodaySummary } from '@/components/today-summary'
 import { HomeSkeleton } from '@/components/home-skeleton'
 import { EasterEggDisplay } from '@/components/easter-egg-display'
+
+// UI
 import { toast } from '@/components/ui/toast'
 import { useConfirm } from '@/components/ui/confirm-dialog'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { LargeTitleHeader } from '@/components/ui/large-title-header'
+import { SectionHeader } from '@/components/ui/section-header'
+
+// Lib
 import { buildFallbackInsight, isInsightEmpty } from '@/lib/insight-fallback'
 import { detectAll, type EggResult } from '@/lib/easter-egg'
 import { ApiError } from '@/lib/api-error'
 import { relationToCareRole } from '@/lib/care-role'
+import { staggerContainer, staggerItem } from '@/lib/motion'
 import type { TodayStats, RecordType, CareRecord, DailyInsight, CareRole } from '@/types'
 
 const defaultStats: TodayStats = {
@@ -64,7 +89,7 @@ export function HomePage() {
     growth: growthDialog,
   }
 
-  // ========== React Query 数据加载 ==========
+  // ── 数据加载 ──
   const { data: stats = defaultStats, isLoading: statsLoading } = useQuery({
     queryKey: ['todayStats', currentBaby?.id],
     queryFn: () => (currentBaby ? recordService.getTodayStats(currentBaby.id) : Promise.resolve(defaultStats)),
@@ -92,18 +117,18 @@ export function HomePage() {
     staleTime: 15 * 1000,
   })
 
-  // FR-A1：进行中睡眠 + 状态胶囊
   const { activeSleep, start: startSleep, end: endSleep, cancel: cancelSleep } = useActiveSleep(currentBaby?.id)
   const { canEdit } = usePermission()
 
-  // FR-A4：AI 洞察折叠态（持久化）
+  // ── AI Insight ──
   const [insightCollapsed, setInsightCollapsed] = useLocalStorageState('ai_insight_collapsed', false)
+  // 保留 setter 以兼容 Lint；当前 iOS 风不再提供折叠 UI，但预留能力
+  void insightCollapsed
+  void setInsightCollapsed
+
   const [dailyInsight, setDailyInsight] = useState<DailyInsight | null>(null)
   const [insightLoading, setInsightLoading] = useState(false)
 
-  // FR-F 扩展：AI 视角（妈妈 / 爸爸 / 祖辈 / 月嫂 等）
-  // v5.0.0+：角色完全由家庭成员的 relation 字段决定（在创建 / 加入家庭时选定），
-  // 首页不再提供手动切换入口；如需修改请到家庭页更新身份。
   const careRole: CareRole = useMemo(() => {
     const currentUserId = user?.id
     const me = family?.members?.find((m) => m.userId === currentUserId)
@@ -117,13 +142,11 @@ export function HomePage() {
       const result = await aiService.getDailyInsight(currentBaby.id, careRole)
       setDailyInsight(result.insight)
     } catch (err) {
-      // 配额耗尽不降级
       const e = err as ApiError
       if (e.code === 'QUOTA_EXCEEDED') {
         toast.warning(e.message)
         setDailyInsight(null)
       } else {
-        // 其他错误 → 前端规则引擎降级
         setDailyInsight(buildFallbackInsight(stats))
       }
     } finally {
@@ -131,7 +154,6 @@ export function HomePage() {
     }
   }, [currentBaby, stats, careRole])
 
-  // ========== 初始化 ==========
   useEffect(() => {
     if (user?.familyId) {
       loadFamily()
@@ -143,9 +165,8 @@ export function HomePage() {
     fetchDailyInsight()
   }, [fetchDailyInsight])
 
-  // FR-G2：彩蛋检测
+  // ── 彩蛋 ──
   const [eggResults, setEggResults] = useState<EggResult[]>([])
-
   const birthDayCount = useMemo(() => {
     if (!currentBaby?.birthDate) return 0
     const birth = new Date(currentBaby.birthDate)
@@ -157,7 +178,6 @@ export function HomePage() {
 
   useEffect(() => {
     if (!currentBaby || birthDayCount === 0) return
-    // 延迟 500ms 触发，避开主渲染
     const t = setTimeout(() => {
       const detected = detectAll({
         babyId: currentBaby.id,
@@ -175,7 +195,7 @@ export function HomePage() {
     setEggResults((prev) => prev.filter((e) => e.storageKey !== storageKey))
   }
 
-  // ========== 操作 ==========
+  // ── 操作 ──
   const refreshAll = () => {
     if (!currentBaby) return
     queryClient.invalidateQueries({ queryKey: ['todayStats', currentBaby.id] })
@@ -183,7 +203,11 @@ export function HomePage() {
     queryClient.invalidateQueries({ queryKey: ['activeSleep', currentBaby.id] })
   }
 
-  const createRecord = async (recordType: RecordType, data: Record<string, unknown>, meta: { recordTime: string; editingId?: string; endTime?: string }) => {
+  const createRecord = async (
+    recordType: RecordType,
+    data: Record<string, unknown>,
+    meta: { recordTime: string; editingId?: string; endTime?: string },
+  ) => {
     if (!currentBaby) return
     try {
       if (meta.editingId) {
@@ -218,7 +242,6 @@ export function HomePage() {
     }
   }
 
-  // FR-A1：状态胶囊「结束」按钮 → 对应 Dialog 内自动取 endTime
   const handleEndSleep = async () => {
     try {
       await endSleep()
@@ -228,13 +251,11 @@ export function HomePage() {
     }
   }
 
-  // 睡眠卡片「开始」按钮：在 endTime=null 模式下创建一条进行中睡眠
   const handleStartSleep = async () => {
     try {
       const created = await startSleep('nap')
       if (created) {
         toast.success('已开始睡眠计时')
-        // 让首页同步刷新（含状态胶囊文案）
         queryClient.invalidateQueries({ queryKey: ['todayStats', currentBaby?.id] })
       }
     } catch (err) {
@@ -271,7 +292,6 @@ export function HomePage() {
     openRecordDialog(key)
   }
 
-  // 早期渲染：骨架屏
   if (statsLoading && !currentBaby) {
     return <HomeSkeleton />
   }
@@ -287,183 +307,189 @@ export function HomePage() {
 
   const insightToShow = dailyInsight ?? buildFallbackInsight(stats)
   const isInsightFromAI = dailyInsight?.source === 'ai'
+  const showInsight = currentBaby && !isInsightEmpty(insightToShow)
+
+  const babySubtitle = currentBaby
+    ? `${currentBaby.name} · 今日记录`
+    : '尚未添加宝宝'
 
   return (
-    <div className="space-y-6 animate-fade-in-up">
-      {/* FR-G2：彩蛋（banner 在顶部，popup/toast 全局渲染） */}
+    <motion.div
+      className="space-y-5"
+      data-home-stack
+      variants={staggerContainer}
+      initial="initial"
+      animate="animate"
+    >
+      {/* 彩蛋横幅 */}
       <EasterEggDisplay results={eggResults} onConsume={handleEggConsume} />
 
-      {/* Greeting + 多宝切换 */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <h1 className="display-sm text-[var(--text-primary)] truncate">
-            {getGreeting()}，{user?.nickname || '用户'}
-          </h1>
-          <p className="body-md text-[var(--text-hint)] mt-1.5">
-            {currentBaby ? `${currentBaby.name} · 今日记录` : '尚未添加宝宝'}
-          </p>
-        </div>
-        <BabySwitcher />
-      </div>
+      {/* Large Title Header */}
+      <motion.div variants={staggerItem}>
+        <LargeTitleHeader
+          title={`${getGreeting()}，${user?.nickname || '你好'}`}
+          subtitle={babySubtitle}
+          rightAction={<BabySwitcher size="md" />}
+        />
+      </motion.div>
 
-      {/* No family prompt */}
+      {/* No family 引导 */}
       {!family && (
-        <Card padding="lg" className="text-center">
-          <div
-            className="icon-circle icon-circle--lg mx-auto mb-4"
-            style={{ backgroundColor: 'color-mix(in srgb, var(--primary) 12%, transparent)' }}
-          >
-            <Plus className="h-6 w-6" style={{ color: 'var(--primary)' }} />
-          </div>
-          <p className="body-md text-[var(--text-secondary)] mb-4">您还未加入家庭</p>
-          <Link to="/family" className="inline-block">
-            <Button>创建或加入家庭</Button>
-          </Link>
-        </Card>
-      )}
-
-      {/* FR-A1：状态胶囊 */}
-      {currentBaby && (
-        <StatusCapsule
-          stats={stats}
-          activeSleep={activeSleep}
-          babyName={currentBaby.name}
-          onEndSleep={handleEndSleep}
-          onCancelAbnormal={handleCancelSleep}
-        />
-      )}
-
-      {/* FR-A3：今日 4 列摘要 + 进度条 */}
-      {currentBaby && (
-        <TodaySummary
-          stats={stats}
-          birthDateIso={currentBaby.birthDate}
-          onSelect={handleSelectStat}
-          sleepActive={!!activeSleep}
-          canControlSleep={canEdit}
-          onStartSleep={handleStartSleep}
-          onEndSleep={handleEndSleep}
-        />
-      )}
-
-      {/* FR-A4：AI 洞察折叠态 */}
-      {currentBaby && !isInsightEmpty(insightToShow) && (
-        <div>
-          <div className="section-header">
-            <div className="flex items-center gap-2 min-w-0">
-              <Sparkles className="h-4 w-4 shrink-0" style={{ color: 'var(--sleep)' }} />
-              <span className="section-header__title shrink-0">AI 每日洞察</span>
-              {!isInsightFromAI && (
-                <span className="caption text-[var(--text-hint)] shrink-0">· 快速模式</span>
-              )}
+        <motion.div variants={staggerItem}>
+          <Card variant="cta" padding="lg">
+            <div
+              className="icon-circle icon-circle--lg mx-auto mb-4"
+              style={{ backgroundColor: 'color-mix(in srgb, var(--brand) 14%, transparent)' }}
+            >
+              <PlusCircle className="h-6 w-6" style={{ color: 'var(--brand-ink)' }} />
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <p className="text-[15px] text-[var(--label-secondary)] mb-4">
+              您还未加入家庭
+            </p>
+            <Link to="/family" className="inline-block">
+              <Button variant="filled">创建或加入家庭</Button>
+            </Link>
+          </Card>
+        </motion.div>
+      )}
+
+      {/* Status Capsule (Hero) */}
+      {currentBaby && (
+        <motion.div variants={staggerItem}>
+          <StatusCapsule
+            stats={stats}
+            activeSleep={activeSleep}
+            babyName={currentBaby.name}
+            onEndSleep={handleEndSleep}
+            onCancelAbnormal={handleCancelSleep}
+          />
+        </motion.div>
+      )}
+
+      {/* Today Summary (2x2 Health cards) */}
+      {currentBaby && (
+        <motion.div variants={staggerItem}>
+          <SectionHeader title="今日概览" variant="default" />
+          <TodaySummary
+            stats={stats}
+            birthDateIso={currentBaby.birthDate}
+            onSelect={handleSelectStat}
+            sleepActive={!!activeSleep}
+            canControlSleep={canEdit}
+            onStartSleep={handleStartSleep}
+            onEndSleep={handleEndSleep}
+          />
+        </motion.div>
+      )}
+
+      {/* AI Insight（单卡 chip 风，去折叠） */}
+      {showInsight && (
+        <motion.div variants={staggerItem}>
+          <SectionHeader
+            title="AI 每日洞察"
+            variant="default"
+            subtitle={!isInsightFromAI ? '· 快速模式' : undefined}
+            action={
               <button
+                type="button"
                 onClick={fetchDailyInsight}
                 disabled={insightLoading}
-                className="section-header__action"
-                title="重新生成"
+                className="flex items-center gap-1 text-[13px] font-medium text-[var(--brand-ink)] hover:opacity-70 transition-opacity disabled:opacity-50"
               >
-                <RefreshCw className={`h-3 w-3 ${insightLoading ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`h-3.5 w-3.5 ${insightLoading ? 'animate-spin' : ''}`} />
                 刷新
               </button>
-            </div>
-          </div>
-          {insightCollapsed ? (
-            <Card
-              as="article"
-              variant="interactive"
-              padding="sm"
-              role="button"
-              tabIndex={0}
-              onClick={() => setInsightCollapsed(false)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  setInsightCollapsed(false)
-                }
-              }}
-              className="w-full flex items-center gap-2 text-left hover:border-[var(--sleep)]"
-            >
-              <Lightbulb className="h-4 w-4 shrink-0" style={{ color: 'var(--sleep)' }} />
-              <span className="body-md flex-1 truncate text-[var(--text-secondary)]">
-                {insightToShow.summary}
-              </span>
-              <ChevronDown className="h-4 w-4 shrink-0" style={{ color: 'var(--text-hint)' }} />
-            </Card>
-          ) : (
-            <Card
-              padding="sm"
-              className="space-y-3"
-              style={{ borderTop: '3px solid var(--sleep)' }}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <p className="body-md text-[var(--text-primary)] flex-1">{insightToShow.summary}</p>
-                <button
-                  onClick={() => setInsightCollapsed(true)}
-                  className="text-[var(--text-hint)] hover:text-[var(--text-primary)] shrink-0"
-                  aria-label="折叠"
-                >
-                  <ChevronUp className="h-4 w-4" />
-                </button>
+            }
+          />
+          <Card variant="plain" padding="md" className="space-y-3">
+            {/* Summary */}
+            <div className="flex items-start gap-2.5">
+              <div
+                className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+                style={{ backgroundColor: 'var(--sleep-bg)' }}
+              >
+                <Sparkles className="h-4 w-4" style={{ color: 'var(--sleep)' }} />
               </div>
-              {insightToShow.suggestions.length > 0 && (
-                <div>
-                  <p className="body-sm font-medium text-[var(--text-secondary)] mb-1.5">建议</p>
-                  <ul className="space-y-1.5">
-                    {insightToShow.suggestions.map((s, i) => (
-                      <li key={i} className="body-sm text-[var(--text-hint)] flex items-start gap-2">
-                        <span
-                          className="shrink-0 mt-0.5 w-1 h-1 rounded-full"
-                          style={{ backgroundColor: 'var(--sleep)' }}
-                        />
-                        {s}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {insightToShow.alerts.length > 0 && (
-                <div>
-                  <p className="body-sm font-medium text-[var(--danger)] mb-1.5">提醒</p>
-                  <ul className="space-y-1.5">
-                    {insightToShow.alerts.map((a, i) => (
-                      <li key={i} className="body-sm text-[var(--danger)]/80 flex items-start gap-2">
-                        <span
-                          className="shrink-0 mt-0.5 w-1 h-1 rounded-full"
-                          style={{ backgroundColor: 'var(--danger)' }}
-                        />
-                        {a}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </Card>
-          )}
-        </div>
+              <p className="text-[15px] leading-relaxed text-[var(--label)] flex-1 pt-0.5">
+                {insightToShow.summary}
+              </p>
+            </div>
+
+            {/* Suggestions */}
+            {insightToShow.suggestions.length > 0 && (
+              <div className="pl-[38px] space-y-1.5">
+                {insightToShow.suggestions.map((s, i) => (
+                  <div key={i} className="flex items-start gap-2 text-[13px] text-[var(--label-secondary)]">
+                    <Lightbulb className="h-3.5 w-3.5 shrink-0 mt-0.5" style={{ color: 'var(--sleep)' }} />
+                    <span>{s}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Alerts */}
+            {insightToShow.alerts.length > 0 && (
+              <div className="pl-[38px] space-y-1.5">
+                {insightToShow.alerts.map((a, i) => (
+                  <div key={i} className="flex items-start gap-2 text-[13px] text-[var(--danger)] font-medium">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                    <span>{a}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </motion.div>
       )}
 
       {/* Today Timeline */}
       {currentBaby && (
-        <div>
-          <div className="section-header">
-            <span className="section-header__title">今日时间线</span>
-            <Link to="/record" className="section-header__action">
-              <Clock className="h-3 w-3" />
-              查看全部
-            </Link>
-          </div>
-          <Card>
-            <Timeline records={todayRecords.slice(0, 5)} />
-            {todayRecords.length > 5 && (
-              <Link to="/record" className="section-header__action mt-3 justify-center w-full">
-                查看全部 {todayRecords.length} 条今日记录 ›
+        <motion.div variants={staggerItem}>
+          <SectionHeader
+            title="今日时间线"
+            variant="default"
+            action={
+              <Link
+                to="/record"
+                className="flex items-center gap-1 text-[13px] font-medium text-[var(--brand-ink)] hover:opacity-70 transition-opacity"
+              >
+                <Clock className="h-3.5 w-3.5" />
+                查看全部
               </Link>
+            }
+          />
+          <Card variant="plain" padding="none">
+            {todayRecords.length === 0 ? (
+              <div className="py-10 px-4 text-center">
+                <p className="text-[14px] text-[var(--label-tertiary)] mb-2">
+                  今天还没有记录
+                </p>
+                <p className="text-[12px] text-[var(--label-quaternary)]">
+                  点击下方按钮添加第一条
+                </p>
+              </div>
+            ) : (
+              <>
+                <Timeline records={todayRecords.slice(0, 5)} compact />
+                {todayRecords.length > 5 && (
+                  <Link
+                    to="/record"
+                    className={`
+                      block text-center py-3 text-[13px] font-medium
+                      text-[var(--brand-ink)] hover:bg-[var(--surface-hover)]
+                      transition-colors border-t border-[var(--separator)]
+                    `}
+                  >
+                    查看全部 {todayRecords.length} 条今日记录
+                  </Link>
+                )}
+              </>
             )}
           </Card>
-        </div>
+        </motion.div>
       )}
+
+      {/* Quick Record Bar 已移除：功能与 TodaySummary 点击入口重复 */}
 
       {/* Dialogs */}
       <FeedingDialog
@@ -491,6 +517,6 @@ export function HomePage() {
         onClose={growthDialog.closeDialog}
         onSubmit={(data, meta) => createRecord('growth', { growthData: data }, meta)}
       />
-    </div>
+    </motion.div>
   )
 }

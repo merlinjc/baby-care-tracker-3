@@ -8,8 +8,8 @@
  * 子页推荐：set `showBack` + `backTo`
  * Tab 主页（record/discover/profile）：set `variant="tab"`
  */
-import { ChevronLeft } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { ChevronLeft } from 'lucide-react';
 import type { ReactNode } from 'react'
 
 interface PageHeaderProps {

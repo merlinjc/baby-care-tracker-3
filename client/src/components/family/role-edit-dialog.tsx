@@ -8,7 +8,7 @@
  * 由 radix 负责键盘 ↑↓ 导航、aria-checked、roving tabindex。
  */
 import { useEffect, useState } from 'react'
-import { Shield, Edit, Eye, UserCog } from 'lucide-react'
+import { Shield, Eye, Pencil, UserCog } from 'lucide-react'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { RadioGroup, RadioGroupCard } from '@/components/ui/radio-group'
 import { useFamilyStore } from '@/stores/family-store'
@@ -24,7 +24,7 @@ interface RoleEditDialogProps {
 
 const OPTIONS: { value: FamilyRole; label: string; desc: string; Icon: typeof Shield }[] = [
   { value: 'admin', label: '管理员', desc: '所有权限：管理成员、记录、宝宝档案', Icon: Shield },
-  { value: 'editor', label: '成员', desc: '可添加 / 编辑 / 删除自己创建的记录', Icon: Edit },
+  { value: 'editor', label: '成员', desc: '可添加 / 编辑 / 删除自己创建的记录', Icon: Pencil },
   { value: 'viewer', label: '仅查看', desc: '只能查看记录，不能修改任何数据', Icon: Eye },
 ]
 

@@ -10,8 +10,7 @@
  * HomePage 持有 detected[]：popup 类一次只展示最高优先级；toast 类排队；banner 类常驻直至关闭
  */
 import { useEffect, useState } from 'react'
-import { X, Sparkles } from 'lucide-react'
-import { Dialog } from '@/components/ui/dialog'
+import { Sparkles, X } from 'lucide-react';import { Dialog } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/toast'
 import type { EggResult } from '@/lib/easter-egg'
@@ -64,7 +63,7 @@ export function EasterEggDisplay({ results, onConsume }: EasterEggDisplayProps) 
       {bannerEggs.slice(0, 2).map((egg) => (
         <div
           key={egg.storageKey}
-          className="rounded-xl px-3 py-2 flex items-center gap-2 animate-fade-in-up"
+          className="rounded-xl px-3 py-2 flex items-center gap-2 page-enter"
           style={{
             background: 'color-mix(in srgb, var(--primary) 10%, transparent)',
             border: '1px solid color-mix(in srgb, var(--primary) 18%, transparent)',

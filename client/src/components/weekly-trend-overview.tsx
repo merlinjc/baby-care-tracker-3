@@ -175,7 +175,7 @@ function DimensionRow({ meta, data }: { meta: DimensionMeta; data: WeeklyTrendDi
 
 function OverviewSkeleton() {
   return (
-    <Card padding="sm" className="space-y-3" aria-busy>
+    <Card padding="md" className="space-y-3" aria-busy>
       <div className="flex items-center justify-between">
         <Skeleton className="h-3.5 w-28" />
         <Skeleton className="h-3 w-14" />
@@ -255,7 +255,7 @@ export function WeeklyTrendOverview({
   }
 
   return (
-    <Card padding="sm" className="space-y-3">
+    <Card padding="md" className="space-y-3">
       {/* 头部：icon + 标题 + 偏离徽章 + 详情入口 */}
       <div className="flex items-center gap-2">
         <HeaderIcon className="h-4 w-4 shrink-0" style={{ color: headerTone }} />

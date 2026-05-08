@@ -30,7 +30,7 @@ export function ListSkeleton({
       {Array.from({ length: count }).map((_, i) => (
         <Card
           key={i}
-          padding="sm"
+          padding="md"
           className="flex items-center gap-3"
           style={
             withAccent

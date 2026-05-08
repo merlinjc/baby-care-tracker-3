@@ -1,115 +1,132 @@
 /**
- * Button - 统一按钮 Primitive
+ * Button v7 - iOS Health 风按钮
  *
- * Variant：
- * - 'primary' (default)  主操作 / 品牌色 var(--primary)
- * - 'secondary'          次操作（描边）
- * - 'ghost'              低调/可切换；active 时自动填充
- * - 'outline'            通用描边按钮
- * - 'danger'             危险主按钮 var(--danger)
- * - 'danger-outline'     危险描边
- * - 'link'               纯文字链接
+ * Variant（iOS 标准 4 档）：
+ * - 'filled'（主操作）：实色背景 + 白文字，默认 brand 主色
+ * - 'tinted'（次操作）：柔和底色 bg + 深色文字（iOS tint button）
+ * - 'plain'（无底）：透明背景 + 主色文字
+ * - 'secondary'（次要描边）：surface-2 灰底 + 深色文字（iOS secondary filled）
+ * - 'destructive'：systemRed 实色（替代旧 'danger'）
+ * - 'destructive-plain'：透明 + systemRed 文字
  *
- * Size：xs (h-7) / sm (h-8) / md (h-10, 默认) / lg (h-12) / icon (h-9 w-9)
+ * 兼容旧 variant（primary/secondary/ghost/outline/danger/danger-outline/link/gradient-*）
+ * 继续可用，内部 alias 到新体系。
  *
- * 规范化：
- * - 所有 variant 与 size 通过 CVA 管理
- * - 自动 focus-visible ring（无障碍）
- * - disabled 自动降透明 + not-allowed
- * - loading 时内部自动显示 spinner（不占位替换）
- * - leftIcon / rightIcon slot 省去每次手写 gap + icon
- *
- * 对标 shadcn/ui 的 `button.tsx`，但样式底层全部走 CSS 变量，与美拉德色系一致。
+ * Size：xs (28) / sm (32) / md (40, 默认) / lg (48) / icon (36×36)
+ * 交互：whileTap scale 0.96（iOS 典型）+ 色彩透明度反馈
  */
 import { cva, type VariantProps } from 'class-variance-authority'
+import { motion } from 'framer-motion'
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 import { deriveIconSize, withIconSize, type IconSize } from '@/lib/icon-size'
 
 const buttonVariants = cva(
   [
-    'inline-flex items-center justify-center gap-1.5 rounded-md font-medium',
-    'transition-colors shrink-0 whitespace-nowrap',
-    'disabled:opacity-50 disabled:cursor-not-allowed',
-    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-0',
-    'focus-visible:ring-[var(--primary)]/40',
+    'inline-flex items-center justify-center gap-1.5 font-medium',
+    'rounded-[var(--radius-md)]',
+    'shrink-0 whitespace-nowrap select-none',
+    'transition-[background-color,opacity,color,border-color]',
+    'duration-[150ms]',
+    'disabled:opacity-40 disabled:cursor-not-allowed',
+    'focus-visible:outline-none focus-visible:ring-2',
+    'focus-visible:ring-[color-mix(in_srgb,var(--brand)_50%,transparent)]',
+    'focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-0)]',
   ].join(' '),
   {
     variants: {
       variant: {
-        primary:
-          'text-white bg-[var(--primary)] hover:opacity-85 active:opacity-75',
-        secondary: [
-          'bg-[var(--bg-card)] text-[var(--text-secondary)]',
-          'border border-[var(--border)]',
-          'hover:border-[var(--primary)] hover:text-[var(--primary)] hover:bg-[var(--bg-elevated)]',
+        // ─── v7 iOS 标准 ───
+        filled: 'text-white bg-[var(--brand)] hover:opacity-90 active:opacity-80',
+        tinted: [
+          'bg-[color-mix(in_srgb,var(--brand)_12%,transparent)]',
+          'text-[var(--brand-ink)]',
+          'hover:bg-[color-mix(in_srgb,var(--brand)_18%,transparent)]',
+          'active:bg-[color-mix(in_srgb,var(--brand)_22%,transparent)]',
         ].join(' '),
+        plain: [
+          'bg-transparent text-[var(--brand-ink)]',
+          'hover:bg-[var(--surface-2)]',
+          'active:bg-[var(--surface-hover)]',
+        ].join(' '),
+        secondary: [
+          'bg-[var(--surface-2)] text-[var(--label)]',
+          'hover:bg-[var(--surface-hover)]',
+          'active:opacity-80',
+        ].join(' '),
+        destructive: 'text-white bg-[var(--danger)] hover:opacity-90 active:opacity-80',
+        'destructive-plain': [
+          'bg-transparent text-[var(--danger)]',
+          'hover:bg-[var(--danger-bg)]',
+        ].join(' '),
+
+        // ─── 兼容旧 variant（渐进下线） ───
+        primary: 'text-white bg-[var(--brand)] hover:opacity-90 active:opacity-80',
         ghost: [
-          'border border-[var(--border-light)] bg-[var(--bg-card)]',
-          'text-[var(--text-secondary)]',
-          'hover:text-[var(--text-primary)] hover:border-[var(--border)]',
+          'border border-[var(--separator-opaque)] bg-transparent text-[var(--label-secondary)]',
+          'hover:text-[var(--label)] hover:bg-[var(--surface-2)]',
           'data-[active=true]:text-white data-[active=true]:border-transparent',
         ].join(' '),
-        outline:
-          'border border-[var(--border)] bg-transparent text-[var(--text-primary)] hover:bg-[var(--bg-elevated)]',
-        danger: 'text-white bg-[var(--danger)] hover:opacity-85 active:opacity-75',
+        outline: [
+          'border border-[var(--border-default)] bg-transparent text-[var(--label)]',
+          'hover:bg-[var(--surface-2)]',
+        ].join(' '),
+        danger: 'text-white bg-[var(--danger)] hover:opacity-90 active:opacity-80',
         'danger-outline': [
           'border bg-transparent text-[var(--danger)]',
-          'border-[color-mix(in_srgb,var(--danger)_25%,transparent)]',
-          'hover:bg-[color-mix(in_srgb,var(--danger)_5%,transparent)]',
+          'border-[color-mix(in_srgb,var(--danger)_35%,transparent)]',
+          'hover:bg-[var(--danger-bg)]',
         ].join(' '),
-        link: 'text-[var(--primary-dark)] hover:underline p-0 h-auto',
+        link: 'text-[var(--brand-ink)] hover:underline p-0 h-auto bg-transparent',
+
+        // v6 兼容：渐变/玻璃态（保留但不推荐新用）
+        'gradient-primary':
+          'text-white bg-[var(--gradient-primary)] hover:opacity-85 active:opacity-75',
+        'gradient-feeding':
+          'text-white bg-[var(--gradient-feeding)] hover:opacity-85 active:opacity-75',
+        'gradient-sleep':
+          'text-white bg-[var(--gradient-sleep)] hover:opacity-85 active:opacity-75',
+        'gradient-diaper':
+          'text-white bg-[var(--gradient-diaper)] hover:opacity-85 active:opacity-75',
+        'gradient-temperature':
+          'text-white bg-[var(--gradient-temperature)] hover:opacity-85 active:opacity-75',
+        'gradient-growth':
+          'text-white bg-[var(--gradient-growth)] hover:opacity-85 active:opacity-75',
+        glass: [
+          'bg-[var(--glass-bg)] backdrop-blur-[20px]',
+          'border border-[var(--separator)] text-[var(--label)]',
+          'hover:bg-[var(--surface-2)]',
+        ].join(' '),
       },
       size: {
-        xs: 'h-7 px-2.5 text-xs gap-1',
-        sm: 'h-8 px-3 text-xs',
-        md: 'h-10 px-4 text-sm',
-        lg: 'h-12 px-5 text-base',
-        icon: 'h-9 w-9 p-0',
+        xs: 'h-7 px-2.5 text-[12px] gap-1 rounded-[8px]',
+        sm: 'h-8 px-3 text-[13px] rounded-[10px]',
+        md: 'h-10 px-4 text-[15px] font-semibold',
+        lg: 'h-12 px-5 text-[17px] font-semibold rounded-[14px]',
+        icon: 'h-9 w-9 p-0 rounded-[10px]',
       },
-      block: {
-        true: 'w-full',
-        false: '',
-      },
+      block: { true: 'w-full', false: '' },
     },
-    defaultVariants: {
-      variant: 'primary',
-      size: 'md',
-      block: false,
-    },
+    defaultVariants: { variant: 'filled', size: 'md', block: false },
   },
 )
 
 export interface ButtonProps
-  extends ButtonHTMLAttributes<HTMLButtonElement>,
+  extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'onAnimationStart' | 'onAnimationEnd' | 'onDragStart' | 'onDragEnd' | 'onDrag'>,
     VariantProps<typeof buttonVariants> {
   loading?: boolean
   leftIcon?: ReactNode
   rightIcon?: ReactNode
-  /**
-   * 覆盖主色（仅 variant=primary/danger 时生效，通过 inline style 直接写 backgroundColor）
-   * 用于 record 类型色主按钮等业务场景；避免为每种颜色都新增 variant。
-   */
+  /** 覆盖主色（仅 filled/primary/destructive/tinted/ghost+active 时生效） */
   accentColor?: string
-  /**
-   * ghost variant 的 active 态（类似 aria-pressed）
-   * 会加 backgroundColor = accentColor (或 primary)
-   */
+  /** ghost / tinted 的 active 态 */
   active?: boolean
-  /**
-   * v5.1.0：图标尺寸覆盖。默认根据 button size 自动推导：
-   *  - xs/sm → sm (14px)
-   *  - md    → md (16px)
-   *  - lg    → lg (20px)
-   *  - icon  → md (16px)
-   * 用户传入了显式尺寸 className 的图标会被尊重，不会被覆盖。
-   */
+  /** 自动推导图标尺寸（xs/sm→sm / md→md / lg→lg / icon→md） */
   iconSize?: IconSize
+  /** 是否禁用按压动效（仅在极少数 layout sensitive 场景用） */
+  disableTapAnim?: boolean
 }
 
-/**
- * 内置 spinner（复用 globals.css .spinner--sm）
- */
 function ButtonSpinner() {
   return <span className="spinner spinner--sm" aria-hidden />
 }
@@ -128,6 +145,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       accentColor,
       active,
       iconSize,
+      disableTapAnim,
       children,
       type = 'button',
       style,
@@ -135,38 +153,45 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     },
     ref,
   ) => {
-    // 计算 inline style：只有 accentColor 存在且匹配的 variant 才覆盖
+    // accentColor 应用规则
     const inlineStyle: React.CSSProperties | undefined = (() => {
       if (!accentColor) return style
-      if (variant === 'primary' || variant === 'danger') {
-        return { ...style, backgroundColor: accentColor }
+      const filledLike = ['filled', 'primary', 'danger', 'destructive'].includes(variant ?? 'filled')
+      if (filledLike) return { ...style, backgroundColor: accentColor }
+      if (variant === 'tinted') {
+        return {
+          ...style,
+          backgroundColor: `color-mix(in srgb, ${accentColor} 14%, transparent)`,
+          color: accentColor,
+        }
       }
-      if (variant === 'ghost' && active) {
-        return { ...style, backgroundColor: accentColor }
-      }
+      if (variant === 'ghost' && active) return { ...style, backgroundColor: accentColor }
       return style
     })()
 
-    // v5.1.0：自动给图标注入尺寸（仅当用户未显式写 h-/w- 时）
     const resolvedIconSize = iconSize ?? deriveIconSize(size)
     const sizedLeftIcon = withIconSize(leftIcon, resolvedIconSize)
     const sizedRightIcon = withIconSize(rightIcon, resolvedIconSize)
 
+    const isDisabled = disabled || loading
+
     return (
-      <button
+      <motion.button
         ref={ref}
         type={type}
-        disabled={disabled || loading}
+        disabled={isDisabled}
         aria-busy={loading || undefined}
         data-active={active ? 'true' : undefined}
         className={cn(buttonVariants({ variant, size, block }), className)}
         style={inlineStyle}
+        whileTap={!isDisabled && !disableTapAnim ? { scale: 0.96 } : undefined}
+        transition={{ duration: 0.12, ease: [0.32, 0.72, 0, 1] }}
         {...props}
       >
         {loading ? <ButtonSpinner /> : sizedLeftIcon}
         {children}
         {!loading && sizedRightIcon}
-      </button>
+      </motion.button>
     )
   },
 )

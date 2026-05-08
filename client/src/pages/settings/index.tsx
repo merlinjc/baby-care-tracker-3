@@ -1,17 +1,27 @@
+/**
+ * SettingsPage v7 - iOS Settings × 美拉德
+ *
+ * 重构：
+ * - PageHeader → LargeTitleHeader
+ * - Tabs → SegmentedControl 顶部切换
+ * - 各 form Card：去掉 glass，用 plain
+ * - 数据导出：iOS tinted Card 2 卡（JSON brand 暖棕、CSV temperature 蜜桃）
+ */
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { User, Lock, Save, Download, FileJson, FileSpreadsheet } from 'lucide-react'
-import { useAuthStore } from '@/stores/auth-store'
+import { motion } from 'framer-motion'
+import { FileJson, FileSpreadsheet, Lock, Save } from 'lucide-react';import { useAuthStore } from '@/stores/auth-store'
 import { useBabyStore } from '@/stores/baby-store'
 import { authService } from '@/services/auth'
 import { exportService } from '@/services/baby-extra'
-import { PageHeader } from '@/components/page-header'
+import { LargeTitleHeader } from '@/components/ui/large-title-header'
+import { SegmentedControl } from '@/components/ui/segmented-control'
 import { toast } from '@/components/ui/toast'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { FormField } from '@/components/ui/form-field'
+import { staggerContainer, staggerItem, pressableSubtle } from '@/lib/motion'
 
 type TabKey = 'profile' | 'password' | 'export'
 
@@ -26,7 +36,6 @@ export function SettingsPage() {
   const [searchParams] = useSearchParams()
   const initialTab: TabKey = (() => {
     const t = searchParams.get('tab') as TabKey | null
-    // 注意：'appearance' 已于 v5.0.0+ 迁至"我的"页面；老链接兜底回 'profile'
     return t && ['profile', 'password', 'export'].includes(t) ? t : 'profile'
   })()
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab)
@@ -92,29 +101,40 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="space-y-5 animate-fade-in-up">
-      <PageHeader title="设置" backTo="/profile" />
+    <motion.div
+      className="space-y-5"
+      data-page-stack
+      variants={staggerContainer}
+      initial="initial"
+      animate="animate"
+    >
+      <motion.div variants={staggerItem}>
+        <LargeTitleHeader title="设置" backTo="/profile" />
+      </motion.div>
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)}>
-        <TabsList>
-          <TabsTrigger value="profile">
-            <User className="h-4 w-4" />
-            资料
-          </TabsTrigger>
-          <TabsTrigger value="password">
-            <Lock className="h-4 w-4" />
-            密码
-          </TabsTrigger>
-          <TabsTrigger value="export">
-            <Download className="h-4 w-4" />
-            导出
-          </TabsTrigger>
-        </TabsList>
+      <motion.div variants={staggerItem}>
+        <SegmentedControl
+          value={activeTab}
+          onChange={(v) => setActiveTab(v as TabKey)}
+          options={[
+            { value: 'profile', label: '资料' },
+            { value: 'password', label: '密码' },
+            { value: 'export', label: '导出' },
+          ]}
+          size="md"
+        />
+      </motion.div>
 
-        {/* Profile Form */}
-        <TabsContent value="profile">
+      {/* Profile */}
+      {activeTab === 'profile' && (
+        <motion.div
+          key="profile"
+          variants={staggerItem}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
           <Card as="section" padding="md">
-            <form onSubmit={handleUpdateProfile} className="space-y-4 animate-fade-in">
+            <form onSubmit={handleUpdateProfile} className="space-y-4">
               <FormField label="昵称" htmlFor="settings-nickname" required>
                 <Input
                   id="settings-nickname"
@@ -136,6 +156,7 @@ export function SettingsPage() {
               </FormField>
               <Button
                 type="submit"
+                variant="filled"
                 block
                 loading={isSubmitting}
                 leftIcon={<Save className="h-4 w-4" />}
@@ -144,12 +165,19 @@ export function SettingsPage() {
               </Button>
             </form>
           </Card>
-        </TabsContent>
+        </motion.div>
+      )}
 
-        {/* Password Form */}
-        <TabsContent value="password">
+      {/* Password */}
+      {activeTab === 'password' && (
+        <motion.div
+          key="password"
+          variants={staggerItem}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
           <Card as="section" padding="md">
-            <form onSubmit={handleChangePassword} className="space-y-4 animate-fade-in">
+            <form onSubmit={handleChangePassword} className="space-y-4">
               <FormField label="当前密码" htmlFor="settings-old-pwd" required>
                 <Input
                   id="settings-old-pwd"
@@ -161,12 +189,7 @@ export function SettingsPage() {
                   placeholder="输入当前密码"
                 />
               </FormField>
-              <FormField
-                label="新密码"
-                htmlFor="settings-new-pwd"
-                required
-                hint="至少 8 位"
-              >
+              <FormField label="新密码" htmlFor="settings-new-pwd" required hint="至少 8 位">
                 <Input
                   id="settings-new-pwd"
                   type="password"
@@ -192,6 +215,7 @@ export function SettingsPage() {
               </FormField>
               <Button
                 type="submit"
+                variant="filled"
                 block
                 loading={isSubmitting}
                 leftIcon={<Lock className="h-4 w-4" />}
@@ -200,87 +224,99 @@ export function SettingsPage() {
               </Button>
             </form>
           </Card>
-        </TabsContent>
+        </motion.div>
+      )}
 
-        {/* Export Tab */}
-        <TabsContent value="export">
-          <Card as="section" padding="md" className="space-y-4 animate-fade-in">
+      {/* Export */}
+      {activeTab === 'export' && (
+        <motion.div
+          key="export"
+          variants={staggerItem}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <Card as="section" padding="md" className="space-y-4">
             <div>
-              <h2 className="heading-sm" style={{ color: 'var(--text-primary)' }}>
+              <h2 className="headline" style={{ color: 'var(--label)' }}>
                 数据导出
               </h2>
-              <p className="caption mt-1">导出当前宝宝的护理记录数据</p>
+              <p
+                className="caption-1 mt-1"
+                style={{ color: 'var(--label-tertiary)' }}
+              >
+                导出当前宝宝的护理记录数据
+              </p>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Card
-                as="article"
-                variant="interactive"
-                padding="md"
-                role="button"
-                tabIndex={0}
-                onClick={() => handleExport('json')}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    handleExport('json')
-                  }
-                }}
-                className="flex flex-col items-center text-center gap-2"
-              >
-                <div
-                  className="icon-circle icon-circle--md"
-                  style={{
-                    backgroundColor:
-                      'color-mix(in srgb, var(--primary) 12%, transparent)',
-                  }}
+            <div className="grid grid-cols-2 gap-3" data-grid-2>
+              {(
+                [
+                  {
+                    fmt: 'json' as const,
+                    Icon: FileJson,
+                    label: 'JSON 格式',
+                    desc: '完整数据 / 程序友好',
+                    bg: 'var(--brand-soft)',
+                    fg: 'var(--brand-ink)',
+                    accent: 'var(--brand)',
+                  },
+                  {
+                    fmt: 'csv' as const,
+                    Icon: FileSpreadsheet,
+                    label: 'CSV 格式',
+                    desc: '表格 / Excel 可读',
+                    bg: 'var(--temperature-bg)',
+                    fg: 'var(--temperature-fg)',
+                    accent: 'var(--temperature)',
+                  },
+                ] as const
+              ).map(({ fmt, Icon, label, desc, bg, fg, accent }) => (
+                <motion.div
+                  key={fmt}
+                  whileTap={pressableSubtle.whileTap}
+                  transition={pressableSubtle.transition}
                 >
-                  <FileJson className="h-5 w-5" style={{ color: 'var(--primary)' }} />
-                </div>
-                <div>
-                  <p className="body-md font-medium text-[var(--text-primary)]">
-                    JSON 格式
-                  </p>
-                  <p className="caption mt-0.5">完整数据 / 程序友好</p>
-                </div>
-              </Card>
-              <Card
-                as="article"
-                variant="interactive"
-                padding="md"
-                role="button"
-                tabIndex={0}
-                onClick={() => handleExport('csv')}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    handleExport('csv')
-                  }
-                }}
-                className="flex flex-col items-center text-center gap-2"
-              >
-                <div
-                  className="icon-circle icon-circle--md"
-                  style={{
-                    backgroundColor:
-                      'color-mix(in srgb, var(--primary) 12%, transparent)',
-                  }}
-                >
-                  <FileSpreadsheet
-                    className="h-5 w-5"
-                    style={{ color: 'var(--primary)' }}
-                  />
-                </div>
-                <div>
-                  <p className="body-md font-medium text-[var(--text-primary)]">
-                    CSV 格式
-                  </p>
-                  <p className="caption mt-0.5">表格友好 / Excel 可读</p>
-                </div>
-              </Card>
+                  <Card
+                    as="article"
+                    padding="md"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleExport(fmt)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        handleExport(fmt)
+                      }
+                    }}
+                    className="flex flex-col items-center text-center gap-2 cursor-pointer h-full"
+                    style={{ backgroundColor: bg }}
+                  >
+                    <div
+                      className="w-11 h-11 rounded-[14px] flex items-center justify-center"
+                      style={{
+                        backgroundColor: `color-mix(in srgb, ${accent} 22%, transparent)`,
+                        color: fg,
+                      }}
+                    >
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="headline" style={{ color: fg }}>
+                        {label}
+                      </p>
+                      <p
+                        className="caption-1 mt-0.5"
+                        style={{ color: fg, opacity: 0.72 }}
+                      >
+                        {desc}
+                      </p>
+                    </div>
+                  </Card>
+                </motion.div>
+              ))}
             </div>
           </Card>
-        </TabsContent>
-      </Tabs>
-    </div>
+        </motion.div>
+      )}
+    </motion.div>
   )
 }

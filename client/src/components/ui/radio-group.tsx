@@ -128,11 +128,12 @@ export const RadioGroupCard = forwardRef<
         </span>
       )}
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium text-[var(--text-primary)] leading-tight">
+        {/* leading 用 snug(1.375) 而非 tight(1.25)，避免中文 descender 被 line-box 裁切 */}
+        <div className="text-sm font-medium text-[var(--text-primary)] leading-snug">
           {label}
         </div>
         {description && (
-          <div className="text-xs mt-0.5 text-[var(--text-hint)] leading-relaxed">
+          <div className="text-xs mt-1 text-[var(--text-hint)] leading-normal">
             {description}
           </div>
         )}

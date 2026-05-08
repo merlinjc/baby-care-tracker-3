@@ -17,7 +17,7 @@ interface ChartSkeletonProps {
 export function ChartSkeleton({ chartHeight = 200, rows = 4 }: ChartSkeletonProps) {
   return (
     <Card
-      padding="sm"
+      padding="md"
       className="space-y-3"
       aria-busy="true"
       aria-label="加载中"
