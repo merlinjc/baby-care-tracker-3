@@ -244,6 +244,22 @@ DELETE /babies/:id?cursor=2500
   - 报告页 `/report`：**周 / 月** 结构化回顾（关键指标 + 上周vs本周<仅周报> + 每日节律 + 成就 + AI 总结）
   - 各页面视角互补，避免"三页都看同一份趋势"。
 
+### 5.4 里程碑：打卡（check-in）模式
+
+里程碑（`/milestone`）从"自由添加记录"改为"打卡"模式，对齐小程序端心智：
+
+- **数据约束**：`MilestoneRecord` 在 `(babyId, name)` 上加复合唯一索引（一个里程碑只能有一条记录）；同时新增 `updatedAt` 字段。
+- **后端 API 形态**：
+  - `POST /api/babies/:id/milestones` 改为 **幂等 upsert**——已存在的同名记录直接返回，不覆盖 `achievedDate` / `note`，避免重复点击产生副本或丢失原始时间。
+  - 新增 `PATCH /api/babies/:id/milestones/:milestoneId`（仅允许改 `achievedDate` / `note`，`name` / `category` 由前端的 `MILESTONE_DEFINITIONS` 锚定，禁止修改）。
+  - 新增 `DELETE /api/babies/:id/milestones/:milestoneId`（取消打卡 = 删记录）。
+  - 鉴权矩阵复用 record：`record:create / record:update:own|any / record:delete:own|any`。
+- **前端 UI**：`pages/milestone/index.tsx` 主体 = 28 项标准里程碑列表，每行右侧一个圆形 toggle；点击 toggle 直接打卡 / 取消打卡（取消需二次确认）；点击行打开详情弹窗，已达成态可编辑达成日期 / 备注。删除了"自由添加"表单和"标准推荐"抽屉（与主列表重复）。
+- **既有调用方影响**：`milestoneService.list` 返回结构不变，`discover` / `report` / `share-canvas` 等读侧无需调整；语义上"已达成里程碑数"始终是"截至今天累计打卡数"，跟报告周期无强绑定（报告页的 `本期里程碑 N 项` 仍按 `achievedDate` 过滤，因此打卡日 = 当天即落入"本期"）。
+- **数据迁移**：dev/prod 库历史可能存在 `(babyId, name)` 重复行；提供一次性脚本 `server/prisma/scripts/dedupe-milestones.ts` 先做去重（保留 `createdAt` 最早的一条），再 `prisma db push` 让 unique 索引生效。
+
+---
+
 ## 6. 文件依赖图
 
 详见 [`specs/web-feature-parity/design.md` §9 文件变更清单](../specs/web-feature-parity/design.md)。

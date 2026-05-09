@@ -1380,18 +1380,22 @@ interface VaccineTodoItem {
 
 ## 7. 里程碑接口
 
+> **v5.x 重要变更**：里程碑改为 **打卡（check-in）模式**——前端不再支持自由添加，仅对内置标准里程碑（28 项 WHO/CDC 定义，见 `client/src/lib/milestone-defs.ts`）做"打卡 / 取消打卡"。
+>
+> 数据模型层面：`MilestoneRecord` 在 `(babyId, name)` 上加了复合唯一约束，并新增 `updatedAt`。`POST` 改为 **upsert 幂等**（已存在则原样返回，不覆盖 `achievedDate` / `note`）；新增 `PATCH`（编辑达成日期 / 备注）和 `DELETE`（取消打卡）。
+
 ### 7.1 GET /api/babies/:id/milestones
 
-获取宝宝里程碑列表。
+获取宝宝里程碑列表（仅返回已打卡的标准项）。
 
-**对应小程序**：`TodoService.getTodoStats(baby)` 中的里程碑部分
+**对应小程序**：`milestone_records` 集合按 `babyId + familyId` 查询
 
 **查询参数**：
 
 ```typescript
 interface GetMilestonesQuery extends PaginationParams {
-  category?: string;    // 可选，分类筛选（大运动/精细动作/语言/社交）
-  status?: 'pending' | 'achieved';  // 可选，按状态筛选
+  category?: string;    // 可选，分类筛选（大运动/精细动作/语言/社交/认知；前端枚举见 milestone-defs.ts）
+  status?: 'pending' | 'achieved';  // 兼容字段（当前实现忽略，因为只存 achieved）
 }
 ```
 
@@ -1419,18 +1423,18 @@ interface MilestonesListResponse {
 
 ### 7.2 POST /api/babies/:id/milestones
 
-记录里程碑达成。
+打卡里程碑（按 `(babyId, name)` 幂等 upsert）。
 
-**对应小程序**：TodoService 中里程碑记录创建
+**幂等语义**：若该里程碑已打卡，**不会覆盖** `achievedDate` / `note`，直接返回现有记录（HTTP 仍为 201）。要修改请走 PATCH。
 
 **请求体**：
 
 ```typescript
 interface CreateMilestoneRequest {
-  name: string;               // 必填，里程碑名称
-  category: string;           // 必填，分类（大运动/精细动作/语言/社交）
-  achievedDate: string;       // 必填，达成日期（ISO 8601）
-  note?: string;              // 可选，备注
+  name: string;               // 必填，标准里程碑名称（前端取自 MILESTONE_DEFINITIONS）
+  category: string;           // 必填，类别 key（motor/fine_motor/language/social/cognitive）
+  achievedDate: string;       // 必填，达成日期（ISO 8601；通常前端传 new Date().toISOString()）
+  note?: string;              // 可选，备注（≤ 500 字）
 }
 ```
 
@@ -1452,6 +1456,68 @@ interface MilestoneResponse {
 | 403 | `PERMISSION_DENIED` | viewer 无创建权限 |
 | 404 | `BABY_NOT_FOUND` | 宝宝不存在 |
 | 422 | `VALIDATION_ERROR` | 参数校验失败 |
+
+---
+
+### 7.3 PATCH /api/babies/:id/milestones/:milestoneId
+
+编辑里程碑的达成日期或备注（**不允许** 修改 `name` / `category`，因为绑定到内置标准定义）。
+
+**请求体**：
+
+```typescript
+interface UpdateMilestoneRequest {
+  achievedDate?: string;      // 可选，ISO 8601；至少与 note 二选一
+  note?: string | null;       // 可选，传 null 清空
+}
+```
+
+**成功响应** `200`：
+
+```typescript
+interface MilestoneResponse {
+  milestone: MilestoneRecord;
+}
+```
+
+**权限要求**：
+- 创建人本人：`record:update:own`（admin / editor）
+- 他人创建：`record:update:any`（仅 admin）
+
+**错误响应**：
+
+| 状态码 | 错误码 | 触发条件 |
+|-------|--------|---------|
+| 401 | `UNAUTHORIZED` | 未认证 |
+| 403 | `PERMISSION_DENIED` | 权限不足 / 无访问权 |
+| 404 | `NOT_FOUND` | 里程碑或宝宝不存在 |
+| 422 | `VALIDATION_ERROR` | 参数校验失败 |
+
+---
+
+### 7.4 DELETE /api/babies/:id/milestones/:milestoneId
+
+取消打卡（删除该条里程碑记录）。
+
+**成功响应** `200`：
+
+```typescript
+interface DeleteMilestoneResponse {
+  message: string;            // '已取消打卡'
+}
+```
+
+**权限要求**：
+- 创建人本人：`record:delete:own`（admin / editor）
+- 他人创建：`record:delete:any`（仅 admin）
+
+**错误响应**：
+
+| 状态码 | 错误码 | 触发条件 |
+|-------|--------|---------|
+| 401 | `UNAUTHORIZED` | 未认证 |
+| 403 | `PERMISSION_DENIED` | 权限不足 / 无访问权 |
+| 404 | `NOT_FOUND` | 里程碑或宝宝不存在 |
 
 ---
 
@@ -1889,12 +1955,13 @@ interface MilestoneRecord {
   id: string;
   babyId: string;
   familyId: string;
-  name: string;
-  category: string;
-  achievedDate: string;
+  name: string;            // 标准里程碑名称；与 babyId 在 DB 上是复合 unique
+  category: string;        // 类别 key：motor / fine_motor / language / social / cognitive
+  achievedDate: string;    // 打卡时默认为 now，可通过 PATCH 修改
   note: string | null;
   createdBy: string;
   createdAt: string;
+  updatedAt: string;       // PATCH 时更新；POST 幂等 upsert 不会变更已有记录
 }
 ```
 

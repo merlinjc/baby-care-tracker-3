@@ -448,6 +448,22 @@ feedingDialog.openDialog(existingRecord)
 
 **历史变迁**：v4.3.x 曾约定"Tab 主页 `space-y-5`、子页 `space-y-4`"并在每个页面自己写 `p-4 md:p-6 max-w-3xl mx-auto`，结果与 MainLayout 内层的 `px-4 py-6` 双层叠加，视觉上仍显拥挤（尤其移动端卡片紧贴屏幕左右）。v5.0.0+ 一次性把 padding 统一到 MainLayout、`space-y` 各升一档，解决此问题。
 
+**⚠️ CSS Cascade Layers 陷阱（2026-05 修复记录）**：Tailwind v4 的所有工具类都位于 `@layer utilities` 中。按 CSS Cascade Layers 规则，**任何裸（unlayered）CSS 规则的优先级都高于所有 `@layer` 内的规则，不看特异性**。因此 `globals.css` 里**严禁出现**如下裸通配规则：
+
+```css
+/* ❌ 禁止：会让全站所有 Tailwind 的 .px-*/.py-*/.m-* 工具类失效 */
+* { margin: 0; padding: 0; }
+```
+
+Tailwind v4 的 preflight 已在 `@layer base` 里做了完整的 `*` reset（`margin: 0; padding: 0; border: 0 solid`），不需要也不应该再写一遍。
+
+历史教训：v7 改版时在 `globals.css` 顶部保留了 v6 遗留的 `* { padding: 0 }`，导致 `ListRow padding="none" className="px-5 py-3.5"` 这类"Card 自己不加 padding、由 ListRow 负责"的布局全站失效——列表图标贴 Card 左边、行高被压扁，表现为"账户与数据/里程碑/疫苗列表持续贴边"。排查时表面现象是 `className` 里明明有 `px-5`，`@layer utilities` 里也确实生成了 `.px-5` 规则，但 `getComputedStyle(.paddingLeft) = "0px"`。诊断需要从 `document.styleSheets` 手动 matchMedia 所有层级规则，定位到那条 unlayered `*` 规则。
+
+**新增全局样式的强制约定**：
+1. 纯 reset 类规则**一律**写在 `@layer base { ... }` 里，不要写在 unlayered 区域。
+2. 业务语义类（如 `.ios-list`、`.section-header`）可以保持 unlayered（方便覆盖 Tailwind），但**不能**用 `*` / `html` / `body` 这种全局选择器对 padding/margin 做无条件重置。
+3. 如果某个组件在浏览器里发现"Tailwind padding 类没生效"，第一步先检查 `globals.css` 是否有裸 `*` reset，而不是到处加兜底 CSS。
+
 **🛡️ Tailwind 4 JIT 兜底钩子（不得删除）**：由于 `@tailwindcss/vite` 在某些环境下对新增 class 的扫描会滞后或漏掉，导致 `px-5 / py-7 / pb-20` 等 utility 失效（Computed 全为 0），项目里关键结构元素额外挂了一组 `data-*` 属性钩子，在 `globals.css` 的 "Layout Fallback" 段用真·CSS 写死对应 padding / 间距 / 高度。**任何人改这些组件都不得移除这些 data 属性**；若要调整间距，同时改 Tailwind class（保证主干）和兜底 CSS（保证故障模式下也正常）。
 
 | Data 钩子 | 所属组件 | 兜底内容 |
@@ -801,6 +817,51 @@ router.post('/:id/leave', validateParams(familyIdParamSchema), asyncHandler(asyn
 - 禁止在业务页面手写 `fixed inset-0 z-50` + overlay/内容双层结构来模拟 Dialog——请用官方组件。
 - **双按钮 footer 布局**：`DialogFooter` 内部采用 `grid grid-cols-2 gap-2` 容器（而非 `flex gap-2`）。原因：`<Button>` primitive 带 `shrink-0`（防止图标按钮被压扁），与 `block: w-full` 组合后在 flex 容器中会让两个按钮各自坚持 100% 宽度并溢出 Dialog。grid 两列等宽格子可以严格将宽度约束在 `(container - gap) / 2`，即使未来 Button 样式再调整也不会破坏底栏布局。
 
+### 11.3 分页请求硬上限 pageSize ≤ 100（v5.x 2026-05-09 新增）
+
+> 教训来自 BUG-REPORT-PAGESIZE-422（`pageSize:500/200` 直接 422 `Number must be less than or equal to 100`）
+
+**后端契约**（`server/src/schemas/common.schema.ts` 的 `paginationSchema`）：`pageSize` 默认 20、**硬上限 100**。所有列表端点（`GET /records`、`GET /babies/:id/vaccines`、`GET /babies/:id/milestones` 等）共用这条约束。
+
+**前端规范**：
+
+- 任何业务场景请求 `pageSize` 上限 = 100，**禁止写 200 / 500 / `Number.MAX_SAFE_INTEGER`**。
+- 需要"一次拉完"时（聚合报告、首屏标准列表等），用**循环分页**直到 `hasMore === false`，并带一个 `MAX_PAGES` 兜底（推荐 10；记录类最多 20）防失控：
+
+  ```ts
+  const all: T[] = []
+  const PAGE_SIZE = 100
+  const MAX_PAGES = 10
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const res = await xxxService.list(id, { page, pageSize: PAGE_SIZE })
+    all.push(...res.items)
+    if (!res.hasMore) break
+  }
+  ```
+
+- 分页列表页（`record/index.tsx` 等）继续用 `useInfiniteQuery` + 按需加载，**不做**循环。
+- 后端如确有放宽需求，改 `paginationSchema.max(...)` 同时同步更新 `docs/web-api-spec.md` §1.3 与本节。
+
+### 11.4 日期入参必须是完整 ISO 8601（v5.x 2026-05-09 新增）
+
+> 教训来自 BUG-VACCINE-DATE-422、BUG-RECORDS-DATE-FILTER-422
+
+**后端契约**：所有日期/时间字段（`startTime` / `endTime` / `startDate` / `endDate` / `vaccinatedDate` / `achievedDate`）使用 `z.string().datetime()`，**只接受完整 ISO 8601**（`YYYY-MM-DDTHH:mm:ss[.sss]Z`）。
+
+**前端规范**：
+
+- `<input type="date">` 的原生值是 `YYYY-MM-DD`，**不能直接作为请求体 / query 参数**，必须显式转换：
+
+  ```ts
+  // 起始（0 点）
+  const startIso = ymd ? new Date(`${ymd}T00:00:00`).toISOString() : undefined
+  // 结束（包含当天：23:59:59.999）
+  const endIso = ymd ? new Date(`${ymd}T23:59:59.999`).toISOString() : undefined
+  ```
+
+- 页面状态里可以保持 `YYYY-MM-DD`（便于 `<input type="date" value={ymd}>` 双向绑定），但送出请求的那一刻必须转全量 ISO。
+- 已达成 / 已接种这类"当前时刻"字段直接 `new Date().toISOString()`。
+
 ## 12. 趋势数据约定（FR-B v4.3.2）
 
 ### 12.1 时间窗
@@ -936,4 +997,28 @@ AI 助手页 (`pages/ai-assistant/index.tsx`) 通过：
   - 标签用 `.badge-mini` 或等价的小 pill，color/bg 复用 `config.color`（类型色）
   - 自由文本用 `📝` emoji 前缀 + caption 文字 + `line-clamp-2` 截断
 - 禁止把 note 作为纯字符串一次性展示（会出现 `#` 前缀裸露的视觉污染）。
+
+## 16. 里程碑打卡（check-in）协议（v5.x+）
+
+里程碑（`/milestone`）是 Web 端唯一一个"按 name 做 toggle"的功能模块，与所有走 `Record` 表的记录类型不同：
+
+**数据层约定**：
+- `MilestoneRecord` 在 `(babyId, name)` 上有复合 unique 约束；`name` 必须取自 `client/src/lib/milestone-defs.ts` 的内置 28 项标准定义。**禁止**通过任何接口写入自定义 `name`（否则即使 schema 不阻拦，UI 也无法识别为"已打卡的标准项"）。
+- `category` 必须使用类别 key（`motor / fine_motor / language / social / cognitive`），不要传中文名（中文名只用于显示，由 `getCategoryLabel(key)` 转换）。
+
+**Service 层约定**（`server/src/services/milestone.service.ts`）：
+- `createMilestone` 必须用 `prisma.milestoneRecord.upsert({ where: { babyId_name }, update: {} })` 形式，**不**做条件 `findFirst → create`。后者在并发打卡时会触发 `P2002`。
+- `update` 仅允许修改 `achievedDate / note`；`name / category` 不开放。
+- `delete` 即"取消打卡"，鉴权用 `RECORD_DELETE_OWN | RECORD_DELETE_ANY`，与 Record 一致。
+
+**前端 Service 约定**（`client/src/services/baby-extra.ts`）：
+- `milestoneService.create` 是幂等的：重复打卡同名里程碑会拿到原记录，**不要**重试式补偿。
+- `milestoneService.remove` 之后必须立即把对应记录从本地 state 中移除，避免 toggle 视觉滞后；同时清理 `recordByName` 缓存依赖（在本项目里通过 `setMilestones((prev) => prev.filter(...))` 即可触发 `useMemo` 重算）。
+
+**UI 约定**（`pages/milestone/index.tsx`）：
+- 列表行末的圆形 toggle 是**主交互**，必须 `e.stopPropagation()` 避免触发整行的"打开详情"。
+- 打卡（未达成 → 已达成）**不**做二次确认（轻量动作）；取消打卡（已达成 → 未达成）**必须** `confirm` 二次确认（破坏性动作）。
+- 详情弹窗在已达成态展示"达成日期 + 备注"两栏，主按钮 = 保存修改、次按钮 = 取消打卡（红色 plain 按钮）；未达成态主按钮 = 标记达成。
+- 不要在该页引入"自由添加里程碑"的 UI；如果未来要扩展自定义里程碑，需要在 schema 上加 `kind: 'standard' | 'custom'` 字段，再独立设计入口。
+
 

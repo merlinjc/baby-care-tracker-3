@@ -1,9 +1,23 @@
 # Web 版组件库（v5.0.0 alpha 新增组件）
 
-> 版本：v7.0 | 日期：2026-05-08
+> 版本：v7.1 | 日期：2026-05-09
 >
 > 本文档列出 Web 版本期新增的组件、hooks、lib 和 service 方法。
 > 小程序版组件库请参考根目录 [`component-library.md`](../component-library.md)。
+
+---
+
+## 🆕 v7.1 增量（2026-05-09）
+
+Profile 页紧凑布局修复 + RadioGroupCard 能力增强：
+
+- **`<RadioGroupCard>` 新增 `hideIndicator` / `orientation` 两个 prop**：
+  - `hideIndicator`：隐藏右侧/底部圆点，选中态改用左上角 ✓ 角标，解决紧凑网格下圆点贴边/溢出问题
+  - `orientation='vertical'`：卡片纵向布局（icon 上、文案下、整体居中），适合"大 icon 预览 + 短 label"场景
+  - 同时给 `label` 加 `truncate`、`description` 加 `line-clamp-2`（横向）/ `line-clamp-1`（纵向），防止文案撑爆主轴
+- **`<ThemeSelector>` 启用 `hideIndicator`**：3 列布局下不再有右侧贴边圆点；gap 由 2 升级为 sm:2.5
+- **`<FontScaleSelector>` 改为纵向卡片 + `hideIndicator`**：A 字号预览居中显示，label/desc 在下方，4 列布局舒展无溢出
+- **`ProfilePage`「账户与数据」icon 容器加 `shrink-0`**：修复 `value` 长（如 `testfamily`）时 32×32 图标盒被 squeeze 变成横向椭圆的问题
 
 ---
 
@@ -84,7 +98,7 @@ import {
 | 组件 | 文件 | 对标 shadcn | 关键 Variants / API |
 |------|------|-------------|--------------------|
 | `<Switch>` | `ui/switch.tsx` | `switch` (radix) | `size: sm / md`；受控 `checked` + `onCheckedChange` |
-| `<RadioGroup>` + `<RadioGroupItem>` / `<RadioGroupCard>` | `ui/radio-group.tsx` | `radio-group` (radix) | `RadioGroupItem` 原始圆点；`RadioGroupCard` 卡片式（`label / description / icon / accentColor / checkedAdornment`），用于 RoleEditDialog / TransferAdminDialog |
+| `<RadioGroup>` + `<RadioGroupItem>` / `<RadioGroupCard>` | `ui/radio-group.tsx` | `radio-group` (radix) | `RadioGroupItem` 原始圆点；`RadioGroupCard` 卡片式（`label / description / icon / accentColor / checkedAdornment / hideIndicator / orientation`），用于 RoleEditDialog / TransferAdminDialog / ThemeSelector / FontScaleSelector |
 | `<Slider>` | `ui/slider.tsx` | `slider` (radix) | `min / max / step / value / onValueChange`；`accentColor`；`showLabels: { left, center, right }` 三段刻度 |
 | `<Progress>` + `<RangeIndicator>` + `<WeeklyRangeBar>` | `ui/progress.tsx` | `progress` (radix) | `<Progress>` 条形；`<RangeIndicator>` 均匀区间点位；`<WeeklyRangeBar>` 非均匀参考范围条（中央 60% 绿色正常区 + 低/高 0~20% 和 80~100% 映射，Batch 3 合并原 `<RangeBar>`） |
 | `<Alert>` + `<AlertTitle>` + `<AlertDescription>` | `ui/alert.tsx` | `alert` | `variant: info / primary / success / warning / danger` × `size: compact / md` + `icon?: ReactNode` |
@@ -357,6 +371,47 @@ import { Shield, Edit, Eye } from 'lucide-react'
   </div>
 </RadioGroup>
 ```
+
+**Props 速查（v7.1）**：
+
+| 名称 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `label` | `ReactNode` | — | 主标题；窄列下自动 `truncate` |
+| `description` | `ReactNode?` | — | 副描述；横向布局自动 `line-clamp-2`，纵向布局 `line-clamp-1` |
+| `icon` | `ReactNode?` | — | 左侧（横向）/ 上方（纵向）图标 |
+| `accentColor` | `string?` | `var(--primary)` | 选中态强调色；同时贯穿 ✓ 角标背景与圆点指示器 |
+| `checkedAdornment` | `ReactNode?` | — | 替代右侧圆点的自定义指示器（仅 checked 时显示） |
+| `hideIndicator` | `boolean?` | `false` | **v7.1 新增**：隐藏右侧/底部圆点指示器，选中态改用左上角 ✓ 角标。适合**紧凑网格**（3/4 列窄列）场景，避免圆点贴边/溢出 |
+| `orientation` | `'horizontal' \| 'vertical'?` | `'horizontal'` | **v7.1 新增**：卡片内布局方向。`'vertical'` = icon 上 / label 中 / desc 下，整体居中。适合"短 label + 大 icon 预览"场景（如字体档位 A 字号预览） |
+
+**典型场景对照**：
+
+```tsx
+// 1) 对话框 / 舒展宽度（默认横向 + 圆点）
+<RadioGroupCard label="管理员" description="..." icon={<Shield />} />
+
+// 2) 3 列紧凑网格（如 ThemeSelector 亮色/暖夜/跟随系统）
+<RadioGroupCard
+  label="跟随系统"
+  description="根据系统外观自动切换"
+  icon={<Monitor className="h-5 w-5" />}
+  hideIndicator   // ← 隐藏圆点，避免在窄列下贴边
+/>
+
+// 3) 4 列纵向卡片（如 FontScaleSelector 字号档位）
+<RadioGroupCard
+  label="特大"
+  description="适合老年人"
+  orientation="vertical"     // ← icon 居中、label/desc 在下
+  hideIndicator              // ← 选中态用左上角 ✓ 角标
+  icon={<span style={{ fontSize: 30 }}>A</span>}
+/>
+```
+
+**视觉规则**：
+- `hideIndicator=false`（默认）：右侧渲染 16×16 圆点指示器（未选时空心 border、选中时实心 accentColor）
+- `hideIndicator=true`：圆点完全消失，左上角出现 16×16 圆形 ✓ 角标（accentColor 背景 + 白色 ✓），叠加卡片底色 + 边框双重视觉，**未选 → 选中过渡有 150ms scale + opacity 动画**
+- 卡片整体永远有 `border + bg-primary` 兜底，选中态切换为 `border-accentColor + bg(accent 8%)`
 
 #### Slider（带三段刻度）
 
@@ -679,6 +734,75 @@ export { xxxVariants }
 | `toast` + `<Toaster>` | `ui/toast.tsx` | 极简 Toast 实现（不依赖 sonner / radix） |
 | `<SegmentedControl>` | `ui/segmented-control.tsx` | 通用分段控制（替代 tab / 单选 chip 组合） |
 
+#### `<SegmentedControl>` API（v7.3）
+
+| Prop | 类型 | 说明 |
+|------|------|------|
+| `value` | `T \| null` | 当前选中值；`null` 表示未选（仅 `toggleable` 或 `wrap`/`grid` 模式适用） |
+| `onChange` | `(v: T) => void` | 选中变化回调；空字符串表示在 `toggleable=true` 下点击已选项再次取消 |
+| `options` | `SegmentedOption<T>[]` | 选项数组，详见下表 |
+| `accentColor` | `string` | 主题色（支持 CSS 变量），grid 模式下自动派生为 14% 透明背景 + 1px 描边 |
+| `toggleable` | `boolean` | 选中后再次点击是否取消（默认 `false`） |
+| `layout` | `'flex' \| 'wrap' \| 'grid'` | 布局：iOS 等宽分段 / 自由折行 chip / 网格化卡片（默认 `flex`） |
+| `columns` | `2 \| 3 \| 4 \| 5` | **仅 `grid` 布局生效**，列数（默认 `4`） |
+| `size` | `'sm' \| 'md' \| 'lg'` | 尺寸（默认 `md`） |
+
+**`SegmentedOption<T>`**：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `value` | `T` | 选项值（必填） |
+| `label` | `string` | 选项主文案（必填） |
+| `description` | `string` | **仅 `grid` 布局**：第二行小字描述（如温度参考范围、性状提示） |
+| `swatch` | `string` | **仅 `grid` 布局**：左侧色点 CSS 颜色值（如尿布颜色用真实色块） |
+
+**布局选用建议**：
+- `flex`：互斥的 2–4 个等价选项（如喂养类型 配方奶/母乳/辅食）
+- `wrap`：多个无附加信息的紧凑标签（如哺乳侧 左/右/两侧）
+- `grid`：选项数较多、需要附带含义提示或视觉色块（如尿布性状/颜色、体温测量方式）；建议配合 `<Alert size="compact">` 给到选择后的医学/状态提示
+
+**示例（尿布颜色，带色块）**：
+
+```tsx
+<SegmentedControl<DiaperColor>
+  value={color || null}
+  onChange={(v) => setColor(v || '')}
+  accentColor="var(--diaper)"
+  toggleable
+  layout="grid"
+  columns={5}
+  options={[
+    { value: 'normal', label: '正常', swatch: '#B07A3D' },
+    { value: 'yellow', label: '黄色', swatch: '#E9B95B' },
+    { value: 'green',  label: '绿色', swatch: '#7BAE5C' },
+    { value: 'black',  label: '黑色', swatch: '#2C2A28' },
+    { value: 'red',    label: '红色', swatch: '#C84A3F' },
+  ]}
+/>
+```
+
+**示例（体温测量方式，带正常范围参考）**：
+
+```tsx
+<SegmentedControl<TempMethod>
+  value={method || null}
+  onChange={(v) => setMethod(v || '')}
+  accentColor="var(--temperature)"
+  toggleable
+  layout="grid"
+  columns={4}
+  options={[
+    { value: 'oral',     label: '口腔', description: '35.5–37.5°C' },
+    { value: 'axillary', label: '腋下', description: '36.0–37.2°C' },
+    { value: 'rectal',   label: '直肠', description: '36.6–38.0°C' },
+    { value: 'ear',      label: '耳温', description: '35.8–38.0°C' },
+  ]}
+/>
+```
+
+> 当前业务用例：`diaper-dialog` 的"性状/颜色"、`temperature-dialog` 的"测量方式"。
+> diaper-dialog 内置 `getDiaperAdvice(consistency, color)` 工具：根据组合返回 `{variant, text}`，配合 `<Alert size="compact">` 给到分级提示（红/黑色 → danger，水样/硬便 → warning，软便/成型 → success，绿色 → info）。
+
 ### 1.0 公共原子样式类（globals.css，2026-05-06 收敛新增）
 
 为避免 ad-hoc Tailwind 拼装重复散落，以下类必须直接复用：
@@ -988,8 +1112,10 @@ import { Timeline } from '@/components/timeline'
 **生长页 SVG 文本字号修复**：
 - `<text className="text-[8px]">` / `text-[7px]` 在 SVG 元素上 Tailwind class 不生效，改为 SVG 原生 `fontSize="9"` / `"8"` 属性，图表刻度与百分位 label 实际渲染与设计值一致。
 
-**Milestone 推荐抽屉 category 文案**：
-- `<span>{m.category}</span>` 渲染的是中文全称（如"大运动 Gross Motor"），在 10px 小 pill 里会截断。改为 `getCategoryLabel(m.categoryKey)` 返回的精简中文。
+**Milestone 打卡模式（v5.x）**：
+- 当前 `MilestonePage` 是**打卡（check-in）页**，列表主体 = 28 项标准里程碑，行右侧圆形 toggle 直接 add / remove；点击行进入 detail，未达成态主按钮"标记达成"，已达成态可编辑 `achievedDate` / `note` 或"取消打卡"。
+- 不再有"自由添加"表单与"标准推荐"抽屉。category 文案仍然遵循 `getCategoryLabel(m.categoryKey)` 返回的精简中文，避免在 10px 小 pill 内截断。
+- 服务层 `milestoneService` 现包含 `list / create(upsert) / update / remove` 四个方法（`client/src/services/baby-extra.ts`），分别对应 GET / POST(upsert) / PATCH / DELETE。
 
 ## 3. 家庭协作组件（client/src/components/family/）
 
