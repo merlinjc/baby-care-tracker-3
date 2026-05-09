@@ -285,8 +285,15 @@
 
 /* ============================================================================
  * Base
+ *
+ * 注意：Tailwind v4 的 preflight 已经在 @layer base 中对所有元素做了
+ * box-sizing/margin/padding/border 的 reset，因此这里不能再写一条裸
+ * （unlayered）的全局 reset（例如 universal selector 配 padding:0）。
+ * 为什么？按 CSS Cascade Layers 规则，unlayered CSS 的优先级胜过所有
+ * @layer 内规则（不看特异性），会把 @layer utilities 里的 .px-/.py-
+ * 工具类全部覆盖掉，导致 ListRow / 列表项等组件 padding 全为 0。
+ * —— 2026-05 修复 ProfilePage 账户与数据列表图标贴边问题。
  * ========================================================================= */
-* { box-sizing: border-box; margin: 0; padding: 0; }
 
 html {
   font-size: 16px;
