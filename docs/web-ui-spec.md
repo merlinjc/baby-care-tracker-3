@@ -2126,7 +2126,6 @@ interface UseThemeReturn {
 | Primitive | 文件 | 关键 Variants / API |
 |-----------|------|---------------------|
 | `<Checkbox>` | `ui/checkbox.tsx` | radix 驱动；`size: sm / md`；三态（indeterminate） |
-| `<Sheet>` 族 | `ui/sheet.tsx` | radix-dialog 底座；`side: right / left / top / bottom` × `size: sm / md / lg` |
 | `<ScrollArea>` | `ui/scroll-area.tsx` | 美拉德色细滚动条；A11y 友好 |
 
 ### 6.2 已删除 / 合并的组件
@@ -2135,6 +2134,7 @@ interface UseThemeReturn {
 |--------|------|---------|
 | ~~`HeaderAction`~~ | `<Button variant="primary/secondary/ghost" size="sm">` | Batch 1 |
 | ~~`RangeBar`~~ | `<WeeklyRangeBar>`（合并到 `ui/progress.tsx`）| Batch 3 |
+| ~~`<Sheet>` 族~~ | 全部归并到 `<Dialog>`（移动端自动变 bottom sheet，桌面端居中 modal）；业务无引用，2026-05-09 删除 | v7.1 |
 
 ### 6.3 v5.1.0 设计优化（在 4 批 Primitive 之上）
 

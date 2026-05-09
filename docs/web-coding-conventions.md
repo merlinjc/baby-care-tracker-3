@@ -838,6 +838,7 @@ router.post('/:id/leave', validateParams(familyIdParamSchema), asyncHandler(asyn
 - 需要自定义非标准 Dialog（例如带 Tab / 侧边栏的复杂场景）时，优先扩展现有 `<Dialog>` 增加 prop；非特殊情况不要直接使用 `DialogPrimitive`。
 - 禁止在业务页面手写 `fixed inset-0 z-50` + overlay/内容双层结构来模拟 Dialog——请用官方组件。
 - **双按钮 footer 布局**：`DialogFooter` 内部采用 `grid grid-cols-2 gap-2` 容器（而非 `flex gap-2`）。原因：`<Button>` primitive 带 `shrink-0`（防止图标按钮被压扁），与 `block: w-full` 组合后在 flex 容器中会让两个按钮各自坚持 100% 宽度并溢出 Dialog。grid 两列等宽格子可以严格将宽度约束在 `(container - gap) / 2`，即使未来 Button 样式再调整也不会破坏底栏布局。
+- **z-index 与 useConfirm() 叠加**（2026-05-09 BUG 教训，milestone v8.1 / vaccine v7.1）：`<Dialog>` 内部 overlay/content 用 `z-50`，全局 `useConfirm()` 也走同一 `<Dialog>`。两个标准 Dialog 同层叠加时，后挂载的会自然盖在前面之上（DOM 顺序），所以"在标准 Dialog 里再调用 useConfirm()"是合法且推荐的写法。**反例**：业务页面如果**自行**用 `fixed inset-0 z-[60]/[70]` 或 `z-40 + z-50` 之类的层级实现自定义弹窗，里面再 `useConfirm()` 会让二次确认弹窗被自己盖住，用户感觉到"点了按钮没反应"。**约定**：所有业务弹窗（modal / drawer / 详情卡）一律走 `<Dialog>`（移动端自动变 bottom sheet，桌面端居中 modal），禁止手写 `fixed inset-0` + overlay/content 双层结构（参考 11.2 第 4 条）。已完成迁移：`pages/milestone`（详情）、`pages/vaccine`（标准计划抽屉）。
 
 ### 11.3 分页请求硬上限 pageSize ≤ 100（v5.x 2026-05-09 新增）
 

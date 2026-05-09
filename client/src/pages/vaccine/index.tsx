@@ -6,14 +6,17 @@
  * - 状态 Tabs → SegmentedControl（带 count）
  * - 计划/记录列表：ListRow 风（左色条 + 圆 icon + 标题 + 状态 Badge + 标记按钮）
  * - 标准计划 Drawer 保留布局，配色暖调化
+ *
+ * v7.1（2026-05-09）：标准计划抽屉迁移到标准 <Dialog>，避免与 useConfirm() 的 z-index 冲突。
  */
 import { useState, useEffect, useMemo } from 'react'
 import { AlertTriangle, CheckCircle, Clock, ListChecks, PlusCircle, Syringe, Trash2, X } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { useBabyStore } from '@/stores/baby-store'
 import { vaccineService } from '@/services/baby-extra'
 import { getVaccinePlans } from '@/lib/vaccine-plans'
 import { useConfirm } from '@/components/ui/confirm-dialog'
+import { Dialog } from '@/components/ui/dialog'
 import { LargeTitleHeader } from '@/components/ui/large-title-header'
 import { SegmentedControl } from '@/components/ui/segmented-control'
 import { Button } from '@/components/ui/button'
@@ -23,7 +26,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { FormField } from '@/components/ui/form-field'
 import { ListSkeleton } from '@/components/ui/list-skeleton'
-import { staggerContainer, staggerItem, sheetMobile, overlayFade } from '@/lib/motion'
+import { staggerContainer, staggerItem } from '@/lib/motion'
 import type { VaccineRecord, Baby } from '@/types'
 
 type StatusFilter = 'all' | 'completed' | 'upcoming' | 'overdue'
@@ -527,140 +530,98 @@ export function VaccinePage() {
         </motion.div>
       )}
 
-      {/* 标准计划 Drawer */}
-      <AnimatePresence>
-        {showRecommend && (
-          <>
-            <motion.div
-              {...overlayFade}
-              className="fixed inset-0 z-40"
-              style={{ backgroundColor: 'var(--mask-dark)' }}
-              onClick={() => setShowRecommend(false)}
-            />
-            <motion.div
-              variants={sheetMobile}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-              className="fixed inset-x-0 bottom-0 z-50 max-h-[80vh] overflow-y-auto"
-              style={{
-                backgroundColor: 'var(--surface-1)',
-                borderTopLeftRadius: 'var(--radius-xl)',
-                borderTopRightRadius: 'var(--radius-xl)',
-                boxShadow: 'var(--shadow-lg)',
-              }}
-            >
-              <div className="flex justify-center pt-2 pb-1">
+      {/* 标准计划 Drawer（v7.1：迁移到标准 <Dialog>，避免 z-index 与 useConfirm 冲突） */}
+      <Dialog
+        open={showRecommend}
+        onClose={() => setShowRecommend(false)}
+        title="国家标准免疫计划"
+        icon={<ListChecks className="h-4 w-4" />}
+        accentColor="var(--brand)"
+        size="lg"
+      >
+        <div className="space-y-3">
+          <p
+            className="caption-1"
+            style={{ color: 'var(--label-tertiary)' }}
+          >
+            基于出生日期：
+            {currentBaby
+              ? new Date(currentBaby.birthDate).toLocaleDateString('zh-CN')
+              : ''}
+          </p>
+
+          <div className="space-y-2">
+            {standardPlans.map((plan, i) => {
+              const isCompleted = vaccinatedSet.has(`${plan.name}__${plan.dose}`)
+              const isOverdue = !isCompleted && plan.monthAge <= ageMonths
+              const status = isCompleted
+                ? 'completed'
+                : isOverdue
+                  ? 'overdue'
+                  : 'upcoming'
+              const s = STATUS_STYLES[status]
+              return (
                 <div
-                  className="w-10 h-1 rounded-full"
-                  style={{ backgroundColor: 'var(--separator-opaque)' }}
-                />
-              </div>
-
-              <div
-                className="p-4 sticky top-0 z-10"
-                style={{
-                  backgroundColor: 'var(--surface-1)',
-                  borderBottom: '0.5px solid var(--separator)',
-                }}
-              >
-                <div className="flex items-center justify-between">
-                  <h3 className="headline" style={{ color: 'var(--label)' }}>
-                    国家标准免疫计划
-                  </h3>
-                  <IconButton
-                    variant="ghost"
-                    size="sm"
-                    icon={<X className="h-5 w-5" />}
-                    onClick={() => setShowRecommend(false)}
-                    aria-label="关闭"
-                  />
-                </div>
-                <p
-                  className="caption-1 mt-1"
-                  style={{ color: 'var(--label-tertiary)' }}
+                  key={i}
+                  className="flex items-center gap-3 p-3 rounded-[var(--radius-md)]"
+                  style={{
+                    backgroundColor: isCompleted ? 'transparent' : s.bg,
+                    opacity: isCompleted ? 0.55 : 1,
+                    border: '0.5px solid var(--separator)',
+                  }}
                 >
-                  基于出生日期：
-                  {currentBaby
-                    ? new Date(currentBaby.birthDate).toLocaleDateString('zh-CN')
-                    : ''}
-                </p>
-              </div>
-
-              <div className="px-4 pb-6 pt-2 space-y-2">
-                {standardPlans.map((plan, i) => {
-                  const isCompleted = vaccinatedSet.has(`${plan.name}__${plan.dose}`)
-                  const isOverdue = !isCompleted && plan.monthAge <= ageMonths
-                  const status = isCompleted
-                    ? 'completed'
-                    : isOverdue
-                      ? 'overdue'
-                      : 'upcoming'
-                  const s = STATUS_STYLES[status]
-                  return (
-                    <div
-                      key={i}
-                      className="flex items-center gap-3 p-3 rounded-[var(--radius-md)]"
-                      style={{
-                        backgroundColor: isCompleted ? 'transparent' : s.bg,
-                        opacity: isCompleted ? 0.55 : 1,
-                        border: '0.5px solid var(--separator)',
-                      }}
-                    >
-                      <div
-                        className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center"
-                        style={{
-                          backgroundColor: `color-mix(in srgb, ${s.color} 22%, transparent)`,
-                          color: s.fg,
-                        }}
+                  <div
+                    className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center"
+                    style={{
+                      backgroundColor: `color-mix(in srgb, ${s.color} 22%, transparent)`,
+                      color: s.fg,
+                    }}
+                  >
+                    <s.Icon className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span
+                        className="callout font-medium"
+                        style={{ color: 'var(--label)' }}
                       >
-                        <s.Icon className="h-4 w-4" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span
-                            className="callout font-medium"
-                            style={{ color: 'var(--label)' }}
-                          >
-                            {plan.name}
-                          </span>
-                          <span
-                            className="caption-1"
-                            style={{ color: 'var(--label-tertiary)' }}
-                          >
-                            {plan.dose}
-                          </span>
-                          {!plan.isFree && (
-                            <Badge size="xs" variant="warning">
-                              自费
-                            </Badge>
-                          )}
-                        </div>
-                        <p
-                          className="caption-1"
-                          style={{ color: 'var(--label-tertiary)' }}
-                        >
-                          {plan.monthAge}月龄 · 计划：{plan.plannedDate}
-                        </p>
-                      </div>
-                      {!isCompleted && (
-                        <Button
-                          variant="tinted"
-                          size="xs"
-                          onClick={() => handleQuickAddFromPlan(plan)}
-                          disabled={isSubmitting}
-                        >
-                          标记已接种
-                        </Button>
+                        {plan.name}
+                      </span>
+                      <span
+                        className="caption-1"
+                        style={{ color: 'var(--label-tertiary)' }}
+                      >
+                        {plan.dose}
+                      </span>
+                      {!plan.isFree && (
+                        <Badge size="xs" variant="warning">
+                          自费
+                        </Badge>
                       )}
                     </div>
-                  )
-                })}
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+                    <p
+                      className="caption-1"
+                      style={{ color: 'var(--label-tertiary)' }}
+                    >
+                      {plan.monthAge}月龄 · 计划：{plan.plannedDate}
+                    </p>
+                  </div>
+                  {!isCompleted && (
+                    <Button
+                      variant="tinted"
+                      size="xs"
+                      onClick={() => handleQuickAddFromPlan(plan)}
+                      disabled={isSubmitting}
+                    >
+                      标记已接种
+                    </Button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </Dialog>
     </motion.div>
   )
 }

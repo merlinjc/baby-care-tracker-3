@@ -6,9 +6,11 @@
  * - 列表主体 = 标准里程碑卡片（按类别筛选），每张卡右侧一个圆形 toggle
  * - Detail 弹窗：未达成 → "标记达成"；已达成 → 可编辑达成日期 + 备注 + 取消打卡
  * - 旧的"标准推荐"抽屉移除（与主列表重复）
+ *
+ * v8.1（2026-05-09）：详情弹窗迁移到标准 <Dialog>，避免与 useConfirm() 的 z-index 冲突。
  */
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import {
   AlertTriangle,
   Check,
@@ -16,7 +18,6 @@ import {
   Circle,
   Sparkles,
   Trophy,
-  X,
 } from 'lucide-react'
 import { useBabyStore } from '@/stores/baby-store'
 import { milestoneService } from '@/services/baby-extra'
@@ -26,9 +27,9 @@ import {
   getCategoryLabel,
 } from '@/lib/milestone-defs'
 import { useConfirm } from '@/components/ui/confirm-dialog'
+import { Dialog } from '@/components/ui/dialog'
 import { LargeTitleHeader } from '@/components/ui/large-title-header'
 import { Button } from '@/components/ui/button'
-import { IconButton } from '@/components/ui/icon-button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -37,12 +38,7 @@ import { Label } from '@/components/ui/label'
 import { ListSkeleton } from '@/components/ui/list-skeleton'
 import { SegmentedControl } from '@/components/ui/segmented-control'
 import { NumberRoll } from '@/components/number-roll'
-import {
-  staggerContainer,
-  staggerItem,
-  overlayFade,
-  springSoft,
-} from '@/lib/motion'
+import { staggerContainer, staggerItem, springSoft } from '@/lib/motion'
 import type { MilestoneItem } from '@/lib/milestone-defs'
 import type { MilestoneRecord, Baby } from '@/types'
 
@@ -299,12 +295,25 @@ export function MilestonePage() {
     }
   }, [detailItem, currentBaby, editDate, editNote])
 
-  /** 详情里：取消打卡 */
+  /** 详情里：取消打卡
+   *
+   * 详情走的是标准 `<Dialog>`，全局 `useConfirm()` 也是 `<Dialog>`，
+   * 后挂载的 confirm 会自动盖在详情之上，无需手动先关详情。
+   * 用户在 confirm 取消时能回到详情；确认删除后才主动关闭详情。
+   */
   const handleCheckOutFromDetail = useCallback(async () => {
-    if (!detailItem) return
-    await checkOut(detailItem)
+    if (!detailItem || !detailItem.record || !currentBaby) return
+    const target = detailItem
+    const ok = await confirm({
+      title: `取消"${target.item.name}"的打卡？`,
+      description: '记录将被删除，可随时重新打卡。',
+      confirmText: '取消打卡',
+      variant: 'danger',
+    })
+    if (!ok) return
+    await checkOut(target, { skipConfirm: true })
     setDetailItem(null)
-  }, [detailItem, checkOut])
+  }, [detailItem, currentBaby, confirm, checkOut])
 
   return (
     <motion.div
@@ -510,178 +519,148 @@ export function MilestonePage() {
         </motion.div>
       )}
 
-      {/* Detail Popup */}
-      <AnimatePresence>
+      {/* Detail Dialog（v8.1：迁移到标准 <Dialog>，避免 z-index 与 useConfirm 冲突） */}
+      <Dialog
+        open={!!detailItem}
+        onClose={() => setDetailItem(null)}
+        title={detailItem?.item.name ?? ''}
+        accentColor={
+          detailItem ? getCategoryStyle(detailItem.categoryKey).color : undefined
+        }
+        size="md"
+        footer={
+          detailItem ? (
+            detailItem.status !== 'achieved' ? (
+              <Button
+                variant="filled"
+                block
+                onClick={handleMarkFromDetail}
+                loading={pendingName === detailItem.item.name}
+              >
+                标记达成
+              </Button>
+            ) : (
+              <div className="space-y-2">
+                <Button
+                  variant="filled"
+                  block
+                  onClick={handleSaveEdit}
+                  loading={isSavingEdit}
+                >
+                  保存修改
+                </Button>
+                <Button
+                  variant="plain"
+                  block
+                  onClick={handleCheckOutFromDetail}
+                  disabled={pendingName === detailItem.item.name}
+                  style={{ color: 'var(--danger)' }}
+                >
+                  取消打卡
+                </Button>
+              </div>
+            )
+          ) : null
+        }
+      >
         {detailItem && (
-          <>
-            <motion.div
-              {...overlayFade}
-              className="fixed inset-0 z-[60]"
-              style={{ backgroundColor: 'var(--mask-dark)' }}
-              onClick={() => setDetailItem(null)}
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: 8 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96 }}
-              transition={springSoft}
-              className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-[70] max-h-[80vh] overflow-y-auto max-w-md mx-auto"
-              style={{
-                backgroundColor: 'var(--surface-1)',
-                borderRadius: 'var(--radius-xl)',
-                padding: '20px',
-                boxShadow: 'var(--shadow-lg)',
-              }}
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3
-                      className="title-3"
-                      style={{ color: 'var(--label)' }}
-                    >
-                      {detailItem.item.name}
-                    </h3>
-                    {detailItem.status === 'achieved' && (
-                      <Badge
-                        size="xs"
-                        accentColor={getCategoryStyle(detailItem.categoryKey).color}
-                      >
-                        <CheckCircle2 className="h-3 w-3 mr-0.5 inline" />
-                        已达成
-                      </Badge>
-                    )}
-                  </div>
-                  <p
-                    className="caption-1 mt-0.5"
-                    style={{ color: 'var(--label-tertiary)' }}
-                  >
-                    {detailItem.category} · 窗口期 {detailItem.item.window}
-                  </p>
-                </div>
-                <IconButton
-                  variant="ghost"
-                  size="sm"
-                  icon={<X className="h-5 w-5" />}
-                  onClick={() => setDetailItem(null)}
-                  aria-label="关闭"
-                />
-              </div>
+          <div className="space-y-3">
+            {/* meta 行：状态 Badge + 类别 + 窗口期 */}
+            <div className="flex items-center gap-2 flex-wrap -mt-1">
+              {detailItem.status === 'achieved' && (
+                <Badge
+                  size="xs"
+                  accentColor={getCategoryStyle(detailItem.categoryKey).color}
+                >
+                  <CheckCircle2 className="h-3 w-3 mr-0.5 inline" />
+                  已达成
+                </Badge>
+              )}
+              <span
+                className="caption-1"
+                style={{ color: 'var(--label-tertiary)' }}
+              >
+                {detailItem.category} · 窗口期 {detailItem.item.window}
+              </span>
+            </div>
 
-              <div className="space-y-3">
-                <div>
-                  <Label>描述</Label>
+            <div>
+              <Label>描述</Label>
+              <p
+                className="footnote"
+                style={{ color: 'var(--label-secondary)' }}
+              >
+                {detailItem.item.description}
+              </p>
+            </div>
+            <div>
+              <Label>参考标准</Label>
+              <p
+                className="footnote"
+                style={{ color: 'var(--label-secondary)' }}
+              >
+                {detailItem.item.standard}
+              </p>
+              <p
+                className="caption-1 mt-0.5"
+                style={{ color: 'var(--label-tertiary)' }}
+              >
+                {detailItem.item.whoWindow}
+              </p>
+            </div>
+            {detailItem.item.warningMonths &&
+              detailItem.status !== 'achieved' && (
+                <div
+                  className="px-3 py-2 rounded-[var(--radius-md)] flex items-start gap-2"
+                  style={{ backgroundColor: 'var(--danger-bg)' }}
+                >
+                  <AlertTriangle
+                    className="h-4 w-4 shrink-0 mt-0.5"
+                    style={{ color: 'var(--danger-fg)' }}
+                  />
                   <p
-                    className="footnote"
-                    style={{ color: 'var(--label-secondary)' }}
+                    className="caption-1"
+                    style={{ color: 'var(--danger-fg)' }}
                   >
-                    {detailItem.item.description}
+                    超过 {detailItem.item.warningMonths} 月未达成建议就医评估
                   </p>
                 </div>
-                <div>
-                  <Label>参考标准</Label>
-                  <p
-                    className="footnote"
-                    style={{ color: 'var(--label-secondary)' }}
-                  >
-                    {detailItem.item.standard}
-                  </p>
-                  <p
-                    className="caption-1 mt-0.5"
-                    style={{ color: 'var(--label-tertiary)' }}
-                  >
-                    {detailItem.item.whoWindow}
-                  </p>
-                </div>
-                {detailItem.item.warningMonths &&
-                  detailItem.status !== 'achieved' && (
-                    <div
-                      className="px-3 py-2 rounded-[var(--radius-md)] flex items-start gap-2"
-                      style={{ backgroundColor: 'var(--danger-bg)' }}
-                    >
-                      <AlertTriangle
-                        className="h-4 w-4 shrink-0 mt-0.5"
-                        style={{ color: 'var(--danger-fg)' }}
-                      />
-                      <p
-                        className="caption-1"
-                        style={{ color: 'var(--danger-fg)' }}
-                      >
-                        超过 {detailItem.item.warningMonths} 月未达成建议就医评估
-                      </p>
-                    </div>
-                  )}
-                <div>
-                  <Label>如何帮助</Label>
-                  <p
-                    className="footnote"
-                    style={{ color: 'var(--label-secondary)' }}
-                  >
-                    {detailItem.item.howToHelp}
-                  </p>
-                </div>
+              )}
+            <div>
+              <Label>如何帮助</Label>
+              <p
+                className="footnote"
+                style={{ color: 'var(--label-secondary)' }}
+              >
+                {detailItem.item.howToHelp}
+              </p>
+            </div>
 
-                {/* 已达成态：可编辑达成日期 + 备注 */}
-                {detailItem.status === 'achieved' && detailItem.record && (
-                  <div className="space-y-3 pt-2 border-t border-[var(--separator)]">
-                    <FormField label="达成日期" htmlFor="ms-edit-date">
-                      <Input
-                        id="ms-edit-date"
-                        type="date"
-                        value={editDate}
-                        onChange={(e) => setEditDate(e.target.value)}
-                        max={new Date().toISOString().split('T')[0]}
-                      />
-                    </FormField>
-                    <FormField label="备注" htmlFor="ms-edit-note">
-                      <Input
-                        id="ms-edit-note"
-                        value={editNote}
-                        onChange={(e) => setEditNote(e.target.value)}
-                        placeholder="可选"
-                      />
-                    </FormField>
-                  </div>
-                )}
+            {/* 已达成态：可编辑达成日期 + 备注 */}
+            {detailItem.status === 'achieved' && detailItem.record && (
+              <div className="space-y-3 pt-2 border-t border-[var(--separator)]">
+                <FormField label="达成日期" htmlFor="ms-edit-date">
+                  <Input
+                    id="ms-edit-date"
+                    type="date"
+                    value={editDate}
+                    onChange={(e) => setEditDate(e.target.value)}
+                    max={new Date().toISOString().split('T')[0]}
+                  />
+                </FormField>
+                <FormField label="备注" htmlFor="ms-edit-note">
+                  <Input
+                    id="ms-edit-note"
+                    value={editNote}
+                    onChange={(e) => setEditNote(e.target.value)}
+                    placeholder="可选"
+                  />
+                </FormField>
               </div>
-
-              {/* 主按钮区 */}
-              <div className="mt-4 space-y-2">
-                {detailItem.status !== 'achieved' ? (
-                  <Button
-                    variant="filled"
-                    block
-                    onClick={handleMarkFromDetail}
-                    loading={pendingName === detailItem.item.name}
-                  >
-                    标记达成
-                  </Button>
-                ) : (
-                  <>
-                    <Button
-                      variant="filled"
-                      block
-                      onClick={handleSaveEdit}
-                      loading={isSavingEdit}
-                    >
-                      保存修改
-                    </Button>
-                    <Button
-                      variant="plain"
-                      block
-                      onClick={handleCheckOutFromDetail}
-                      disabled={pendingName === detailItem.item.name}
-                      style={{ color: 'var(--danger)' }}
-                    >
-                      取消打卡
-                    </Button>
-                  </>
-                )}
-              </div>
-            </motion.div>
-          </>
+            )}
+          </div>
         )}
-      </AnimatePresence>
+      </Dialog>
     </motion.div>
   )
 }

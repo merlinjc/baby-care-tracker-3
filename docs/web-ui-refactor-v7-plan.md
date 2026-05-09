@@ -1,4 +1,4 @@
-﻿# v7.0 UI 大重构方案（真正的大重构）
+# v7.0 UI 大重构方案（真正的大重构）
 
 > **版本**: v1.0 | **日期**: 2026-05-08 | **状态**: 进行中
 > **前身**: v6 方案（被判定为"贴皮重构"）已废弃，本方案取代之
@@ -312,7 +312,7 @@ client/src/components/ui/card.tsx            [简化 variants]
 client/src/components/ui/badge.tsx           [重写色系]
 client/src/components/ui/input.tsx           [iOS 风聚焦]
 client/src/components/ui/dialog.tsx          [framer-motion 驱动]
-client/src/components/ui/sheet.tsx           [framer-motion + detents]
+client/src/components/ui/sheet.tsx           [framer-motion + detents]（v7.1 已删除：无业务引用）
 client/src/components/ui/segmented-control.tsx  [iOS 风重写]
 client/src/components/ui/tabs.tsx            [新增 pill-filled]
 client/src/components/ui/list-row.tsx        [新增]

@@ -118,7 +118,6 @@ import {
 | 组件 | 文件 | 对标 shadcn | 关键 Variants / API |
 |------|------|-------------|--------------------|
 | `<Checkbox>` | `ui/checkbox.tsx` | `checkbox` (radix) | `size: sm / md`；支持 `indeterminate` 三态；键盘 Space 切换 |
-| `<Sheet>` + `<SheetContent>` + `<SheetHeader/Title/Description>` + `<SheetBody>` + `<SheetFooter>` + `<SheetTrigger>` + `<SheetClose>` | `ui/sheet.tsx` | `sheet` (radix-dialog 底座) | `side: right(默认) / left / top / bottom` × `size: sm / md / lg`；**与 Dialog 区别**：Sheet 在所有断点都是侧滑/底部滑出，用于桌面端右侧抽屉 / 左侧导航抽屉 |
 | `<ScrollArea>` | `ui/scroll-area.tsx` | `scroll-area` (radix) | 把原生 scrollbar 统一为美拉德细滚动条；A11y 友好；必须外层有固定高度 |
 
 ### 1.A.7 v6.0 UI 重构新增
@@ -581,33 +580,6 @@ import { Checkbox } from '@/components/ui/checkbox'
   onCheckedChange={handleToggleAll}
 />
 ```
-
-#### Sheet（侧边/底部抽屉）
-
-```tsx
-import {
-  Sheet, SheetTrigger, SheetContent,
-  SheetHeader, SheetTitle, SheetBody, SheetFooter,
-} from '@/components/ui/sheet'
-import { Button } from '@/components/ui/button'
-
-<Sheet open={open} onOpenChange={setOpen}>
-  <SheetContent side="right" size="md">
-    <SheetHeader>
-      <SheetTitle>高级筛选</SheetTitle>
-    </SheetHeader>
-    <SheetBody>
-      {/* 长表单 */}
-    </SheetBody>
-    <SheetFooter>
-      <Button variant="secondary" block onClick={() => setOpen(false)}>取消</Button>
-      <Button block onClick={onApply}>应用</Button>
-    </SheetFooter>
-  </SheetContent>
-</Sheet>
-```
-
-**与 `<Dialog>` 的区别**：Dialog 桌面端居中弹窗（移动端退化 bottom sheet）；Sheet 在**所有断点都是侧滑/底部滑出**，适合桌面端右侧抽屉、左侧导航。
 
 #### ScrollArea
 
@@ -1116,6 +1088,12 @@ import { Timeline } from '@/components/timeline'
 - 当前 `MilestonePage` 是**打卡（check-in）页**，列表主体 = 28 项标准里程碑，行右侧圆形 toggle 直接 add / remove；点击行进入 detail，未达成态主按钮"标记达成"，已达成态可编辑 `achievedDate` / `note` 或"取消打卡"。
 - 不再有"自由添加"表单与"标准推荐"抽屉。category 文案仍然遵循 `getCategoryLabel(m.categoryKey)` 返回的精简中文，避免在 10px 小 pill 内截断。
 - 服务层 `milestoneService` 现包含 `list / create(upsert) / update / remove` 四个方法（`client/src/services/baby-extra.ts`），分别对应 GET / POST(upsert) / PATCH / DELETE。
+- **v8.1（2026-05-09）**：detail 弹窗从手写 `fixed inset-0 z-[60]/[70]` 自制结构迁移到标准 `<Dialog size="md">`。原来的"取消打卡"会因 z-index 高于全局 `<Dialog>`（z-50）的 `useConfirm()` 二次确认弹窗，导致 confirm 被详情遮挡，用户感知是"点了没反应"的 BUG。迁移后两个 Dialog 同层叠加，后挂载的 confirm 自然盖在详情之上，UX 直觉一致；同时统一了视觉语言（带 accentColor 的 header / 标准 footer 区）。状态 Badge 从 title 行下移到 body 的 meta 行（标准 Dialog 的 `title` 是 string 不接受 JSX）。
+
+**Vaccine 标准计划抽屉迁移（v7.1，2026-05-09）**：
+- `pages/vaccine/index.tsx` 的"国家标准免疫计划" drawer 从手写 `AnimatePresence` + `fixed inset-0 z-40` (mask) + `fixed inset-x-0 bottom-0 z-50` (sheet) 双层结构迁移到标准 `<Dialog size="lg">`。
+- 移动端 Dialog 自动渲染为底部 sheet（带拖拽条），桌面端居中 modal 560px，UX 与原 drawer 一致；自带 X 关闭、ESC、背景点击关闭、焦点陷阱、return-focus，不再需要手写 IconButton + onClick={() => setShowRecommend(false)}。
+- 与 milestone v8.1 的迁移动机一致：彻底消除业务层"高于 z-50 的自制弹窗"，避免未来在该抽屉里加 `useConfirm()` 时再踩同样的层级冲突。
 
 ## 3. 家庭协作组件（client/src/components/family/）
 
