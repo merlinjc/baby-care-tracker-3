@@ -34,7 +34,9 @@ jobs:
   build-and-deploy:
     name: Build & Deploy
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # v7 大重构后镜像层多 + 首次 GHA cache 未命中时构建较久；
+    # 把超时从 45min 拉到 90min，第二次跑命中 cache 后会快很多
+    timeout-minutes: 90
     permissions:
       contents: read
     environment:
