@@ -256,31 +256,47 @@ export function useReportData(
   const startIso = range.start.toISOString()
   const endIso = range.end.toISOString()
 
-  // 记录列表：拉满一页足够（周报 / 月报正常 <= 500 条）
+  // 记录列表：循环分页直到 hasMore=false（后端 pageSize 上限 100）。
+  // 周报 ≤ 7 天、月报 ≤ 31 天，实际一般 1-2 页；保留硬上限防失控。
   const recordsQuery = useQuery({
     queryKey: ['report', 'records', babyId, period, startIso, endIso],
     queryFn: async () => {
       if (!babyId) return [] as CareRecord[]
-      const res = await recordService.getRecords({
-        babyId,
-        startDate: startIso,
-        endDate: endIso,
-        page: 1,
-        pageSize: 500,
-      })
-      return res.items
+      const all: CareRecord[] = []
+      const PAGE_SIZE = 100
+      const MAX_PAGES = 20 // 兜底：最多 2000 条
+      for (let page = 1; page <= MAX_PAGES; page++) {
+        const res = await recordService.getRecords({
+          babyId,
+          startDate: startIso,
+          endDate: endIso,
+          page,
+          pageSize: PAGE_SIZE,
+        })
+        all.push(...res.items)
+        if (!res.hasMore) break
+      }
+      return all
     },
     enabled: !!babyId,
     staleTime: 60 * 1000,
   })
 
-  // 疫苗 / 里程碑：列表后在前端过滤时间窗（后端没有 startDate 参数，但量不大）
+  // 疫苗 / 里程碑：后端无 startDate 参数，列出后前端按日期过滤。
+  // 正常项目里数量不大，循环分页也只有 1-2 页。
   const vaccinesQuery = useQuery({
     queryKey: ['report', 'vaccines', babyId],
     queryFn: async () => {
       if (!babyId) return [] as VaccineRecord[]
-      const res = await vaccineService.list(babyId, { page: 1, pageSize: 200 })
-      return res.items
+      const all: VaccineRecord[] = []
+      const PAGE_SIZE = 100
+      const MAX_PAGES = 10
+      for (let page = 1; page <= MAX_PAGES; page++) {
+        const res = await vaccineService.list(babyId, { page, pageSize: PAGE_SIZE })
+        all.push(...res.items)
+        if (!res.hasMore) break
+      }
+      return all
     },
     enabled: !!babyId,
     staleTime: 60 * 1000,
@@ -290,8 +306,15 @@ export function useReportData(
     queryKey: ['report', 'milestones', babyId],
     queryFn: async () => {
       if (!babyId) return [] as MilestoneRecord[]
-      const res = await milestoneService.list(babyId, { page: 1, pageSize: 200 })
-      return res.items
+      const all: MilestoneRecord[] = []
+      const PAGE_SIZE = 100
+      const MAX_PAGES = 10
+      for (let page = 1; page <= MAX_PAGES; page++) {
+        const res = await milestoneService.list(babyId, { page, pageSize: PAGE_SIZE })
+        all.push(...res.items)
+        if (!res.hasMore) break
+      }
+      return all
     },
     enabled: !!babyId,
     staleTime: 60 * 1000,
