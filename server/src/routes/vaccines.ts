@@ -6,7 +6,7 @@ import { authenticate } from '../middleware/auth';
 import { validateBody, validateQuery, validateParams } from '../middleware/validate';
 import { asyncHandler } from '../utils/async-handler';
 import { babyIdParamSchema } from '../schemas/baby.schema';
-import { vaccineSchema, milestoneSchema, trendQuerySchema, paginationSchema } from '../schemas/common.schema';
+import { vaccineSchema, milestoneSchema, updateMilestoneSchema, trendQuerySchema, paginationSchema } from '../schemas/common.schema';
 import { z } from 'zod';
 
 const router = Router();
@@ -97,6 +97,44 @@ router.post(
     res.status(201).json({
       success: true,
       data: { milestone: result },
+    });
+  }),
+);
+
+// PATCH /api/babies/:id/milestones/:milestoneId
+router.patch(
+  '/:id/milestones/:milestoneId',
+  validateParams(babyIdParamSchema.extend({ milestoneId: z.string().min(1) })),
+  validateBody(updateMilestoneSchema),
+  asyncHandler(async (req, res) => {
+    const result = await milestoneService.updateMilestone(
+      req.userId!,
+      req.params.id,
+      req.params.milestoneId,
+      req.body,
+    );
+
+    res.json({
+      success: true,
+      data: { milestone: result },
+    });
+  }),
+);
+
+// DELETE /api/babies/:id/milestones/:milestoneId
+router.delete(
+  '/:id/milestones/:milestoneId',
+  validateParams(babyIdParamSchema.extend({ milestoneId: z.string().min(1) })),
+  asyncHandler(async (req, res) => {
+    const result = await milestoneService.deleteMilestone(
+      req.userId!,
+      req.params.id,
+      req.params.milestoneId,
+    );
+
+    res.json({
+      success: true,
+      data: result,
     });
   }),
 );

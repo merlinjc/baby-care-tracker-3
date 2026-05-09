@@ -14,6 +14,13 @@ export const milestoneSchema = z.object({
   note: z.string().max(500).optional(),
 });
 
+export const updateMilestoneSchema = z.object({
+  achievedDate: z.string().datetime('达成日期格式无效').optional(),
+  note: z.string().max(500).nullable().optional(),
+}).refine((d) => d.achievedDate !== undefined || d.note !== undefined, {
+  message: '至少更新一个字段',
+});
+
 export const trendQuerySchema = z.object({
   type: z.enum(['weight', 'height', 'headCircumference'], { message: '趋势类型无效' }),
   period: z.enum(['week', 'month', '3months', '6months', 'year', 'all']).default('month'),

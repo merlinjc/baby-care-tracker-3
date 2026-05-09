@@ -177,10 +177,13 @@ model MilestoneRecord {
   note         String?
   createdBy    String
   createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
 
   baby    Baby @relation(fields: [babyId], references: [id], onDelete: Cascade)
   creator User  @relation(fields: [createdBy], references: [id])
 
+  // 打卡式：同一 baby 下每个里程碑名称仅一条记录
+  @@unique([babyId, name])
   @@index([babyId, familyId])
 }
 

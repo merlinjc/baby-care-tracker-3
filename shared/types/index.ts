@@ -166,6 +166,7 @@ export interface MilestoneRecord {
   note: string | null;
   createdBy: string;
   createdAt: string;
+  updatedAt: string;
 }
 
 // ============ Auth Types ============

@@ -24,9 +24,27 @@ export const milestoneService = {
     return res.data.data
   },
 
+  /**
+   * 打卡里程碑（按 babyId+name upsert，幂等）
+   */
   create: async (babyId: string, data: { name: string; category: string; achievedDate: string; note?: string }): Promise<MilestoneRecord> => {
     const res = await api.post(`/babies/${babyId}/milestones`, data)
     return res.data.data.milestone
+  },
+
+  /**
+   * 编辑达成日期 / 备注（不允许改 name / category）
+   */
+  update: async (babyId: string, milestoneId: string, data: { achievedDate?: string; note?: string | null }): Promise<MilestoneRecord> => {
+    const res = await api.patch(`/babies/${babyId}/milestones/${milestoneId}`, data)
+    return res.data.data.milestone
+  },
+
+  /**
+   * 取消打卡
+   */
+  remove: async (babyId: string, milestoneId: string): Promise<void> => {
+    await api.delete(`/babies/${babyId}/milestones/${milestoneId}`)
   },
 }
 
