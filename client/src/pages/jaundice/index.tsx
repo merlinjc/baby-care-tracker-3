@@ -309,14 +309,14 @@ export function JaundicePage() {
       ) : (
         <motion.div variants={staggerItem}>
           <SectionHeader title="历史记录" variant="grouped" />
-          <Card padding="none">
+          <Card variant="elevated" padding="none">
             <div className="ios-list">
               {records.map((r) => {
                 const tsbMeta = classifyTsb(r.tsb ?? r.tcb)
                 return (
                   <div
                     key={r.id}
-                    className="relative flex items-start gap-3 px-4 py-3.5 min-w-0"
+                    className="relative flex items-start gap-3 px-5 py-3.5 min-w-0"
                   >
                     <span
                       className="absolute left-0 top-3 bottom-3 w-1 rounded-r-full"

@@ -6,6 +6,10 @@
  *
  * v5.0.1 Batch 4：重构为基于 <RadioGroup> + <RadioGroupCard>（竖向网格布局）。
  * 由 radix 提供键盘 ← → 导航、roving tabindex、aria-checked。
+ *
+ * v7.1：紧凑 3 列布局下传入 `hideIndicator`，避免右侧圆点贴边/溢出；
+ * 选中态改用左上角 ✓ 角标 + 卡片底色/边框双重表达。
+ * gap 由 2 升级为 sm:gap-2.5，让卡片之间稍微透气。
  */
 import { Monitor, Moon, Sun } from 'lucide-react';import { useThemeStore, type ThemeMode } from '@/stores/theme-store'
 import { RadioGroup, RadioGroupCard } from '@/components/ui/radio-group'
@@ -24,7 +28,7 @@ export function ThemeSelector() {
     <RadioGroup
       value={mode}
       onValueChange={(v) => setMode(v as ThemeMode)}
-      className="grid grid-cols-1 sm:grid-cols-3 gap-2 space-y-0"
+      className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-2.5 space-y-0"
     >
       {OPTIONS.map((opt) => (
         <RadioGroupCard
@@ -34,6 +38,7 @@ export function ThemeSelector() {
           description={opt.desc}
           icon={<opt.Icon className="h-5 w-5" />}
           accentColor="var(--primary)"
+          hideIndicator
         />
       ))}
     </RadioGroup>

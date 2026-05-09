@@ -460,7 +460,7 @@ export function HomePage() {
           />
           <Card variant="plain" padding="none">
             {todayRecords.length === 0 ? (
-              <div className="py-10 px-4 text-center">
+              <div className="py-10 px-5 text-center">
                 <p className="text-[14px] text-[var(--label-tertiary)] mb-2">
                   今天还没有记录
                 </p>

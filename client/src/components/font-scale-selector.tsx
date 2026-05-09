@@ -6,6 +6,11 @@
  *
  * v5.0.1 Batch 4：重构为基于 <RadioGroup> + <RadioGroupCard>（自定义 icon 为预览字 A）。
  * 每个卡片的 icon 槽位用不同字号的"A"直观体现倍率，保留原视觉。
+ *
+ * v7.1：4 档紧凑布局下卡片改为**纵向布局**（icon 上 / label 中 / desc 隐藏在 lg 断点）：
+ * - 大字号 A 在中央占主视觉，label 在下方
+ * - 隐藏右侧圆点指示器，选中态用左上角 ✓ 角标 + 卡片底色/边框表达
+ * - 解决原横向布局在 4 列窄列下"A 预览 + 文案 + 圆点"挤成一团的问题
  */
 import {
   useFontScaleStore,
@@ -24,7 +29,7 @@ export function FontScaleSelector() {
       <RadioGroup
         value={scale}
         onValueChange={(v) => setScale(v as FontScale)}
-        className="grid grid-cols-2 sm:grid-cols-4 gap-2 space-y-0"
+        className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-2.5 space-y-0"
       >
         {FONT_SCALE_OPTIONS.map((opt) => (
           <RadioGroupCard
@@ -32,6 +37,8 @@ export function FontScaleSelector() {
             value={opt.value}
             label={opt.label}
             description={opt.desc}
+            orientation="vertical"
+            hideIndicator
             icon={
               // 预览字：A 字母直接用倍率缩放，不依赖当前 root scale，
               // 这样在"当前选中档位"和"未选档位"都能直观看到差别
@@ -41,7 +48,7 @@ export function FontScaleSelector() {
                 style={{
                   fontSize: `${opt.previewScale * 22}px`,
                   lineHeight: 1.2,
-                  minWidth: 28,
+                  minWidth: 32,
                   minHeight: `${Math.ceil(opt.previewScale * 22 * 1.2)}px`,
                 }}
               >

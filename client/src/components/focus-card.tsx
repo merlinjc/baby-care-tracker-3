@@ -90,7 +90,7 @@ export function FocusCard({
             handleClick()
           }
         }}
-        className="cursor-pointer w-full flex items-center gap-3.5 text-left px-4 py-3.5 sm:px-5 sm:py-4 focus-visible:outline-none focus-visible:ring-2"
+        className="cursor-pointer w-full flex items-center gap-3.5 text-left px-5 py-3.5 sm:px-6 sm:py-4 focus-visible:outline-none focus-visible:ring-2"
         style={{
           backgroundColor: cfg.bg,
         }}

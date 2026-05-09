@@ -128,6 +128,9 @@ export function VaccinePage() {
     [standardPlans, vaccinatedSet, planCategories],
   )
 
+  /** 将 <input type="date"> 的 `YYYY-MM-DD` 转为后端 Zod `z.string().datetime()` 可接受的完整 ISO 8601 */
+  const toIsoFromDateInput = (ymd: string) => new Date(`${ymd}T00:00:00`).toISOString()
+
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!currentBaby || !name || !dose || !date) return
@@ -136,7 +139,7 @@ export function VaccinePage() {
       await vaccineService.create(currentBaby.id, {
         name,
         dose,
-        vaccinatedDate: date,
+        vaccinatedDate: toIsoFromDateInput(date),
         note: note || undefined,
       })
       setShowAdd(false)
@@ -159,7 +162,7 @@ export function VaccinePage() {
       await vaccineService.create(currentBaby.id, {
         name: plan.name,
         dose: plan.dose,
-        vaccinatedDate: new Date().toISOString().split('T')[0],
+        vaccinatedDate: new Date().toISOString(),
       })
       loadVaccines()
     } catch (err) {
@@ -400,7 +403,7 @@ export function VaccinePage() {
         </motion.div>
       ) : (
         <motion.div variants={staggerItem}>
-          <Card padding="none">
+          <Card variant="elevated" padding="none">
             <div className="ios-list">
               {displayItems.map((item, i) => {
                 if (item.type === 'record') {
@@ -461,7 +464,7 @@ export function VaccinePage() {
                   return (
                     <div
                       key={`plan-${i}`}
-                      className="relative flex items-center gap-3 px-4 py-3.5 min-w-0"
+                      className="relative flex items-center gap-3 px-5 py-3.5 min-w-0"
                     >
                       <span
                         className="absolute left-0 top-3 bottom-3 w-1 rounded-r-full"

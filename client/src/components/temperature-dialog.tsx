@@ -147,12 +147,13 @@ export function TemperatureDialog({ open, onClose, onSubmit, editRecord }: Tempe
             onChange={(v) => setMethod(v || '')}
             accentColor="var(--temperature)"
             toggleable
-            layout="wrap"
+            layout="grid"
+            columns={4}
             options={[
-              { value: 'oral', label: '口腔' },
-              { value: 'axillary', label: '腋下' },
-              { value: 'rectal', label: '直肠' },
-              { value: 'ear', label: '耳温' },
+              { value: 'oral', label: '口腔', description: '35.5–37.5°C' },
+              { value: 'axillary', label: '腋下', description: '36.0–37.2°C' },
+              { value: 'rectal', label: '直肠', description: '36.6–38.0°C' },
+              { value: 'ear', label: '耳温', description: '35.8–38.0°C' },
             ]}
           />
         </FormField>

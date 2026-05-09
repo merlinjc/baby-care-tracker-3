@@ -15,6 +15,10 @@ import { cn } from '@/lib/utils'
 interface SegmentedOption<T extends string> {
   value: T
   label: string
+  /** grid 布局：选项次行的小字描述（如正常温度范围、性状提示） */
+  description?: string
+  /** grid 布局：左侧色块，传入 CSS 颜色值（如 '#F5C26B'）渲染圆点 */
+  swatch?: string
 }
 
 interface SegmentedControlProps<T extends string> {
@@ -23,7 +27,15 @@ interface SegmentedControlProps<T extends string> {
   options: SegmentedOption<T>[]
   accentColor?: string
   toggleable?: boolean
-  layout?: 'flex' | 'wrap'
+  /**
+   * 布局模式：
+   * - 'flex'  iOS 标准等宽分段控件（默认）
+   * - 'wrap'  自由折行 chip（紧凑、单行 label）
+   * - 'grid'  网格化卡片选项，支持描述行与色块；列数由 columns 控制（默认 4）
+   */
+  layout?: 'flex' | 'wrap' | 'grid'
+  /** grid 布局列数，默认 4 */
+  columns?: 2 | 3 | 4 | 5
   /** v7：尺寸 */
   size?: 'sm' | 'md' | 'lg'
   className?: string
@@ -39,6 +51,7 @@ export function SegmentedControl<T extends string>({
   accentColor,
   toggleable = false,
   layout = 'flex',
+  columns = 4,
   size = 'md',
   className,
 }: SegmentedControlProps<T>) {
@@ -48,6 +61,75 @@ export function SegmentedControl<T extends string>({
   const heights = { sm: 'h-8', md: 'h-9', lg: 'h-10' }
   const textSizes = { sm: 'text-[12px]', md: 'text-[13px]', lg: 'text-[14px]' }
   const padding = { sm: 'p-0.5', md: 'p-1', lg: 'p-1' }
+
+  // grid 模式：网格化卡片选项，支持描述行与色块
+  if (layout === 'grid') {
+    const colsClass: Record<number, string> = {
+      2: 'grid-cols-2',
+      3: 'grid-cols-3',
+      4: 'grid-cols-4',
+      5: 'grid-cols-5',
+    }
+    return (
+      <div className={cn('grid gap-2', colsClass[columns], className)}>
+        {options.map((opt) => {
+          const isActive = value === opt.value
+          const hasDesc = !!opt.description
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => {
+                if (isActive && toggleable) onChange('' as T)
+                else onChange(opt.value)
+              }}
+              className={cn(
+                'pressable group relative flex flex-col items-center justify-center',
+                'rounded-[10px] px-2 transition-all',
+                'focus-visible:outline-none focus-visible:ring-2',
+                'focus-visible:ring-[color-mix(in_srgb,var(--brand)_40%,transparent)]',
+                hasDesc ? 'py-2 gap-0.5 min-h-[52px]' : 'py-2 min-h-[40px]',
+                isActive
+                  ? 'bg-[color-mix(in_srgb,var(--brand)_14%,transparent)] text-[var(--label)]'
+                  : 'bg-[var(--surface-2)] text-[var(--label-secondary)] hover:bg-[var(--surface-hover)]',
+              )}
+              style={
+                isActive && accentColor
+                  ? {
+                      backgroundColor: `color-mix(in srgb, ${accentColor} 14%, transparent)`,
+                      boxShadow: `inset 0 0 0 1px ${accentColor}`,
+                      color: accentColor,
+                    }
+                  : undefined
+              }
+              aria-pressed={isActive}
+            >
+              <span className="flex items-center gap-1.5">
+                {opt.swatch && (
+                  <span
+                    aria-hidden
+                    className="inline-block h-2.5 w-2.5 rounded-full ring-1 ring-[var(--separator)]"
+                    style={{ backgroundColor: opt.swatch }}
+                  />
+                )}
+                <span className={cn('font-medium', textSizes[size])}>{opt.label}</span>
+              </span>
+              {hasDesc && (
+                <span
+                  className={cn(
+                    'text-[10px] leading-tight tabular-nums',
+                    isActive ? 'opacity-80' : 'text-[var(--label-tertiary,var(--text-hint))]',
+                  )}
+                >
+                  {opt.description}
+                </span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+    )
+  }
 
   // wrap 模式退化为自由 chip（每个独立）
   if (layout === 'wrap') {

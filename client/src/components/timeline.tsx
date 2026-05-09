@@ -177,7 +177,7 @@ export function Timeline({ records, className, compact }: TimelineProps) {
             data-timeline-row
             className={cn(
               'relative flex items-start gap-3 min-w-0',
-              compact ? 'px-4 py-3' : 'px-4 py-3.5',
+              compact ? 'px-5 py-3' : 'px-5 py-3.5',
             )}
           >
             {/* 左侧色条 */}

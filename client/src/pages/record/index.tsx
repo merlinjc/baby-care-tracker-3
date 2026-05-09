@@ -130,11 +130,16 @@ export function RecordPage() {
       if (!currentBaby) {
         return { items: [], total: 0, page: pageParam, pageSize: PAGE_SIZE, hasMore: false }
       }
+      // 后端 getRecordsQuerySchema 使用 z.string().datetime()，只接受完整 ISO 8601；
+      // <input type="date"> 得到的是 YYYY-MM-DD，需转换后再发。
+      // start → 当日 00:00:00 本地时区；end → 当日 23:59:59.999 本地时区（包含当天）。
+      const startIso = startDate ? new Date(`${startDate}T00:00:00`).toISOString() : undefined
+      const endIso = endDate ? new Date(`${endDate}T23:59:59.999`).toISOString() : undefined
       return recordService.getRecords({
         babyId: currentBaby.id,
         recordType: activeType === 'all' ? undefined : activeType,
-        startDate: startDate || undefined,
-        endDate: endDate || undefined,
+        startDate: startIso,
+        endDate: endIso,
         page: pageParam,
         pageSize: PAGE_SIZE,
       })
@@ -434,7 +439,7 @@ export function RecordPage() {
                   </span>
                 }
               />
-              <Card padding="none">
+              <Card variant="elevated" padding="none">
                 <div className="ios-list">
                   {group.items.map((record) => {
                     const config = recordTypeConfig[record.recordType]
@@ -447,7 +452,7 @@ export function RecordPage() {
                       <div
                         key={record.id}
                         data-record-row
-                        className="relative flex items-start gap-3 px-4 py-3.5 min-w-0"
+                        className="relative flex items-start gap-3 px-5 py-3.5 min-w-0"
                       >
                         {/* 左色条 */}
                         <span

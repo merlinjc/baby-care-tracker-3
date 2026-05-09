@@ -384,7 +384,7 @@ export function GrowthPage() {
       {chartPoints.length > 0 && (
         <motion.div variants={staggerItem}>
           <SectionHeader title="历史记录" variant="grouped" />
-          <Card padding="none">
+          <Card variant="elevated" padding="none">
             <div className="ios-list">
               {chartPoints
                 .slice()
@@ -393,7 +393,7 @@ export function GrowthPage() {
                 .map((p, i) => (
                   <div
                     key={i}
-                    className="flex items-center justify-between px-4 py-3 min-w-0 gap-3"
+                    className="flex items-center justify-between px-5 py-3 min-w-0 gap-3"
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div

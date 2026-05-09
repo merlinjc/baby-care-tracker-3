@@ -150,19 +150,25 @@ export function ProfilePage() {
 
       {/* —— 4. 「账户与数据」列表卡 —— */}
       <motion.div variants={staggerItem} data-profile-row="group-content">
-        <Card padding="none">
+        <Card variant="elevated" padding="none">
           <div className="ios-list">
             {menuItems.map((item) => (
               <ListRow
                 key={item.to}
+                padding="none"
+                className="px-5 py-3.5"
                 leading={
                   <div
-                    className="w-8 h-8 rounded-[8px] flex items-center justify-center"
+                    className="w-9 h-9 shrink-0 rounded-[9px] flex items-center justify-center"
                     style={{
-                      backgroundColor: `color-mix(in srgb, ${item.color} 18%, transparent)`,
+                      // 暗色主题下 18% 对比度偏弱，提到 22%；亮色主题下差别可忽略
+                      backgroundColor: `color-mix(in srgb, ${item.color} 22%, transparent)`,
                     }}
                   >
-                    <item.icon className="h-4 w-4" style={{ color: item.color }} />
+                    <item.icon
+                      className="shrink-0"
+                      style={{ color: item.color, width: 18, height: 18 }}
+                    />
                   </div>
                 }
                 title={item.label}
