@@ -424,14 +424,7 @@ body {
   letter-spacing: var(--tracking-tight);
   color: var(--label);
 }
-.title-1 {
-  font-family: var(--font-display);
-  font-size: var(--text-title-1);
-  font-weight: 700;
-  line-height: 1.25;
-  letter-spacing: var(--tracking-tight);
-  color: var(--label);
-}
+/* 注：.title-1 已 0 引用，被 .title-2 / .title-3 替代，已清理 */
 .title-2 {
   font-family: var(--font-display);
   font-size: var(--text-title-2);
@@ -472,16 +465,10 @@ body {
  * line-height 从 1 提到 1.1，避免被 overflow:hidden 容器（如 Card / 圆形头像）切到
  * 数字底边。1.1 仍然非常紧凑，视觉上仍是"数据大字"。
  */
-.metric-xl {
-  font-family: var(--font-rounded);
-  font-size: var(--text-metric);
-  font-weight: 700;
-  line-height: 1.1;
-  font-variant-numeric: tabular-nums slashed-zero;
-  font-feature-settings: 'tnum', 'zero';
-  letter-spacing: var(--tracking-display);
-  color: var(--label);
-}
+/* 注：.metric-xl / .metric-sm 已 0 引用，已清理。
+ * 项目中数据大字统一使用 .metric-lg（large-title 字号）
+ * 与 .metric-md（title-1 字号）。
+ */
 .metric-lg {
   font-family: var(--font-rounded);
   font-size: var(--text-large-title);
@@ -502,15 +489,6 @@ body {
   letter-spacing: -0.01em;
   color: var(--label);
 }
-.metric-sm {
-  font-family: var(--font-rounded);
-  font-size: var(--text-title-3);
-  font-weight: 600;
-  line-height: 1.1;
-  font-variant-numeric: tabular-nums slashed-zero;
-  letter-spacing: -0.01em;
-  color: var(--label);
-}
 
 .number-display {
   font-family: var(--font-mono);
@@ -522,9 +500,10 @@ body {
  * 兼容层 — 旧类名映射到新类
  * 目的：保留旧页面渲染，Phase 1+ 逐步替换使用点为新类
  * ========================================================================= */
+/* 注：.display-md / .display-lg / .heading-xl / .body-lg 已 0 引用，已清理。
+ * 保留：.display-sm（1）/.display-number（1）/.heading-lg/md/sm/.body-md/.body-sm。
+ */
 .display-sm { font: 700 var(--text-display-sm) / 1.15 var(--font-display); letter-spacing: var(--tracking-tight); }
-.display-md { font: 700 var(--text-display-md) / 1.1 var(--font-display); letter-spacing: var(--tracking-tight); }
-.display-lg { font: 700 var(--text-display-lg) / 1.05 var(--font-display); letter-spacing: var(--tracking-display); }
 .display-number {
   font-family: var(--font-rounded);
   font-weight: 700;
@@ -533,11 +512,9 @@ body {
   letter-spacing: var(--tracking-display);
   line-height: 1;
 }
-.heading-xl { font: 700 var(--text-title-2) / 1.3 var(--font-display); letter-spacing: var(--tracking-tight); color: var(--label); }
 .heading-lg { font: 600 var(--text-title-3) / 1.4 var(--font-display); letter-spacing: -0.01em; color: var(--label); }
 .heading-md { font: 600 var(--text-headline) / 1.4 var(--font-display); color: var(--label); }
 .heading-sm { font: 600 var(--text-callout) / 1.5 var(--font-display); color: var(--label); }
-.body-lg { font: 400 var(--text-body) / 1.6 var(--font-sans); }
 .body-md { font: 400 var(--text-subheadline) / 1.6 var(--font-sans); }
 .body-sm { font: 400 var(--text-caption-1) / 1.5 var(--font-sans); }
 .caption { font: 400 var(--text-caption-1) / 1.4 var(--font-sans); letter-spacing: var(--tracking-wide); color: var(--label-tertiary); }
@@ -785,12 +762,7 @@ nav[data-app-tabbar] > [data-app-tabbar-inner] { height: 64px; }
   margin-top: 20px;
 }
 
-/* QuickRecordBar 5 列 */
-[data-quick-record-bar] {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 10px;
-}
+/* 注：[data-quick-record-bar] 已 0 引用（QuickRecordBar 已重构），已清理。 */
 
 /* 通用 2 列 grid（settings 导出 / family 创建加入入口 / milestone drawer 推荐） */
 [data-grid-2] {
@@ -825,20 +797,12 @@ nav[data-app-tabbar] > [data-app-tabbar-inner] { height: 64px; }
     margin-bottom: -32px;
   }
 }
-[data-ai-header],
-[data-ai-footer] {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-[data-ai-messages] {
-  flex: 1;
-  overflow-y: auto;
-}
-[data-ai-bubble-row] {
-  display: flex;
-  gap: 8px;
-}
+/* 注：以下 data-* 钩子已 0 引用，已清理：
+ *   [data-ai-header] / [data-ai-footer] / [data-ai-messages] / [data-ai-bubble-row]
+ *   （AI 助手页面已重构，组件自身用 Tailwind class 完成布局）
+ *   [data-drawer-grabber]（Drawer Primitive 内部直接 inline style 实现抓取条）
+ *   [data-bubble-meta]（AI 气泡组件已重构）
+ */
 
 /* iOS list 容器：横向占满 + 防溢出 */
 .ios-list {
@@ -847,51 +811,10 @@ nav[data-app-tabbar] > [data-app-tabbar-inner] { height: 64px; }
   min-width: 0;
 }
 
-/* empty-state 兜底（旧 v6 类，部分子页仍在使用） */
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: 48px 16px;
-  gap: 8px;
-  color: var(--label-tertiary);
-}
-.empty-state__icon {
-  color: var(--label-quaternary);
-  margin-bottom: 4px;
-}
-.empty-state__title {
-  font-size: 17px;
-  font-weight: 600;
-  color: var(--label);
-}
-.empty-state__desc {
-  font-size: 13px;
-  color: var(--label-tertiary);
-}
-
-/* Drawer 通用：顶部抓取条 + sticky 头 */
-[data-drawer-grabber] {
-  display: flex;
-  justify-content: center;
-  padding-top: 8px;
-  padding-bottom: 4px;
-}
-[data-drawer-grabber] > div {
-  width: 40px;
-  height: 4px;
-  border-radius: 9999px;
-  background-color: var(--separator-opaque);
-}
-
-/* AI 气泡时间标签 */
-[data-bubble-meta] {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
+/* empty-state 定义见文件下方 §Empty State 段；此处不再重复定义。
+ * 历史上这里曾有一份重复定义（padding: 48px 16px / gap: 8px / 不同的子元素颜色），
+ * 因 CSS 后定义优先，实际生效的一直是 §Empty State 段那一份；现已移除冗余。
+ */
 
 /* SegmentedControl 兜底（多页关键筛选条） */
 [data-segmented-control] {
@@ -992,27 +915,12 @@ nav[data-app-tabbar] > [data-app-tabbar-inner] { height: 64px; }
 }
 
 /* ============================================================================
+/* ============================================================================
  * iOS 风 Utilities（新增）
+ *
+ * 历史项目 .border-hairline / .pressable 已 0 引用（项目用
+ * border-[0.5px] 工具类 + framer-motion whileTap 替代），已清理。
  * ========================================================================= */
-
-/* iOS hairline border — 使用真实 0.5px 在高分屏上 */
-.border-hairline {
-  border: 0.5px solid var(--separator);
-}
-@media (-webkit-min-device-pixel-ratio: 2) {
-  .border-hairline { border-width: 0.5px; }
-}
-
-/* iOS 风按压反馈 — Tailwind 的 active:scale-95 */
-.pressable {
-  transition: transform var(--duration-fast) var(--ease-ios),
-              opacity var(--duration-fast) var(--ease-ios),
-              background-color var(--duration-fast) var(--ease-ios);
-}
-.pressable:active:not(:disabled) {
-  transform: scale(0.96);
-  opacity: 0.85;
-}
 
 /* iOS 风列表分隔线 — 只在子项之间，不在头尾 */
 .ios-list > * + * {
@@ -1076,9 +984,6 @@ nav[data-app-tabbar] > [data-app-tabbar-inner] { height: 64px; }
 .animate-fade-in-up { animation: fadeInUp var(--duration-normal) var(--ease-ios) both; }
 .animate-slide-up { animation: slideUp var(--duration-normal) var(--ease-ios) both; }
 .animate-scale-in { animation: scaleIn var(--duration-fast) var(--ease-spring-soft) both; }
-.animate-number-roll { animation: numberRoll 0.4s var(--ease-ios) both; }
-.animate-breathe-ios { animation: breathe-ios 2s ease-in-out infinite; }
-.animate-pulse-soft { animation: pulse-soft 2s ease-in-out infinite; }
 .animate-shimmer {
   background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-1) 50%, var(--surface-2) 75%);
   background-size: 200% 100%;
@@ -1094,16 +999,13 @@ nav[data-app-tabbar] > [data-app-tabbar-inner] { height: 64px; }
 
 .page-enter { animation: fadeInUp 0.4s var(--ease-ios) both; }
 
-/* Stagger（保留，用于列表/卡片组入场） */
-.stagger-children > * { animation: fadeInUp 0.4s var(--ease-ios) both; }
-.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
-.stagger-children > *:nth-child(2) { animation-delay: 40ms; }
-.stagger-children > *:nth-child(3) { animation-delay: 80ms; }
-.stagger-children > *:nth-child(4) { animation-delay: 120ms; }
-.stagger-children > *:nth-child(5) { animation-delay: 160ms; }
-.stagger-children > *:nth-child(6) { animation-delay: 200ms; }
-.stagger-children > *:nth-child(7) { animation-delay: 240ms; }
-.stagger-children > *:nth-child(8) { animation-delay: 280ms; }
+/* 注：以下工具类已 0 引用，已清理：
+ *   .animate-number-roll / .animate-breathe-ios / .animate-pulse-soft
+ *   .stagger-children > *（含 nth-child 1..8）—— 由 framer-motion 的
+ *   staggerContainer/staggerItem 取代
+ * 对应的 @keyframes（numberRoll / breathe-ios / pulse-soft）也一并保留，
+ * 以便后续按需重新启用工具类时无需改 keyframes。
+ */
 
 /* Typing dots */
 @keyframes typing-bounce {
@@ -1132,11 +1034,7 @@ nav[data-app-tabbar] > [data-app-tabbar-inner] { height: 64px; }
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-  .stagger-children > *,
   .page-enter,
-  .animate-number-roll,
-  .animate-breathe-ios,
-  .animate-pulse-soft,
   .animate-shimmer,
   .animate-fade-in,
   .animate-fade-in-up,
@@ -1161,35 +1059,9 @@ nav[data-app-tabbar] > [data-app-tabbar-inner] { height: 64px; }
 .icon-circle--lg { width: 48px; height: 48px; }
 .icon-circle--xl { width: 56px; height: 56px; }
 
-/* ============================================================================
- * Section Header（替代旧 .section-header，命名更符合 iOS）
- * ========================================================================= */
-.section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-  padding: 0 4px;
-}
-.section-header__title {
-  font-size: var(--text-footnote);
-  font-weight: 600;
-  color: var(--label-secondary);
-  letter-spacing: var(--tracking-wide);
-}
-.section-header__action {
-  font-size: var(--text-footnote);
-  color: var(--brand);
-  font-weight: 500;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  transition: opacity var(--transition-fast);
-}
-.section-header__action:hover {
-  opacity: 0.75;
-}
+/* 注：旧的 .section-header / .section-header__title / .section-header__action
+ * 类已 0 引用，全部由 <SectionHeader> Primitive 取代，已清理。
+ */
 
 /* ============================================================================
  * Empty State

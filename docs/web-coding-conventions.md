@@ -461,8 +461,28 @@ Tailwind v4 的 preflight 已在 `@layer base` 里做了完整的 `*` reset（`m
 
 **新增全局样式的强制约定**：
 1. 纯 reset 类规则**一律**写在 `@layer base { ... }` 里，不要写在 unlayered 区域。
-2. 业务语义类（如 `.ios-list`、`.section-header`）可以保持 unlayered（方便覆盖 Tailwind），但**不能**用 `*` / `html` / `body` 这种全局选择器对 padding/margin 做无条件重置。
+2. 业务语义类（如 `.ios-list`、`.headline`、`.footnote`）可以保持 unlayered（方便覆盖 Tailwind），但**不能**用 `*` / `html` / `body` 这种全局选择器对 padding/margin 做无条件重置。
 3. 如果某个组件在浏览器里发现"Tailwind padding 类没生效"，第一步先检查 `globals.css` 是否有裸 `*` reset，而不是到处加兜底 CSS。
+
+**死代码清理记录（2026-05）**：在 Cascade Layers 修复后，对 `globals.css` 做了一轮死代码清理，从 1259 行降到 1131 行（净减 128 行，CSS bundle 82.79kB → 79.51kB / gzip 14.85kB → 14.41kB）。清理内容：
+- 重复定义的 `.empty-state` / `.empty-state__icon` / `.empty-state__title` / `.empty-state__desc`（合并为一份）
+- 0 引用的 utility：`.border-hairline`、`.pressable`、`.section-header*`、`.stagger-children > *`（被 framer-motion `staggerContainer/staggerItem` 完全取代）
+- 0 引用的 typography 类：`.title-1`、`.metric-xl`、`.metric-sm`、`.heading-xl`、`.display-md`、`.display-lg`、`.body-lg`
+- 0 引用的 animate 工具类：`.animate-number-roll`、`.animate-breathe-ios`、`.animate-pulse-soft`（保留对应 `@keyframes`，按需重启用时直接加工具类即可）
+- 0 引用的 data 钩子：`[data-quick-record-bar]`、`[data-drawer-grabber]`、`[data-bubble-meta]`、`[data-ai-header/-footer/-messages/-bubble-row]`
+
+**保留**（虽然引用次数低但仍在用）：
+- v6→v7 兼容 token alias（`--text-primary/-secondary/-hint`、`--bg-card/-elevated`、`--border-light` 等仍有 14-47 处引用）
+- `[data-ai-page]`（AI 助手页负 margin 全屏布局唯一钩子）
+- 大部分 `data-*` 钩子（仍在被各页面用作布局兜底）
+
+**判定 0 引用的方法**：
+```bash
+# 单个类
+grep -rE 'className=("|\{)[^"}]*\bsome-class\b' --include='*.tsx' client/src
+# CSS 变量
+grep -r 'var(--some-token)' --include='*.tsx' --include='*.ts' --include='*.css' client/src
+```
 
 **🛡️ Tailwind 4 JIT 兜底钩子（不得删除）**：由于 `@tailwindcss/vite` 在某些环境下对新增 class 的扫描会滞后或漏掉，导致 `px-5 / py-7 / pb-20` 等 utility 失效（Computed 全为 0），项目里关键结构元素额外挂了一组 `data-*` 属性钩子，在 `globals.css` 的 "Layout Fallback" 段用真·CSS 写死对应 padding / 间距 / 高度。**任何人改这些组件都不得移除这些 data 属性**；若要调整间距，同时改 Tailwind class（保证主干）和兜底 CSS（保证故障模式下也正常）。
 
@@ -524,7 +544,9 @@ v5.0.1 分 4 批引入 shadcn 风格 Primitive 组件（**全部 4 个 Batch 已
 
 **Dialog 内部豁免**：~~已解除~~。v5.1.0 起 `<DialogFooter>` 内部已迁移到 `<Button>`。现在 `globals.css` 已物理删除所有废弃 CSS 类，业务层与 Primitive 内部均不应再使用。
 
-**v5.1.0 物理清除日志**：删除了 `.card / .card-base / .card-interactive / .type-badge* / .input-base / .btn-primary / .btn-secondary / .btn-danger-outline / .icon-btn* / .badge-mini / .notice-info / .chip* / .tab-button* / .progress-bar*`。仅保留 `.label-base`（Label 组件复用）与 `.heading-* / .body-* / .caption / .icon-circle* / .number-display / .display-number / .display-sm/md/lg / .section-header* / .empty-state* / .spinner*` 等**非废弃视觉基础设施**。
+**v5.1.0 物理清除日志**：删除了 `.card / .card-base / .card-interactive / .type-badge* / .input-base / .btn-primary / .btn-secondary / .btn-danger-outline / .icon-btn* / .badge-mini / .notice-info / .chip* / .tab-button* / .progress-bar*`。
+
+**v7.1 二次清理**（2026-05）：进一步删除已 0 引用的语义类与 data 钩子，详见上方"死代码清理记录（2026-05）"小节。当前剩余的 `globals.css` 视觉基础设施（仍在使用）：`.label-base / .heading-lg/md/sm / .body / .body-md/sm / .caption / .caption-1/2 / .icon-circle* / .number-display / .display-number / .display-sm / .footnote / .subheadline / .callout / .headline / .title-2/3 / .large-title / .metric-lg/md / .empty-state* / .spinner / .ios-list / .typing-dot / .page-enter / .animate-fade-in/-up / .animate-shimmer / .animate-slide-up/-scale-in / .animate-slide-in/out-(left|right|top)`。
 
 ### 11.9.1 v5.1.0 设计优化规范（在 4 批 Primitive 之上）
 
