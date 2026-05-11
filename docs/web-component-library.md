@@ -17,6 +17,7 @@ Sprint 1 工程基础 + 内容沉淀第一波：
 |------|------|----------------|
 | `RouteFallback` | `app/layout/route-fallback.tsx` | F9 路由级懒加载占位骨架；200ms 延迟显示动画点阵；`role="status" / aria-live`；占满 60vh 防布局抖动 |
 | `ImageUploader` | `components/ui/image-uploader.tsx` | INF-02 通用单图上传；render-prop API（业务侧自定义视觉）；客户端压缩到 ≤1MB + EXIF 剥离；走**服务端代理**（POST `/api/uploads`）而非直传 COS；`onChange(key)` 回传 **桶内 key**（不是 URL）；`onProgress` 回调；缺配置 503 静默 toast 降级 |
+| `LanguageSwitcher` | `components/language-switcher.tsx` | F8-05 语言选择器占位；v7.2 仅 zh-CN 时 `disabled=true`，以 DropdownMenu 呈现"简体中文 + 即将推出"；挂在 Settings → 资料 tab；v7.3+ 把 disabled 改 false 并在 onChange 接 `i18n.changeLanguage` + `updatePreferences({ lang })` 即启用 |
 
 #### `<ImageUploader>` 用法
 

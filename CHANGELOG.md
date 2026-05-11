@@ -27,6 +27,28 @@
 
 ### Added — Sprint 1 进行中
 
+- **T-S1-F8-02/03/04/05 i18n 增量接入（5 高频页 + 1 公共 layout + LanguageSwitcher）**（2026-05-11 完成）
+  - **新增 NS 资源**（6 个）：`nav`（F8-02 增补 sidebar 选择 + 复数）/ `home` / `record` / `report` / `ai` / `settings`，全部 zh-CN 完整
+  - **F8-02 main-layout**：4 个 NavLink label + SidebarBabyCard 空态文案 + "{count} 位可选" 复数；品牌名 "Baby Care" 保留英文
+  - **F8-03 home + record**：
+    - home：问候语 5 段（夜深/早午下晚）/ babySubtitle / 无家庭引导 / 3 个 section（今日概览 / AI 洞察 / 今日时间线）+ 刷新 / 查看全部 / empty 文案 / 复数
+    - record：title / 筛选切换 / 日期范围 / 类型 5 段（via labelKey）/ 今天/昨天分组 + N 条复数 / 暂无记录 / 加载更多 / 没有更多 / 由 X 记录 / 编辑/删除 aria / 删除 confirm / viewer 提示 / 请先选择宝宝
+  - **F8-04 report + ai + settings**：
+    - report：title / 周月切换 / 6 个 section 标题 / 分享按钮 3 个状态 + 文件名
+    - ai：title / 返回 / 配额提示 / 3 类错误文案 / 清除 confirm / 欢迎语 / 推荐问题数组（returnObjects） / 输入 placeholder + aria
+    - settings：title / 3 tab / 资料 + 密码 + 导出表单 + 7 个 toast（含 export_success 占位 {{format}}）
+  - **F8-05 LanguageSwitcher 占位**：
+    - `client/src/components/language-switcher.tsx`：Card + DropdownMenu + disabled；v7.2 显示"简体中文 + 即将推出"
+    - 挂在 Settings → 资料 tab 下方
+    - `docs/web-i18n-guide.md`：10 节完整使用指南（新增语言流程 / 占位符 / 复数 / returnObjects / 与 INF-01 联动图 / 性能边界 / FAQ）
+  - **未接入页面**（v7.3+ 渐进迁移）：discover / profile / baby / family / growth / vaccine / milestone / jaundice / auth/*
+  - **验证**：
+    - `pnpm build` ✓
+    - `vendor-i18n` gzip 20.19KB（设计阈值 <50KB ✓）
+    - 5 高频页 + main-layout grep 中文残留 = 0 命中（强制接入范围内）
+    - `localStorage.baby_care_lang = 'en-US'` 后刷新看到 key 直显，fallback 链路验证正常
+  - 文档：`web-component-library.md`（新增 LanguageSwitcher 行）/ `web-i18n-guide.md`（新增）/ `sprint1-tasks.md` F8-02..05 全部标 ✅
+
 - **T-S1-F8-01 i18next 框架预埋 + zh-CN 资源骨架**（2026-05-11 完成）
   - 新增依赖：`react-i18next ^17` + `i18next ^26` + `i18next-browser-languagedetector ^8`
   - `client/src/i18n/index.ts`：i18next 初始化 — `fallbackLng='zh-CN'` / `supportedLngs=['zh-CN']` / 检测顺序 `localStorage(baby_care_lang) → navigator` / `react.useSuspense=false`（与 React.lazy 路由兼容） / DEV 缺 key 打印

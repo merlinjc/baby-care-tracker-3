@@ -23,6 +23,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { FormField } from '@/components/ui/form-field'
+import { LanguageSwitcher } from '@/components/language-switcher'
 import { staggerContainer, staggerItem, pressableSubtle } from '@/lib/motion'
 
 type TabKey = 'profile' | 'password' | 'export'
@@ -135,6 +136,7 @@ export function SettingsPage() {
           variants={staggerItem}
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
+          className="space-y-5"
         >
           <Card as="section" padding="md">
             <form onSubmit={handleUpdateProfile} className="space-y-4">
@@ -168,6 +170,9 @@ export function SettingsPage() {
               </Button>
             </form>
           </Card>
+
+          {/* 语言偏好（F8-05 占位，v7.3+ 启用） */}
+          <LanguageSwitcher />
         </motion.div>
       )}
 
