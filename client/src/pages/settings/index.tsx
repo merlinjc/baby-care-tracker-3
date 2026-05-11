@@ -5,17 +5,18 @@
  * - PageHeader → LargeTitleHeader
  * - Tabs → SegmentedControl 顶部切换
  * - 各 form Card：去掉 glass，用 plain
- * - 数据导出：iOS tinted Card 2 卡（JSON brand 暖棕、CSV temperature 蜜桃）
+ *
+ * v7.2 T-S1-F3：
+ * - 移除「数据导出」tab，导出功能迁到独立 `/export` 页（功能更全 + 历史列表）
+ * - 旧 `/settings?tab=export` deep link 自动重定向到 `/export`
  */
-import { useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
-import { FileJson, FileSpreadsheet, Lock, Save } from 'lucide-react';
+import { Lock, Save } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth-store'
-import { useBabyStore } from '@/stores/baby-store'
 import { authService } from '@/services/auth'
-import { exportService } from '@/services/baby-extra'
 import { LargeTitleHeader } from '@/components/ui/large-title-header'
 import { SegmentedControl } from '@/components/ui/segmented-control'
 import { toast } from '@/components/ui/toast'
@@ -24,14 +25,15 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { FormField } from '@/components/ui/form-field'
 import { LanguageSwitcher } from '@/components/language-switcher'
-import { staggerContainer, staggerItem, pressableSubtle } from '@/lib/motion'
+import { staggerContainer, staggerItem } from '@/lib/motion'
 
-type TabKey = 'profile' | 'password' | 'export'
+type TabKey = 'profile' | 'password'
 
 export function SettingsPage() {
   const { t } = useTranslation('settings')
   const user = useAuthStore((s) => s.user)
   const loadUser = useAuthStore((s) => s.loadUser)
+  const navigate = useNavigate()
 
   const [nickname, setNickname] = useState(user?.nickname || '')
   const [oldPassword, setOldPassword] = useState('')
@@ -39,11 +41,20 @@ export function SettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [searchParams] = useSearchParams()
   const initialTab: TabKey = (() => {
-    const tab = searchParams.get('tab') as TabKey | null
-    return tab && ['profile', 'password', 'export'].includes(tab) ? tab : 'profile'
+    const tab = searchParams.get('tab') as string | null
+    return tab === 'password' ? 'password' : 'profile'
   })()
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab)
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // v7.2 F3：旧 deep link `?tab=export` 重定向到 /export 独立页
+  useEffect(() => {
+    if (searchParams.get('tab') === 'export') {
+      navigate('/export', { replace: true })
+    }
+    // 仅在挂载时检查一次；后续切换 tab 走 SegmentedControl
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -84,26 +95,6 @@ export function SettingsPage() {
     }
   }
 
-  const handleExport = async (format: 'json' | 'csv') => {
-    const currentBaby = useBabyStore.getState().currentBaby
-    if (!currentBaby) {
-      toast.error(t('toasts.no_baby'))
-      return
-    }
-    try {
-      const blob = await exportService.exportData({ babyId: currentBaby.id, format })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `baby_care_${currentBaby.name}.${format}`
-      a.click()
-      URL.revokeObjectURL(url)
-      toast.success(t('toasts.export_success', { format: format.toUpperCase() }))
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : t('toasts.export_failed'))
-    }
-  }
-
   return (
     <motion.div
       className="space-y-5"
@@ -123,7 +114,6 @@ export function SettingsPage() {
           options={[
             { value: 'profile', label: t('tabs.profile') },
             { value: 'password', label: t('tabs.password') },
-            { value: 'export', label: t('tabs.export') },
           ]}
           size="md"
         />
@@ -235,96 +225,7 @@ export function SettingsPage() {
         </motion.div>
       )}
 
-      {/* Export */}
-      {activeTab === 'export' && (
-        <motion.div
-          key="export"
-          variants={staggerItem}
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <Card as="section" padding="md" className="space-y-4">
-            <div>
-              <h2 className="headline" style={{ color: 'var(--label)' }}>
-                {t('export.title')}
-              </h2>
-              <p
-                className="caption-1 mt-1"
-                style={{ color: 'var(--label-tertiary)' }}
-              >
-                {t('export.desc')}
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-3" data-grid-2>
-              {(
-                [
-                  {
-                    fmt: 'json' as const,
-                    Icon: FileJson,
-                    label: t('export.json_label'),
-                    desc: t('export.json_desc'),
-                    bg: 'var(--brand-soft)',
-                    fg: 'var(--brand-ink)',
-                    accent: 'var(--brand)',
-                  },
-                  {
-                    fmt: 'csv' as const,
-                    Icon: FileSpreadsheet,
-                    label: t('export.csv_label'),
-                    desc: t('export.csv_desc'),
-                    bg: 'var(--temperature-bg)',
-                    fg: 'var(--temperature-fg)',
-                    accent: 'var(--temperature)',
-                  },
-                ]
-              ).map(({ fmt, Icon, label, desc, bg, fg, accent }) => (
-                <motion.div
-                  key={fmt}
-                  whileTap={pressableSubtle.whileTap}
-                  transition={pressableSubtle.transition}
-                >
-                  <Card
-                    as="article"
-                    padding="md"
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => handleExport(fmt)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        handleExport(fmt)
-                      }
-                    }}
-                    className="flex flex-col items-center text-center gap-2 cursor-pointer h-full"
-                    style={{ backgroundColor: bg }}
-                  >
-                    <div
-                      className="w-11 h-11 rounded-[14px] flex items-center justify-center"
-                      style={{
-                        backgroundColor: `color-mix(in srgb, ${accent} 22%, transparent)`,
-                        color: fg,
-                      }}
-                    >
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <p className="headline" style={{ color: fg }}>
-                        {label}
-                      </p>
-                      <p
-                        className="caption-1 mt-0.5"
-                        style={{ color: fg, opacity: 0.72 }}
-                      >
-                        {desc}
-                      </p>
-                    </div>
-                  </Card>
-                </motion.div>
-              ))}
-            </div>
-          </Card>
-        </motion.div>
-      )}
+      {/* Export tab 已迁移到独立 /export 页（v7.2 F3） */}
     </motion.div>
   )
 }

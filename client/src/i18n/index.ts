@@ -33,6 +33,7 @@ import zhRecord from './resources/zh-CN/record.json'
 import zhReport from './resources/zh-CN/report.json'
 import zhAi from './resources/zh-CN/ai.json'
 import zhSettings from './resources/zh-CN/settings.json'
+import zhExport from './resources/zh-CN/export.json'
 
 /**
  * 资源注册表 — 后续新增命名空间 / 语言时统一在这里维护。
@@ -49,11 +50,12 @@ const RESOURCES = {
     report: zhReport,
     ai: zhAi,
     settings: zhSettings,
+    export: zhExport,
   },
 } as const
 
 /** 已注册的命名空间列表，TypeScript 类型推导用 */
-export const NAMESPACES = ['common', 'nav', 'home', 'record', 'report', 'ai', 'settings'] as const
+export const NAMESPACES = ['common', 'nav', 'home', 'record', 'report', 'ai', 'settings', 'export'] as const
 export type Namespace = (typeof NAMESPACES)[number]
 
 /** 已支持的语言列表，未来切换器从此读取 */

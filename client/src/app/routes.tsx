@@ -56,6 +56,9 @@ const ReportPage = lazy(() =>
 const SettingsPage = lazy(() =>
   import('@/pages/settings').then((m) => ({ default: m.SettingsPage })),
 )
+const ExportPage = lazy(() =>
+  import('@/pages/export').then((m) => ({ default: m.ExportPage })),
+)
 
 // ─── Auth Layout 内的页面 ──────────────────────────────────────────────
 const LoginPage = lazy(() =>
@@ -92,6 +95,7 @@ export const router = createBrowserRouter([
       { path: '/jaundice', element: lazyEl(JaundicePage) },
       { path: '/report', element: lazyEl(ReportPage) },
       { path: '/settings', element: lazyEl(SettingsPage) },
+      { path: '/export', element: lazyEl(ExportPage) },
     ],
   },
   {

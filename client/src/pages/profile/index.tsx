@@ -90,7 +90,7 @@ export function ProfilePage() {
       color: 'var(--sleep)',
     },
     {
-      to: '/settings?tab=export',
+      to: '/export',
       icon: Download,
       label: '数据导出',
       detail: undefined,

@@ -1,0 +1,66 @@
+{
+  "title": "导出数据",
+  "subtitle": "把 0 - 6 月的喂养、睡眠、生长、疫苗等记录一键导出，妥善保存到本地",
+  "actions": {
+    "export": "开始导出",
+    "exporting": "导出中…",
+    "redownload": "重新下载",
+    "clear_history": "清空历史",
+    "select_all": "全选",
+    "clear_selection": "清空选择"
+  },
+  "sections": {
+    "baby": "选择宝宝",
+    "range": "时间范围",
+    "types": "数据类型",
+    "format": "导出格式",
+    "history": "历史导出"
+  },
+  "range": {
+    "last_7_days": "最近 7 天",
+    "last_30_days": "最近 30 天",
+    "last_90_days": "最近 90 天",
+    "custom": "自定义",
+    "start": "起始日期",
+    "end": "结束日期",
+    "all": "全部"
+  },
+  "types": {
+    "feeding": "喂养",
+    "sleep": "睡眠",
+    "diaper": "换尿布",
+    "temperature": "体温",
+    "growth": "成长",
+    "vaccine": "疫苗",
+    "milestone": "里程碑",
+    "jaundice": "黄疸"
+  },
+  "format": {
+    "csv": "CSV",
+    "csv_desc": "Excel / WPS 可直接打开",
+    "json": "JSON",
+    "json_desc": "结构完整，便于程序处理"
+  },
+  "history": {
+    "empty": "还没有导出过",
+    "empty_hint": "导出过的文件会显示在这里，最多保留 10 条",
+    "expired": "链接已过期，请重新导出"
+  },
+  "toasts": {
+    "no_baby": "请先选择一个宝宝",
+    "no_types": "请至少选择一种数据类型",
+    "invalid_range": "起始日期不能晚于结束日期",
+    "success": "已导出 {{format}} 文件",
+    "failed": "导出失败：{{message}}",
+    "downloading": "正在下载…"
+  },
+  "errors": {
+    "rate_limited": "导出过于频繁，请稍后再试",
+    "unauthorized": "登录已过期，请重新登录",
+    "network": "网络异常，请检查后重试"
+  },
+  "no_baby": {
+    "title": "请先选择一个宝宝",
+    "hint": "在「我的 → 宝宝管理」添加或选择当前宝宝后再来导出"
+  }
+}

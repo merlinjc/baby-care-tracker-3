@@ -26,10 +26,61 @@ export const trendQuerySchema = z.object({
   period: z.enum(['week', 'month', '3months', '6months', 'year', 'all']).default('month'),
 });
 
+/**
+ * 导出可选数据类型枚举（v7.2 T-S1-F3 扩充）
+ *
+ * - feeding / sleep / diaper / temperature / growth：Record 表 5 个子类型
+ * - vaccine / milestone：独立表
+ * - jaundice：v7.2 T-S1-F2 引入的独立表
+ *
+ * 不支持的值由 zod 拒绝（400 INVALID_PARAMS）。
+ */
+export const EXPORT_DATA_TYPES = [
+  'feeding',
+  'sleep',
+  'diaper',
+  'temperature',
+  'growth',
+  'vaccine',
+  'milestone',
+  'jaundice',
+] as const;
+
+export type ExportDataType = (typeof EXPORT_DATA_TYPES)[number];
+
 export const exportQuerySchema = z.object({
   babyId: z.string().min(1, '宝宝ID不能为空'),
   format: z.enum(['csv', 'json'], { message: '导出格式无效' }),
-  recordType: z.enum(['feeding', 'sleep', 'diaper', 'temperature', 'growth']).optional(),
+  /**
+   * v7.2+ 多选数据类型（逗号分隔字符串）。
+   *
+   * 例如：`types=feeding,sleep,vaccine`。
+   * 留空 / 不传 → 默认导出 5 个 Record 子类型（保持 v7.1 行为）。
+   *
+   * 与历史 `recordType` 单选参数互斥：若同时传，优先 types，recordType 被忽略。
+   */
+  types: z
+    .string()
+    .optional()
+    .transform((v) => {
+      if (!v) return undefined;
+      const arr = v
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      return arr.length > 0 ? arr : undefined;
+    })
+    .pipe(
+      z
+        .array(z.enum(EXPORT_DATA_TYPES))
+        .min(1, '至少选择一种数据类型')
+        .max(EXPORT_DATA_TYPES.length, '数据类型超出范围')
+        .optional(),
+    ),
+  /** @deprecated v7.2+ 改用 types；保留以兼容旧前端 */
+  recordType: z
+    .enum(['feeding', 'sleep', 'diaper', 'temperature', 'growth'])
+    .optional(),
   startDate: z.string().datetime().optional(),
   endDate: z.string().datetime().optional(),
 });
