@@ -215,6 +215,100 @@ class UploadService {
   }
 
   /**
+   * 列出指定前缀下的对象（分页）。用于 patrol 扫描 / 运维检视。
+   *
+   * - prefix 必须落在白名单前缀内（avatars/ | babies/ | checkins/），防止误扫整个桶
+   * - maxKeys 默认 1000（COS 上限）
+   * - 通过 marker 实现分页：传入上一次返回的 nextMarker 即可
+   *
+   * @returns { items, isTruncated, nextMarker }
+   */
+  async listObjectsByPrefix(
+    prefix: string,
+    opts: { marker?: string; maxKeys?: number } = {},
+  ): Promise<{
+    items: Array<{ key: string; size: number; lastModified: string }>;
+    isTruncated: boolean;
+    nextMarker?: string;
+  }> {
+    if (!/^(avatars|babies|checkins)\//.test(prefix)) {
+      throw new BadRequestError(
+        `非法 prefix：${prefix}（必须以 avatars/ | babies/ | checkins/ 开头）`,
+        ErrorCodes.INVALID_PARAMS,
+      );
+    }
+    const cos = this.getCos();
+    return new Promise((resolve, reject) => {
+      cos.getBucket(
+        {
+          Bucket: env.COS_BUCKET!,
+          Region: env.COS_REGION!,
+          Prefix: prefix,
+          Marker: opts.marker,
+          MaxKeys: opts.maxKeys ?? 1000,
+        },
+        (err, data) => {
+          if (err) return reject(err);
+          const items = (data.Contents ?? []).map((c) => ({
+            key: c.Key,
+            size: Number(c.Size ?? 0),
+            lastModified: c.LastModified, // ISO 字符串
+          }));
+          const truncatedRaw = (data as { IsTruncated?: unknown }).IsTruncated;
+          const isTruncated =
+            truncatedRaw === 'true' || truncatedRaw === true;
+          resolve({
+            items,
+            isTruncated,
+            nextMarker: data.NextMarker || undefined,
+          });
+        },
+      );
+    });
+  }
+
+  /**
+   * 批量删除对象。COS 单次最多 1000 个。
+   *
+   * 调用方应自行分批；patrol 任务里我们用 ≤ 100 的分组以减少单次失败影响面。
+   * 失败的 key 列表通过返回值给到调用方记录。
+   */
+  async deleteObjects(
+    keys: string[],
+  ): Promise<{ deleted: string[]; failed: Array<{ key: string; reason: string }> }> {
+    if (keys.length === 0) return { deleted: [], failed: [] };
+    if (keys.length > 1000) {
+      throw new BadRequestError('单次最多删除 1000 个 key', ErrorCodes.INVALID_PARAMS);
+    }
+    // 全部 key 必须合法 + 在白名单前缀
+    for (const k of keys) {
+      if (!isValidKey(k)) {
+        throw new BadRequestError(`非法 key：${k}`, ErrorCodes.INVALID_PARAMS);
+      }
+    }
+    const cos = this.getCos();
+    return new Promise((resolve, reject) => {
+      cos.deleteMultipleObject(
+        {
+          Bucket: env.COS_BUCKET!,
+          Region: env.COS_REGION!,
+          Objects: keys.map((k) => ({ Key: k })),
+        },
+        (err, data) => {
+          if (err) return reject(err);
+          resolve({
+            deleted: (data.Deleted ?? []).map((d) => d.Key),
+            failed: (data.Error ?? []).map((e) => ({
+              key: e.Key,
+              reason: e.Message ?? e.Code ?? 'unknown',
+            })),
+          });
+        },
+      );
+    });
+  }
+
+  /**
    * 从 COS 获取对象（流式）。
    *
    * 调用方（route 层）负责把 stream pipe 到 res，并设置 Content-Type / Cache-Control。
