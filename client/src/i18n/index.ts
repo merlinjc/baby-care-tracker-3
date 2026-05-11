@@ -28,6 +28,8 @@ import LanguageDetector from 'i18next-browser-languagedetector'
 // zh-CN 资源（同步导入，确保首屏即可用，不需 Suspense）
 import zhCommon from './resources/zh-CN/common.json'
 import zhNav from './resources/zh-CN/nav.json'
+import zhHome from './resources/zh-CN/home.json'
+import zhRecord from './resources/zh-CN/record.json'
 
 /**
  * 资源注册表 — 后续新增命名空间 / 语言时统一在这里维护。
@@ -39,11 +41,13 @@ const RESOURCES = {
   'zh-CN': {
     common: zhCommon,
     nav: zhNav,
+    home: zhHome,
+    record: zhRecord,
   },
 } as const
 
 /** 已注册的命名空间列表，TypeScript 类型推导用 */
-export const NAMESPACES = ['common', 'nav'] as const
+export const NAMESPACES = ['common', 'nav', 'home', 'record'] as const
 export type Namespace = (typeof NAMESPACES)[number]
 
 /** 已支持的语言列表，未来切换器从此读取 */

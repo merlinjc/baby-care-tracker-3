@@ -13,6 +13,7 @@
  */
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
 import { AlertCircle, Clock, Lightbulb, PlusCircle, RefreshCw, Sparkles } from 'lucide-react';import { useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -67,6 +68,7 @@ const defaultStats: TodayStats = {
 type DialogType = 'feeding' | 'sleep' | 'diaper' | 'temperature' | 'growth'
 
 export function HomePage() {
+  const { t } = useTranslation('home')
   const user = useAuthStore((s) => s.user)
   const currentBaby = useBabyStore((s) => s.currentBaby)
   const family = useFamilyStore((s) => s.family)
@@ -298,11 +300,11 @@ export function HomePage() {
 
   const getGreeting = () => {
     const hour = new Date().getHours()
-    if (hour < 6) return '夜深了'
-    if (hour < 12) return '早上好'
-    if (hour < 14) return '中午好'
-    if (hour < 18) return '下午好'
-    return '晚上好'
+    if (hour < 6) return t('greeting.late_night')
+    if (hour < 12) return t('greeting.morning')
+    if (hour < 14) return t('greeting.noon')
+    if (hour < 18) return t('greeting.afternoon')
+    return t('greeting.evening')
   }
 
   const insightToShow = dailyInsight ?? buildFallbackInsight(stats)
@@ -310,8 +312,8 @@ export function HomePage() {
   const showInsight = currentBaby && !isInsightEmpty(insightToShow)
 
   const babySubtitle = currentBaby
-    ? `${currentBaby.name} · 今日记录`
-    : '尚未添加宝宝'
+    ? t('header.today_records', { name: currentBaby.name })
+    : t('header.no_baby')
 
   return (
     <motion.div
@@ -446,7 +448,7 @@ export function HomePage() {
       {currentBaby && (
         <motion.div variants={staggerItem}>
           <SectionHeader
-            title="今日时间线"
+            title={t('sections.today_timeline')}
             variant="default"
             action={
               <Link
@@ -454,7 +456,7 @@ export function HomePage() {
                 className="flex items-center gap-1 text-[13px] font-medium text-[var(--brand-ink)] hover:opacity-70 transition-opacity"
               >
                 <Clock className="h-3.5 w-3.5" />
-                查看全部
+                {t('actions.view_all')}
               </Link>
             }
           />
@@ -462,10 +464,10 @@ export function HomePage() {
             {todayRecords.length === 0 ? (
               <div className="py-10 px-5 text-center">
                 <p className="text-[14px] text-[var(--label-tertiary)] mb-2">
-                  今天还没有记录
+                  {t('timeline.empty_title')}
                 </p>
                 <p className="text-[12px] text-[var(--label-quaternary)]">
-                  点击下方按钮添加第一条
+                  {t('timeline.empty_desc')}
                 </p>
               </div>
             ) : (
@@ -480,7 +482,7 @@ export function HomePage() {
                       transition-colors border-t border-[var(--separator)]
                     `}
                   >
-                    查看全部 {todayRecords.length} 条今日记录
+                    {t('actions.view_all_today', { count: todayRecords.length })}
                   </Link>
                 )}
               </>

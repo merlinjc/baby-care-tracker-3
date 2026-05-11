@@ -583,8 +583,8 @@ T-S1-REL-01    Sprint 1 验收与打 tag
 | T-S1-INF-01 | 共享 | User.preferences + PATCH /profile 深合并 | 0.5d | ✅ |
 | T-S1-INF-02 | 共享 | COS 服务端代理上传/下载 + ImageUploader | 1d | ✅ |
 | T-S1-F8-01 | F8 | i18next 初始化 + zh-CN 骨架 | 0.3d | ✅ |
-| T-S1-F8-02 | F8 | main-layout 抽离 | 0.3d | ⬜ |
-| T-S1-F8-03 | F8 | home + record 抽离 | 0.4d | ⬜ |
+| T-S1-F8-02 | F8 | main-layout 抽离 | 0.3d | ✅ |
+| T-S1-F8-03 | F8 | home + record 抽离 | 0.4d | ✅ |
 | T-S1-F8-04 | F8 | report + ai + settings 抽离 | 0.4d | ⬜ |
 | T-S1-F8-05 | F8 | LanguageSwitcher + i18n 文档 | 0.1d | ⬜ |
 | T-S1-F12-01 | F12 | 默认头像 lib + Avatar 升级 | 0.3d | ⬜ |

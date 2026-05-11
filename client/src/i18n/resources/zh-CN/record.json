@@ -1,0 +1,48 @@
+{
+  "title": "记录",
+  "no_baby_selected": "请先选择一个宝宝",
+  "filter": {
+    "toggle": "筛选",
+    "type_all": "全部",
+    "date_range": "日期范围",
+    "clear": "清除筛选",
+    "start_date": "开始日期",
+    "end_date": "结束日期"
+  },
+  "section": {
+    "weekly_trend": "本周趋势"
+  },
+  "group": {
+    "today": "今天",
+    "yesterday": "昨天",
+    "items_one": "{{count}} 条",
+    "items_other": "{{count}} 条"
+  },
+  "type": {
+    "feeding": "喂养",
+    "sleep": "睡眠",
+    "diaper": "换尿布",
+    "temperature": "体温",
+    "growth": "生长"
+  },
+  "empty": {
+    "title": "暂无记录",
+    "desc": "点击右上角「添加」创建第一条记录"
+  },
+  "infinite": {
+    "loading_more": "加载更多...",
+    "pull_to_load": "下拉加载更多",
+    "no_more": "— 没有更多了 —"
+  },
+  "card": {
+    "creator": "由 {{name}} 记录",
+    "edit_aria": "编辑",
+    "delete_aria": "删除"
+  },
+  "viewer_alert": "您是查看者，无法添加或修改记录",
+  "confirm": {
+    "delete_title": "删除这条记录？",
+    "delete_desc": "删除后不可恢复。",
+    "delete_action": "删除"
+  }
+}
