@@ -64,6 +64,25 @@ export const checkinDateParamSchema = z.object({
   date: YMD,
 });
 
+const ROLE_VALUES = [
+  'mom',
+  'dad',
+  'grandma_m',
+  'grandma_p',
+  'grandpa_m',
+  'grandpa_p',
+  'nanny',
+  'other',
+] as const;
+
+/** AI 小记生成 body：仅传可选 role；prompt 上下文由 service 自取 */
+export const aiSummaryBodySchema = z
+  .object({
+    role: z.enum(ROLE_VALUES).optional(),
+  })
+  .strict();
+
 export type CreateCheckinInput = z.infer<typeof createCheckinSchema>;
 export type UpdateCheckinInput = z.infer<typeof updateCheckinSchema>;
 export type ListCheckinQuery = z.infer<typeof listCheckinQuerySchema>;
+export type AiSummaryBody = z.infer<typeof aiSummaryBodySchema>;

@@ -18,6 +18,7 @@
 import { Router } from 'express';
 import { dailyCheckinService } from '../services/daily-checkin.service';
 import { authenticate } from '../middleware/auth';
+import { aiRateLimit } from '../middleware/rate-limit';
 import { validateBody, validateQuery, validateParams } from '../middleware/validate';
 import { asyncHandler } from '../utils/async-handler';
 import { babyIdParamSchema } from '../schemas/baby.schema';
@@ -26,6 +27,7 @@ import {
   updateCheckinSchema,
   listCheckinQuerySchema,
   checkinDateParamSchema,
+  aiSummaryBodySchema,
 } from '../schemas/daily-checkin.schema';
 
 const router = Router();
@@ -98,6 +100,24 @@ router.delete(
       req.params.date,
     );
     res.json({ success: true, data: result });
+  }),
+);
+
+// POST /api/babies/:id/checkins/:date/ai-summary
+// 生成或重新生成 AI 小记。扣 AI 配额；失败不破坏已有 aiSummary。
+router.post(
+  '/:id/checkins/:date/ai-summary',
+  aiRateLimit,
+  validateParams(checkinDateParamSchema),
+  validateBody(aiSummaryBodySchema),
+  asyncHandler(async (req, res) => {
+    const checkin = await dailyCheckinService.generateAiSummary(
+      req.userId!,
+      req.params.id,
+      req.params.date,
+      req.body?.role,
+    );
+    res.json({ success: true, data: { checkin } });
   }),
 );
 

@@ -22,6 +22,8 @@ import {
   isWithinCheckinWindow,
   isValidYmd,
 } from '../utils/checkin-date';
+import { aiService } from './ai.service';
+import type { CareRole } from '../types';
 import type {
   CreateCheckinInput,
   UpdateCheckinInput,
@@ -217,7 +219,132 @@ class DailyCheckinService {
     return { message: '已删除' };
   }
 
+  /**
+   * 生成 / 重新生成 AI 小记（v7.2 T-S2-F11-BE-03）
+   *
+   * - 必须先存在该日打卡记录（404 CHECKIN_NOT_FOUND）
+   * - 权限：与 update 一致（editor 仅自己 / admin 全部）
+   * - 流程：拼 prompt → aiService.chat（内含 consumeQuota / refundQuota）→ 落 aiSummary + aiSummaryAt
+   * - 失败：aiService 已回滚配额；DB 不变；错误透传给路由层
+   *
+   * 与 dailyInsight 的区别：
+   * - 语气更温柔感性（"成长小记"基调，由 user prompt 控制）
+   * - 持久化到 DB，而不是 24h 内存缓存
+   * - 缓存 key 不复用，重新生成总是新调一次
+   */
+  async generateAiSummary(
+    userId: string,
+    babyId: string,
+    date: string,
+    role?: CareRole,
+  ) {
+    const baby = await this.assertBabyAccess(userId, babyId);
+    if (!isValidYmd(date)) {
+      throw new BadRequestError('日期格式无效', ErrorCodes.CHECKIN_DATE_INVALID);
+    }
+
+    const existing = await prisma.dailyCheckin.findUnique({
+      where: { babyId_checkinDate: { babyId, checkinDate: date } },
+    });
+    if (!existing || existing.familyId !== baby.familyId) {
+      throw new NotFoundError('打卡记录', ErrorCodes.CHECKIN_NOT_FOUND);
+    }
+
+    const userRole = await getUserFamilyRole(userId);
+    if (!userRole) throw new ForbiddenError('未加入家庭', ErrorCodes.PERMISSION_DENIED);
+    const isOwn = existing.createdBy === userId;
+    const allowed = isOwn
+      ? hasPermission(userRole, Permission.RECORD_UPDATE_OWN)
+      : hasPermission(userRole, Permission.RECORD_UPDATE_ANY);
+    if (!allowed) {
+      throw new ForbiddenError('无权修改此打卡', ErrorCodes.PERMISSION_DENIED);
+    }
+
+    // 收集当天上下文（不需要全部细节，只要有就提一下）
+    const ctx = await this.collectDayContext(babyId, baby.familyId, date);
+    const prompt = buildCheckinPrompt({
+      babyName: baby.name,
+      checkinDate: date,
+      caption: existing.caption,
+      ctx,
+      role,
+    });
+
+    // aiService.chat 内已做 quota 扣减 + 失败回滚 + system prompt（含 baby 上下文）
+    const { content } = await aiService.chat(
+      userId,
+      [{ role: 'user', content: prompt }],
+      babyId,
+      role,
+    );
+
+    const summary = content.trim().slice(0, 1000); // 安全裁剪
+    const updated = await prisma.dailyCheckin.update({
+      where: { babyId_checkinDate: { babyId, checkinDate: date } },
+      data: { aiSummary: summary, aiSummaryAt: new Date() },
+      include: { creator: { select: { id: true, nickname: true, avatar: true } } },
+    });
+    return this.format(updated);
+  }
+
   // ============ Helpers ============
+
+  /**
+   * 拉取 date 当天的 records / 里程碑 / 黄疸（用于 AI prompt 上下文）。
+   * 故意控制返回字段数量，避免 prompt 过长。
+   */
+  private async collectDayContext(
+    babyId: string,
+    familyId: string,
+    date: string,
+  ): Promise<DayContext> {
+    const start = new Date(`${date}T00:00:00.000Z`);
+    const end = new Date(`${date}T23:59:59.999Z`);
+
+    const [records, milestones, jaundice] = await Promise.all([
+      prisma.record.findMany({
+        where: {
+          babyId,
+          familyId,
+          startTime: { gte: start, lte: end },
+        },
+        select: { recordType: true, startTime: true, endTime: true },
+        orderBy: { startTime: 'asc' },
+        take: 50,
+      }),
+      prisma.milestoneRecord.findMany({
+        where: {
+          babyId,
+          familyId,
+          achievedDate: { gte: start, lte: end },
+        },
+        select: { name: true, category: true },
+        take: 10,
+      }),
+      prisma.jaundiceRecord.findMany({
+        where: {
+          babyId,
+          familyId,
+          recordDate: { gte: start, lte: end },
+        },
+        select: { tcb: true, tsb: true, kramerZone: true, category: true },
+        take: 5,
+      }),
+    ]);
+
+    const counts = records.reduce<Record<string, number>>((acc, r) => {
+      acc[r.recordType] = (acc[r.recordType] ?? 0) + 1;
+      return acc;
+    }, {});
+
+    return {
+      counts,
+      milestones: milestones.map((m) => m.name),
+      hasJaundice: jaundice.length > 0,
+      jaundiceTcb: jaundice[0]?.tcb ?? null,
+    };
+  }
+
 
   private async assertBabyAccess(userId: string, babyId: string) {
     const baby = await prisma.baby.findUnique({ where: { id: babyId } });
@@ -265,6 +392,77 @@ function isUniqueConstraintError(err: unknown): boolean {
     'code' in err &&
     (err as { code?: string }).code === 'P2002'
   );
+}
+
+// ============ AI 小记 prompt 构造 ============
+
+interface DayContext {
+  counts: Record<string, number>;
+  milestones: string[];
+  hasJaundice: boolean;
+  jaundiceTcb: number | null;
+}
+
+interface BuildCheckinPromptInput {
+  babyName: string;
+  checkinDate: string; // YYYY-MM-DD
+  caption: string | null;
+  ctx: DayContext;
+  role?: CareRole;
+}
+
+/**
+ * 构造打卡 AI 小记的 user prompt。
+ *
+ * 关键基调：温柔感性 ≠ 客观洞察，与 dailyInsight prompt 区分。
+ * 长度控制：要求 AI 输出 ≤ 60 字，避免占用过多 UI 空间且响应快。
+ * 字数硬上限在 service 层做了二次裁剪（1000 字）作为兜底。
+ */
+export function buildCheckinPrompt(input: BuildCheckinPromptInput): string {
+  const { babyName, checkinDate, caption, ctx, role } = input;
+
+  const segments: string[] = [];
+  segments.push(`今天是 ${checkinDate}，宝宝 ${babyName}。`);
+
+  if (caption) {
+    segments.push(`家人留言：「${caption.slice(0, 80)}」。`);
+  }
+
+  // 当天数据简述
+  const dataParts: string[] = [];
+  const c = ctx.counts;
+  if (c.feeding) dataParts.push(`喂养 ${c.feeding} 次`);
+  if (c.sleep) dataParts.push(`睡眠 ${c.sleep} 次`);
+  if (c.diaper) dataParts.push(`换尿布 ${c.diaper} 次`);
+  if (c.temperature) dataParts.push(`测体温 ${c.temperature} 次`);
+  if (c.growth) dataParts.push(`记录身高/体重`);
+  if (dataParts.length > 0) {
+    segments.push(`当天数据：${dataParts.join('、')}。`);
+  }
+
+  if (ctx.milestones.length > 0) {
+    segments.push(`今日新里程碑：${ctx.milestones.join('、')}。`);
+  }
+
+  if (ctx.hasJaundice && ctx.jaundiceTcb !== null) {
+    segments.push(`黄疸观察：经皮胆红素 ${ctx.jaundiceTcb} mg/dL。`);
+  }
+
+  // 输出风格指令（温柔感性、短，不诊断）
+  segments.push(
+    '请用温柔感性的中文写一段不超过 60 字的"今日小记"，像家人写给宝宝的成长日记一样，可以引用家人留言但不要重复数据。不要给医疗结论，不要使用列表或编号。',
+  );
+
+  // 角色 hint：尊重视角但不喧宾夺主，主基调还是小记
+  if (role === 'mom' || role === 'dad') {
+    segments.push('用第一人称的家人口吻；称呼宝宝时可用乳名或简称。');
+  } else if (role === 'grandma_m' || role === 'grandma_p' || role === 'grandpa_m' || role === 'grandpa_p') {
+    segments.push('用祖辈温和欣慰的口吻。');
+  } else if (role === 'nanny') {
+    segments.push('以陪伴照护者口吻，温暖但克制。');
+  }
+
+  return segments.join('\n');
 }
 
 export const dailyCheckinService = new DailyCheckinService();
