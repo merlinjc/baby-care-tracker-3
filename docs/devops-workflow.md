@@ -216,6 +216,31 @@ baby-care-tracker-web/
 
 **降级行为**：缺任一 `COS_*` 字段 → `/api/uploads` 返回 503 `UPLOAD_NOT_CONFIGURED` → 前端 ImageUploader toast 提示「图片上传服务未配置，请联系管理员」，主流程不阻塞，默认头像仍可显示。
 
+### 4.5 Patrol 巡检任务（v7.2+）
+
+后端启动时自动注册 patrol 任务（除非 `PATROL_ENABLED=false` 或 `NODE_ENV=test`）。当前任务清单：
+
+| 任务 | 周期 | 默认 dryRun | 作用 |
+|---|---|---|---|
+| `familyConsistency` | 每日 | true | 校验 `users.familyId` 与 `family_members` 一致性；规则 B 在 `PATROL_DRY_RUN=false` 时自动修复 |
+| `aiQuotaCleanup` | 每周 | true | 删除 60 天前的 `AIQuota` 记录（FR-E4） |
+| `dailyCheckinOrphanCleanup`（v7.2 T-S2-F11） | 每周（周日 04:00） | true | 列 COS `checkins/` 前缀对象 → DB `DailyCheckin.photoKey` 反查 → ≥ 30 天未引用的对象批量删除 |
+
+**调度实现**：原生 `setInterval` + 启动时校时，不引入 node-cron。
+**互斥锁**：通过 `RateLimit` 表实现"乐观锁式领导选举"，多实例部署只有一个实例真正执行（其余跳过）。
+
+**dailyCheckinOrphanCleanup 的 30 天阈值**：
+- 给手动恢复留窗口（防止"DB 已删但 1 周内发现是误删，回滚 DB 后对象还在"）
+- 也覆盖"上传成功但 create 落 DB 失败"的极端场景（最长延迟 30 天才会被清）
+
+**生产开启自动修复**：在 `docker/.env` 设：
+
+```
+PATROL_DRY_RUN=false
+```
+
+不设置时全部 patrol 仅统计 + 写 OperationLog，不做实际写入 / 删除。
+
 ---
 
 ## 5. 首次配置（一次性）

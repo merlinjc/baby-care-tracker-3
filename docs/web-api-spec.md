@@ -2115,6 +2115,128 @@ v7.2 起以下字段**统一存桶内 key**，不再存完整 URL：
 
 ---
 
+## 12. 每日打卡接口（v7.2+ T-S2-F11）
+
+> **背景**：v7.2 Sprint 2 主线功能。"一天一张照片 + AI 小记"沉淀为可回顾的成长资产。
+> 字段语义见 §11（文件上传）下的 `DailyCheckin.photoKey` 与 `shared/types#DailyCheckin`。
+
+挂载点：`/api/babies/:id/checkins`
+
+### 12.1 GET /api/babies/:id/checkins
+
+列出某宝宝某区间内的打卡记录。
+
+**Query**：
+- `startDate`（YYYY-MM-DD，可选）
+- `endDate`（YYYY-MM-DD，可选）
+- 不传时默认本月 [01, 月末]
+
+**Response 200**：
+
+```json
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "id": "ck1",
+        "babyId": "b1",
+        "familyId": "f1",
+        "checkinDate": "2026-05-15",
+        "photoKey": "checkins/f1/b1/2026-05-15-abc.jpg",
+        "photoWidth": 1080,
+        "photoHeight": 1440,
+        "caption": "今天好天气",
+        "aiSummary": "小宝今天笑得像花儿。",
+        "aiSummaryAt": "2026-05-15T10:32:01.000Z",
+        "createdBy": "u1",
+        "creator": { "id": "u1", "nickname": "妈妈", "avatar": "avatars/u1/x.jpg" },
+        "createdAt": "2026-05-15T10:30:00.000Z",
+        "updatedAt": "2026-05-15T10:32:01.000Z"
+      }
+    ],
+    "total": 1,
+    "range": { "startDate": "2026-05-01", "endDate": "2026-05-31" }
+  }
+}
+```
+
+### 12.2 POST /api/babies/:id/checkins
+
+创建打卡。
+
+**Body**（zod schema）：
+
+```json
+{
+  "checkinDate": "2026-05-15",      // 必填，YYYY-MM-DD
+  "photoKey": "checkins/...jpg",    // 必填，必须以 checkins/ 开头
+  "photoWidth": 1080,               // 可选 int
+  "photoHeight": 1440,              // 可选 int
+  "caption": "今天好天气"             // 可选，≤ 200 字
+}
+```
+
+**业务校验**：
+- `checkinDate` 必须落在 `[today-7d, today]`（**7d 补打卡窗口**）
+- `checkinDate` 不早于 `baby.birthDate`
+- 同 `(babyId, checkinDate)` 已有记录 → 409
+
+**响应**：`{ success: true, data: { checkin: DailyCheckin } }`
+
+### 12.3 GET /api/babies/:id/checkins/:date
+
+取指定日（YYYY-MM-DD）的单条打卡。
+
+**响应**：`{ success: true, data: { checkin: DailyCheckin } }`，未找到 → 404 `CHECKIN_NOT_FOUND`。
+
+### 12.4 PATCH /api/babies/:id/checkins/:date
+
+部分更新（最少一个字段；空对象 422）。
+
+**Body 可选字段**：
+- `photoKey`（替换照片）
+- `photoWidth` / `photoHeight`
+- `caption`（可为 null 清空）
+- `aiSummary`（可为 null 清空）— 传入此字段表示**用户人工编辑**，后端会同时把 `aiSummaryAt` 置 null 标识"已人工修改"
+
+**权限**：editor 仅能改自己创建的；admin 全部。
+
+### 12.5 DELETE /api/babies/:id/checkins/:date
+
+删除打卡。DB 立即删；COS 对象由 patrol `dailyCheckinOrphanCleanup` 异步清（30d 阈值）。
+
+**权限**：editor 仅能删自己创建的；admin 全部。
+
+### 12.6 POST /api/babies/:id/checkins/:date/ai-summary
+
+生成 / 重新生成 AI 小记。
+
+**Body**：
+
+```json
+{ "role": "mom" }   // 可选，CareRole 枚举；不传则用中立顾问视角
+```
+
+**流程**：
+1. 必须先存在该日打卡（404 `CHECKIN_NOT_FOUND`）
+2. 权限同 PATCH（editor 仅自己 / admin 全部）
+3. 收集当天 records / milestones / jaundice 摘要 → 拼 prompt
+4. `aiService.chat(...)` 内含 quota 扣减 + 失败回滚
+5. 成功落 `aiSummary + aiSummaryAt = now()`；失败 DB 不变 + 错误透传
+
+**新错误码**：
+- `CHECKIN_NOT_FOUND` (404)
+- `CHECKIN_DUPLICATE` (409)
+- `CHECKIN_WINDOW_EXPIRED` (400) — 日期超 7d 窗口
+- `CHECKIN_DATE_INVALID` (400) — 日期格式 / 早于出生日
+- `CHECKIN_PHOTO_MISSING` (400)
+- `QUOTA_EXCEEDED` (429) — AI 配额耗尽（沿用 ai 既有）
+
+**速率限制**：AI 小记走 `aiRateLimit`（与 `/api/ai/*` 一致，每用户 24h 内 20 次）。
+
+---
+
 ## 11. 数据结构定义
 
 以下 TypeScript 接口与 `shared/types/index.ts` 对齐，补充了 API 层特有的请求/响应类型。

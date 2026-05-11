@@ -598,6 +598,137 @@ MainLayout 挂载
 
 **强制触发 / 测试**：访问 `https://app/?onboarding=1` 即使 `onboardingCompleted=true` 也会重新弹；用户操作（go / skip-all / complete）后会自动 replace URL 清除该参数。
 
+### 5.12 每日打卡 + AI 小记 + 成长日历（v7.2 T-S2-F11）
+
+**目标**：用户每天为宝宝拍一张照片 + 一段话 + AI 自动生成的"成长小记"，沉淀为月视图日历可回顾、可导出的成长资产。Sprint 2 主线功能。
+
+**数据流**：
+
+```
+首页 DailyCheckinCard (今日态)
+  ↓ 点击 → PhotoUploader
+  ↓ ImageUploader (压缩 1080px + EXIF 剥离)
+  ↓ POST /api/uploads (kind=daily-checkin, ctx={familyId, babyId, date})
+  ↓ → photoKey
+  ↓ POST /api/babies/:id/checkins { checkinDate, photoKey, caption? }
+  ↓ → DailyCheckin (aiSummary=null)
+  ↓ async POST /api/babies/:id/checkins/:date/ai-summary { role? }
+  ↓ → DailyCheckin (aiSummary + aiSummaryAt)
+首页卡片更新（已打卡态）；GrowthCalendar 当月数据 invalidate
+```
+
+**关键设计**：
+
+| 维度 | 选择 | 理由 |
+|---|---|---|
+| `checkinDate` 类型 | `String YYYY-MM-DD`（本地时区） | 不做时区换算，避免跨时区漂移；按字符串字典序范围查询性能足够 |
+| `photoKey` vs URL | DB 存桶内 key（INF-02 方案 B） | 与头像统一；展示拼 `/api/uploads/{key}` 走代理 |
+| 唯一约束 | `@@unique([babyId, checkinDate])` | "一天一张"产品规则；DB 兜底 + 前端友好提示 |
+| 7d 补打卡窗口 | service 层 `isWithinCheckinWindow` 校验 | 产品规则；前后端各做一次（前端 UX，后端权威） |
+| AI 小记基调 | 温柔感性（不同于 dailyInsight 的客观洞察） | 区分语境；prompt 里 60 字限制 + 角色微调 |
+| AI 失败行为 | 配额回滚 + DB 不变；UI 显式 "明天再试" | 避免覆盖已有 aiSummary；用户可手动重试 |
+| AI 编辑后 | `aiSummaryAt = null`（"已人工修改" pill） | 让"重新生成"覆盖时用户清楚自己曾改过 |
+| 删除策略 | DB 立即删；COS 异步清（patrol 30d 阈值） | 防误删 + 给运维兜底窗口 |
+
+**前端分层**：
+
+```
+services/daily-checkin.ts         (axios 包装)
+hooks/use-daily-checkins.ts       (React Query：按月 / 单日 / mutation)
+components/daily-checkin/
+  ├─ photo-uploader.tsx           (ImageUploader 业务封装 + create + asyncAi)
+  ├─ daily-checkin-card.tsx       (首页三态卡片)
+  ├─ ai-summary-panel.tsx         (AI 小记展示 / 编辑 / 重新生成)
+  └─ daily-checkin-detail.tsx     (单日详情抽屉：替换 / 删除 / caption 编辑)
+components/growth-calendar/
+  ├─ growth-calendar.tsx          (月视图主组件 + 四态判断)
+  ├─ calendar-cell.tsx            (单元格：future/supplement/expired/checked)
+  ├─ calendar-month-switcher.tsx  (◀▶ 切月)
+  └─ calendar-export-menu.tsx     (导出 PNG / PDF / 分享)
+pages/growth/calendar/index.tsx   (独立路由 /growth/calendar，URL ?year/?month/?date)
+lib/daily-checkin-date.ts         (本地时区纯函数：windowCheck / getMonthGrid)
+lib/calendar-canvas.ts            (月视图 → A4 PNG，2DPR + onProgress)
+lib/pdf-export.ts                 (pdf-lib 拼页 + downloadBlob)
+```
+
+**后端分层**：
+
+```
+prisma/schema.prisma#DailyCheckin                 (@@unique([babyId, checkinDate]))
+schemas/daily-checkin.schema.ts                   (Zod：YMD 正则 + photoKey checkins/ 前缀)
+services/daily-checkin.service.ts
+  ├─ list / getByDate / create / update / remove  (基础 CRUD + 跨家庭 + 权限矩阵)
+  ├─ generateAiSummary                            (调 aiService.chat + 落 aiSummary/aiSummaryAt)
+  └─ collectDayContext                            (records/milestones/jaundice 摘要)
+routes/checkins.ts                                (5 端点 + AI 小记端点)
+utils/patrol.ts#runDailyCheckinOrphanCleanup     (周日 04:00 + 30d 阈值)
+utils/checkin-date.ts                             (服务端最小日期工具，与 client 同义)
+```
+
+**性能 / 体积**：
+- pdf-lib 独立 chunk `vendor-pdf`（gzip 175 KB），仅在 calendar / report 路由动态 import
+- calendar 路由 chunk gzip 5 KB
+- 月视图 PNG ≤ 400 KB（jpeg quality 0.88，2DPR）
+- 月度 PDF ≤ 8 MB（按设计 §10 风险阈值）
+
+### 5.13 WHO 百分位增强（v7.2 T-S2-F10）
+
+**演进**：v7.1 已在生长曲线（`pages/growth/index.tsx`）叠加 5 条 WHO 参考线，但仅覆盖 0-24 月，且数据点 hover 不显示百分位标签，无异常值告警。Sprint 2 完成数据扩展 + 百分位反向插值 + 异常 AI 咨询。
+
+**数据扩展**：
+- `lib/who-standards.ts`：0-24 月（1/3 月粒度）→ **0-60 月**（24-60 月按 3 月粒度）
+- 体积影响：~2 KB → ~4 KB（gzip ~1 KB），仍同步打入入口
+
+**新 lib `lib/who-percentile.ts`**：
+
+```ts
+getPercentile(value, ageMonths, gender, metric): number | null
+  // 算法：
+  //   1) 按月龄在 5 档参考点上分段线性插值得到该月的 PercentileData
+  //   2) 把 value 投影到 [P3, P15, P50, P85, P97] 上做"分段线性百分位"反算
+  //   3) value ≤ P3 → 3；value ≥ P97 → 97（边界饱和）
+  //   4) 月龄超 0-60 → null
+  // 不引入 LMS 官方 Z 分数算法（精度足够 + 零依赖）
+
+getPercentileLabel(p): string  // "P75（中上水平）" / "<P3 偏低" 等
+isOutOfRange(p): boolean        // < 3 / > 97 / null = 异常
+getReferenceLinePoints(...)     // 给图表渲染：5 条曲线点位
+```
+
+**UI 增强**：
+- 数据点 hover title 增加 `{value}{unit} · P75（中上水平）`
+- 历史记录列表行尾 Badge：`P50` / `<P3 ⚠`
+- 异常行整行红底高亮 + 「向 AI 咨询」按钮（autoPrompt 协议跳 `/ai-assistant`）
+- chartMonths 上限 24 → 60；X 轴标签自适应（≤24 月每 3 月，>24 月每 6 月）
+
+### 5.14 报告分享 Dialog + PDF 导出（v7.2 T-S2-F4）
+
+**演进**：v7.1 报告页"分享"直接 `renderReportImage` + `navigator.share`，无预览、无 PDF、无日历联动。Sprint 2 引入 `<ReportShareDialog>`：
+
+```
+ReportShareDialog (open=true)
+  ├─ 预览（renderReportImage 产出的 jpeg，2DPR）
+  ├─ Checkbox：附带成长日历（自动拉取期间 checkin 数量；为 0 时禁用）
+  └─ 三个 action：
+      ├─ 保存图片（PNG/JPG）→ downloadBlob
+      ├─ 导出 PDF
+      │   ├─ 拉期间内 checkins → groupCheckinsByMonth
+      │   ├─ 每月调 renderCalendarImage → Blob
+      │   └─ renderReportWithCalendarPdf([reportImage, ...calendarImages])
+      └─ 系统分享（仅 navigator.share 支持时显示）
+```
+
+**关键设计**：
+- pdf-lib + calendar-canvas 全部 `await import(...)`，不污染 report 路由 chunk
+- 进度态 toast：`生成封面… → 渲染日历 i/total… → 合成 PDF…`
+- PDF 元数据：title / author / subject 三字段填充，便于派生工具检索
+- 触发链路：`pages/report` `<分享>` 按钮 → 打开 Dialog（取代直接 share）
+
+**PDF 文件大小目标**：
+- 仅报告 < 1.5 MB
+- 含 1 个月日历 < 8 MB
+- pdf-export.ts 设软上限 8 MB，超过 console.warn 提示分别下载
+
 ---
 
 ## 6. 文件依赖图

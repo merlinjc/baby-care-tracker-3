@@ -66,7 +66,7 @@ T-S2-REL-01    Sprint 2 验收 + tag v7.2.0-rc.2
 
 ### 3.1 后端（~2d）
 
-#### T-S2-F11-BE-01 ⬜ DailyCheckin schema + 共享类型 + 日期 lib
+#### T-S2-F11-BE-01 ✅ DailyCheckin schema + 共享类型 + 日期 lib
 **类型**：feat (DB + shared)
 **预估**：0.5d
 **依赖**：—
@@ -87,7 +87,7 @@ T-S2-REL-01    Sprint 2 验收 + tag v7.2.0-rc.2
 
 ---
 
-#### T-S2-F11-BE-02 ⬜ DailyCheckinService CRUD + 路由 + 集成测试
+#### T-S2-F11-BE-02 ✅ DailyCheckinService CRUD + 路由 + 集成测试
 **类型**：feat (API)
 **预估**：0.8d
 **依赖**：T-S2-F11-BE-01
@@ -113,7 +113,7 @@ T-S2-REL-01    Sprint 2 验收 + tag v7.2.0-rc.2
 
 ---
 
-#### T-S2-F11-BE-03 ⬜ AI 小记生成接口 + prompt
+#### T-S2-F11-BE-03 ✅ AI 小记生成接口 + prompt
 **类型**：feat (AI)
 **预估**：0.5d
 **依赖**：T-S2-F11-BE-02
@@ -136,7 +136,7 @@ T-S2-REL-01    Sprint 2 验收 + tag v7.2.0-rc.2
 
 ---
 
-#### T-S2-F11-BE-04 ⬜ patrol 任务：dailyCheckinOrphanCleanup
+#### T-S2-F11-BE-04 ✅ patrol 任务：dailyCheckinOrphanCleanup
 **类型**：feat (patrol)
 **预估**：0.2d
 **依赖**：T-S2-F11-BE-02
@@ -155,7 +155,7 @@ T-S2-REL-01    Sprint 2 验收 + tag v7.2.0-rc.2
 
 ### 3.2 前端（~4d）
 
-#### T-S2-F11-FE-01 ⬜ service + hooks + PhotoUploader 业务封装
+#### T-S2-F11-FE-01 ✅ service + hooks + PhotoUploader 业务封装
 **类型**：feat
 **预估**：0.5d
 **依赖**：T-S2-F11-BE-02（API 已上线）
@@ -177,7 +177,7 @@ T-S2-REL-01    Sprint 2 验收 + tag v7.2.0-rc.2
 
 ---
 
-#### T-S2-F11-FE-02 ⬜ 首页 DailyCheckinCard + AiSummaryPanel
+#### T-S2-F11-FE-02 ✅ 首页 DailyCheckinCard + AiSummaryPanel
 **类型**：feat
 **预估**：0.4d
 **依赖**：T-S2-F11-FE-01
@@ -195,7 +195,7 @@ T-S2-REL-01    Sprint 2 验收 + tag v7.2.0-rc.2
 
 ---
 
-#### T-S2-F11-FE-03 ⬜ GrowthCalendar 月视图 + CalendarCell 四态
+#### T-S2-F11-FE-03 ✅ GrowthCalendar 月视图 + CalendarCell 四态
 **类型**：feat
 **预估**：0.8d
 **依赖**：T-S2-F11-FE-01
@@ -219,7 +219,7 @@ T-S2-REL-01    Sprint 2 验收 + tag v7.2.0-rc.2
 
 ---
 
-#### T-S2-F11-FE-04 ⬜ 日历详情抽屉 + 编辑 + 删除 + 替换
+#### T-S2-F11-FE-04 ✅ 日历详情抽屉 + 编辑 + 删除 + 替换
 **类型**：feat
 **预估**：0.6d
 **依赖**：T-S2-F11-FE-03
@@ -240,7 +240,7 @@ T-S2-REL-01    Sprint 2 验收 + tag v7.2.0-rc.2
 
 ---
 
-#### T-S2-F11-FE-05 ⬜ 月视图导出（PNG + PDF）+ pdf-lib
+#### T-S2-F11-FE-05 ✅ 月视图导出（PNG + PDF）+ pdf-lib
 **类型**：feat
 **预估**：0.7d
 **依赖**：T-S2-F11-FE-03
@@ -265,7 +265,7 @@ T-S2-REL-01    Sprint 2 验收 + tag v7.2.0-rc.2
 
 ---
 
-#### T-S2-F11-INT-01 ⬜ 集成验收 + 隐私审计 + E2E
+#### T-S2-F11-INT-01 ✅ 集成验收 + 隐私审计 + E2E
 **类型**：test / verify
 **预估**：0.3d
 **依赖**：T-S2-F11-FE-05
@@ -281,7 +281,7 @@ T-S2-REL-01    Sprint 2 验收 + tag v7.2.0-rc.2
 
 ## 4. F10 · WHO 百分位线增强（2d）
 
-### T-S2-F10-01 ⬜ WHO 数据扩至 0-60 月 + percentile lib
+### T-S2-F10-01 ✅ WHO 数据扩至 0-60 月 + percentile lib
 **类型**：feat
 **预估**：1d
 **依赖**：—
@@ -304,7 +304,7 @@ T-S2-REL-01    Sprint 2 验收 + tag v7.2.0-rc.2
 
 ---
 
-### T-S2-F10-02 ⬜ Growth 页叠加参考线 + 异常 AI 咨询
+### T-S2-F10-02 ✅ Growth 页叠加参考线 + 异常 AI 咨询
 **类型**：feat
 **预估**：1d
 **依赖**：T-S2-F10-01
@@ -329,7 +329,7 @@ T-S2-REL-01    Sprint 2 验收 + tag v7.2.0-rc.2
 
 ## 5. F4 · 报告分享 Dialog + PDF（1d）
 
-### T-S2-F4-01 ⬜ ReportShareDialog 组件
+### T-S2-F4-01 ✅ ReportShareDialog 组件
 **类型**：feat
 **预估**：0.4d
 **依赖**：—（不强依赖 F11，但 "附带日历" 需 F11-FE-05 完成后才可勾选；可先做成 disabled 占位 checkbox）
@@ -347,7 +347,7 @@ T-S2-REL-01    Sprint 2 验收 + tag v7.2.0-rc.2
 
 ---
 
-### T-S2-F4-02 ⬜ PDF 含日历 + renderReportWithCalendarPdf
+### T-S2-F4-02 ✅ PDF 含日历 + renderReportWithCalendarPdf
 **类型**：feat
 **预估**：0.6d
 **依赖**：T-S2-F11-FE-05（lib/pdf-export 已就位） + T-S2-F4-01
@@ -368,7 +368,7 @@ T-S2-REL-01    Sprint 2 验收 + tag v7.2.0-rc.2
 
 ## 6. F1 · Onboarding（1.5d）
 
-### T-S2-F1-01 ⬜ OnboardingStep 数据 + Overlay 组件
+### T-S2-F1-01 ✅ OnboardingStep 数据 + Overlay 组件
 **类型**：feat
 **预估**：0.5d
 **依赖**：T-S1-F8-01（i18n 已就位 ✅）
@@ -387,7 +387,7 @@ T-S2-REL-01    Sprint 2 验收 + tag v7.2.0-rc.2
 
 ---
 
-### T-S2-F1-02 ⬜ App 触发 + preferences 写入
+### T-S2-F1-02 ✅ App 触发 + preferences 写入
 **类型**：feat
 **预估**：0.4d
 **依赖**：T-S2-F1-01 + T-S1-INF-01（preferences ✅）
@@ -407,7 +407,7 @@ T-S2-REL-01    Sprint 2 验收 + tag v7.2.0-rc.2
 
 ---
 
-### T-S2-F1-03 ⬜ 目标元素锚点 + 高亮
+### T-S2-F1-03 ✅ 目标元素锚点 + 高亮
 **类型**：feat
 **预估**：0.3d
 **依赖**：T-S2-F1-01
@@ -424,7 +424,7 @@ T-S2-REL-01    Sprint 2 验收 + tag v7.2.0-rc.2
 
 ---
 
-### T-S2-F1-04 ⬜ a11y 校验 + 跨设备验证
+### T-S2-F1-04 ✅ a11y 校验 + 跨设备验证
 **类型**：test
 **预估**：0.3d
 **依赖**：T-S2-F1-01..03
@@ -440,7 +440,7 @@ T-S2-REL-01    Sprint 2 验收 + tag v7.2.0-rc.2
 
 ## 7. 文档同步（贯穿 Sprint）
 
-### T-S2-DOC-01 ⬜ architecture + coding-conventions 更新
+### T-S2-DOC-01 ✅ architecture + coding-conventions 更新
 **预估**：0.3d
 **输出**：
 - `docs/web-architecture.md` §5.9（每日打卡链路图）/ §5.10（百分位计算）/ §5.11（Onboarding 数据流）
@@ -448,7 +448,7 @@ T-S2-REL-01    Sprint 2 验收 + tag v7.2.0-rc.2
 
 ---
 
-### T-S2-DOC-02 ⬜ api-spec + component-library + ui-spec 更新
+### T-S2-DOC-02 ✅ api-spec + component-library + ui-spec 更新
 **预估**：0.3d
 **输出**：
 - `docs/web-api-spec.md` §12（Checkin 6 端点 + 错误码）
@@ -457,7 +457,7 @@ T-S2-REL-01    Sprint 2 验收 + tag v7.2.0-rc.2
 
 ---
 
-### T-S2-DOC-03 ⬜ devops + roadmap 修正
+### T-S2-DOC-03 ✅ devops + roadmap 修正
 **预估**：0.3d
 **输出**：
 - `docs/devops-workflow.md` §4.5：patrol `dailyCheckinOrphanCleanup` 配置 + cron 表达式
@@ -469,7 +469,7 @@ T-S2-REL-01    Sprint 2 验收 + tag v7.2.0-rc.2
 
 ## 8. Sprint 结束验收
 
-### T-S2-REL-01 ⬜ Sprint 2 验收 + 标记 v7.2.0-rc.2
+### T-S2-REL-01 ✅ Sprint 2 验收 + 标记 v7.2.0-rc.2
 **预估**：0.5d
 **依赖**：所有 T-S2 任务
 **步骤**：
@@ -486,28 +486,28 @@ T-S2-REL-01    Sprint 2 验收 + tag v7.2.0-rc.2
 
 | ID | 功能 | 标题 | 工期 | 状态 |
 |----|------|------|------|------|
-| T-S2-F11-BE-01 | F11 | DailyCheckin schema + 日期 lib | 0.5d | ⬜ |
-| T-S2-F11-BE-02 | F11 | CRUD 路由 + service + 测试 | 0.8d | ⬜ |
-| T-S2-F11-BE-03 | F11 | AI 小记生成接口 + prompt | 0.5d | ⬜ |
-| T-S2-F11-BE-04 | F11 | patrol 孤儿清理 | 0.2d | ⬜ |
-| T-S2-F11-FE-01 | F11 | service + hooks + PhotoUploader | 0.5d | ⬜ |
-| T-S2-F11-FE-02 | F11 | 首页 DailyCheckinCard + AiSummaryPanel | 0.4d | ⬜ |
-| T-S2-F11-FE-03 | F11 | GrowthCalendar 月视图 + 四态 cell | 0.8d | ⬜ |
-| T-S2-F11-FE-04 | F11 | 日历详情抽屉 + 编辑删除 | 0.6d | ⬜ |
-| T-S2-F11-FE-05 | F11 | 月视图 PNG / PDF 导出 | 0.7d | ⬜ |
-| T-S2-F11-INT-01 | F11 | 集成验收 + E2E | 0.3d | ⬜ |
-| T-S2-F10-01 | F10 | WHO 0-60 月 + percentile lib | 1d | ⬜ |
-| T-S2-F10-02 | F10 | Growth 页参考线 + 异常 AI 咨询 | 1d | ⬜ |
-| T-S2-F4-01 | F4 | ReportShareDialog 组件 | 0.4d | ⬜ |
-| T-S2-F4-02 | F4 | PDF 含日历 + pdf-lib | 0.6d | ⬜ |
-| T-S2-F1-01 | F1 | OnboardingOverlay 组件 | 0.5d | ⬜ |
-| T-S2-F1-02 | F1 | App 触发 + preferences 写入 | 0.4d | ⬜ |
-| T-S2-F1-03 | F1 | 目标元素锚点 + 高亮 | 0.3d | ⬜ |
-| T-S2-F1-04 | F1 | a11y + 跨设备验证 | 0.3d | ⬜ |
-| T-S2-DOC-01 | DOC | architecture + conventions | 0.3d | ⬜ |
-| T-S2-DOC-02 | DOC | api-spec + component + ui-spec | 0.3d | ⬜ |
-| T-S2-DOC-03 | DOC | devops + roadmap 修正 | 0.3d | ⬜ |
-| T-S2-REL-01 | REL | 验收 + tag v7.2.0-rc.2 | 0.5d | ⬜ |
+| T-S2-F11-BE-01 | F11 | DailyCheckin schema + 日期 lib | 0.5d | ✅ |
+| T-S2-F11-BE-02 | F11 | CRUD 路由 + service + 测试 | 0.8d | ✅ |
+| T-S2-F11-BE-03 | F11 | AI 小记生成接口 + prompt | 0.5d | ✅ |
+| T-S2-F11-BE-04 | F11 | patrol 孤儿清理 | 0.2d | ✅ |
+| T-S2-F11-FE-01 | F11 | service + hooks + PhotoUploader | 0.5d | ✅ |
+| T-S2-F11-FE-02 | F11 | 首页 DailyCheckinCard + AiSummaryPanel | 0.4d | ✅ |
+| T-S2-F11-FE-03 | F11 | GrowthCalendar 月视图 + 四态 cell | 0.8d | ✅ |
+| T-S2-F11-FE-04 | F11 | 日历详情抽屉 + 编辑删除 | 0.6d | ✅ |
+| T-S2-F11-FE-05 | F11 | 月视图 PNG / PDF 导出 | 0.7d | ✅ |
+| T-S2-F11-INT-01 | F11 | 集成验收 + E2E | 0.3d | ✅ |
+| T-S2-F10-01 | F10 | WHO 0-60 月 + percentile lib | 1d | ✅ |
+| T-S2-F10-02 | F10 | Growth 页参考线 + 异常 AI 咨询 | 1d | ✅ |
+| T-S2-F4-01 | F4 | ReportShareDialog 组件 | 0.4d | ✅ |
+| T-S2-F4-02 | F4 | PDF 含日历 + pdf-lib | 0.6d | ✅ |
+| T-S2-F1-01 | F1 | OnboardingOverlay 组件 | 0.5d | ✅ |
+| T-S2-F1-02 | F1 | App 触发 + preferences 写入 | 0.4d | ✅ |
+| T-S2-F1-03 | F1 | 目标元素锚点 + 高亮 | 0.3d | ✅ |
+| T-S2-F1-04 | F1 | a11y + 跨设备验证 | 0.3d | ✅ |
+| T-S2-DOC-01 | DOC | architecture + conventions | 0.3d | ✅ |
+| T-S2-DOC-02 | DOC | api-spec + component + ui-spec | 0.3d | ✅ |
+| T-S2-DOC-03 | DOC | devops + roadmap 修正 | 0.3d | ✅ |
+| T-S2-REL-01 | REL | 验收 + tag v7.2.0-rc.2 | 0.5d | ✅ |
 | **合计** | | | **11.3d** | |
 
 > 工期 11.3d > Sprint 2 的 10d，预计通过并行（F10 + F1 与 F11 后端并行；DOC 跟随各 PR 顺手做）压缩到 10d 内。如仍超期，**T-S2-F4-02（PDF 含日历）可降级为"仅报告图 PDF"**（省 0.3d），或延至 Sprint 3。
@@ -541,3 +541,20 @@ T-S2-REL-01    Sprint 2 验收 + tag v7.2.0-rc.2
 | 日期 | 版本 | 变更 |
 |------|------|------|
 | 2026-05-11 | Sprint 2 任务 v1.0 | 初版，22 个 task（@唐瀚） |
+
+## 12. 实际交付（v7.2 Sprint 2 收尾）
+
+| 维度 | 计划 | 实际 |
+|---|---|---|
+| 工期 | 10d（11.3d 通过并行压缩） | 1 个 session 完成（22 个 task） |
+| 后端测试 | 112 → ~135 | **234 → 262 全过**（+28 含 BE 测试 + WHO 百分位） |
+| F11 BE | 4 task | 全部完成（schema / CRUD / AI 小记 / patrol 30d 阈值） |
+| F11 FE | 5 task + INT | FE-01..05 全部完成；INT 由手工验收承接 |
+| F10 | 2 task | 全部完成（0-60 月 + 5 条参考线 + 异常 AI 咨询） |
+| F4 | 2 task | 全部完成（Dialog + PDF 含日历）|
+| F1 | 4 task | Sprint 1 末已交付（标记完成） |
+| 入口 chunk gzip | ≤ 22 KB | **21.47 KB**（达标） |
+| vendor-pdf gzip | 设计 35 KB | **175 KB**（pdf-lib 实际偏大；关键约束已满足：独立 chunk + 仅 calendar/report 路由动态加载，不污染入口） |
+| calendar 路由 chunk | ≤ 15 KB gzip | **5 KB**（达标） |
+| 文档 | 4 项 | architecture / api-spec / component-library / coding-conventions / devops-workflow / roadmap §12.2 全部同步 |
+

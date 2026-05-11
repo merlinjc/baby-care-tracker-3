@@ -1430,3 +1430,110 @@ async function setLanguage(lang: string) {
 - Sprint 1 不强制，靠 PR review
 
 
+
+## 21. 每日打卡 + AI 小记约定（v7.2+ T-S2-F11）
+
+### 21.1 日期写入：本地时区，永远是字符串
+
+`DailyCheckin.checkinDate` 与 `daily-checkin-date.ts` 全套 API 一律使用 **本地时区的 `YYYY-MM-DD` 字符串**，永远不要：
+
+```ts
+// ❌ 把 Date 转成 ISO 再切片
+checkinDate: new Date().toISOString().slice(0, 10)
+//        ✅ 应该用：
+import { todayLocalYmd } from '@/lib/daily-checkin-date'
+checkinDate: todayLocalYmd()
+```
+
+理由：toISOString 是 UTC，跨时区会漂移一天（北京时间 23:00 = UTC 15:00 但日期已变）。后端不做时区换算，前端写什么就落什么，按字符串字典序范围查询。
+
+### 21.2 photoKey 不是 URL，展示统一拼代理
+
+DB 与 API 中 `photoKey` 是 COS 桶内 key（如 `checkins/family1/baby1/2026-05-15-abc.jpg`），**永远不要直接当 src**：
+
+```ts
+// ❌
+<img src={checkin.photoKey} />
+//   ✅ 必须用 buildImageUrl 拼成 /api/uploads/{key}
+import { buildImageUrl } from '@/lib/image-url'
+<img src={buildImageUrl(checkin.photoKey)} />
+```
+
+### 21.3 7d 补打卡窗口前后端各做一次
+
+前端 `PhotoUploader` / `CalendarCell` 状态判断都靠 `lib/daily-checkin-date.isWithinCheckinWindow(ymd)`；后端 `daily-checkin.service.create` 还会再做一次校验（`utils/checkin-date.ts` 同义函数）。**不要绕过任一层**。
+
+### 21.4 AI 小记：编辑 vs 重新生成 必须区分
+
+```ts
+// 用户编辑 caption / aiSummary：调 update，service 自动把 aiSummaryAt 置 null
+useUpdateCheckin(babyId).mutateAsync({ date, patch: { aiSummary: edited } })
+
+// 用户主动"重新生成"：调 generate，会扣配额，UI 必须先 confirm
+useGenerateAiSummary(babyId).mutateAsync({ date, role })
+```
+
+UI 区分依据：`!!checkin.aiSummary && !checkin.aiSummaryAt` → "已人工修改" pill。
+
+### 21.5 替换照片场景 autoGenerateAi=false
+
+打开详情抽屉做"替换照片"时，**禁止**自动重新生成 AI 小记，避免覆盖用户已编辑过的内容：
+
+```tsx
+<PhotoUploader autoGenerateAi={false} ... />
+```
+
+新打卡（首次创建）走默认 `autoGenerateAi=true`。
+
+### 21.6 删除：DB 立即删，COS 异步清
+
+不要在 `delete` 路由里直接调 `cos.deleteObject`：
+
+- DB `prisma.dailyCheckin.delete()` 立即生效（家庭成员立即看不到）
+- COS 对象由 `utils/patrol.runDailyCheckinOrphanCleanup` 周日 04:00 异步扫，30 天阈值后才删（防误删）
+- 这给运维"恢复误删"留了 30 天窗口
+
+## 22. PDF / Canvas 导出约定（v7.2+ T-S2-F11 / F4）
+
+### 22.1 pdf-lib 永远动态 import
+
+pdf-lib 体积大（gzip 175 KB），**禁止**在任何静态 import 路径中引用：
+
+```ts
+// ❌ 顶层 import 会污染入口 / 路由 chunk
+import { renderPagesToPdf } from '@/lib/pdf-export'
+
+// ✅ 在用户触发"导出 PDF"时再动态加载
+async function handleExportPdf() {
+  const { renderPagesToPdf, downloadBlob } = await import('@/lib/pdf-export')
+  // ...
+}
+```
+
+`vite.config.ts` 已把 pdf-lib 拆为独立 `vendor-pdf` chunk，但只有动态 import 才能让 chunk 真正按需加载。
+
+### 22.2 calendar-canvas 同样动态
+
+`lib/calendar-canvas.ts` 引用了较大的 canvas 计算 + Image 加载逻辑，且仅在「日历导出」「报告 PDF 附带日历」时才用，应通过 `await import('@/lib/calendar-canvas')` 加载。
+
+### 22.3 文件大小目标
+
+| 场景 | 软上限 | 硬上限 |
+|---|---|---|
+| 月视图 PNG | 400 KB | 800 KB |
+| 月度 PDF | 8 MB | 12 MB |
+| 报告 PDF（仅报告页） | 1.5 MB | 2 MB |
+| 报告 + 1 个月日历 PDF | 8 MB | 12 MB |
+
+`pdf-export.ts` 在总输入超 8 MB 时 console.warn；UI 应在用户尝试导出大量月份时给"分别下载"建议。
+
+### 22.4 进度反馈
+
+任何超过 1 秒的渲染都必须有进度提示：
+
+```ts
+toast.info(t('share_dialog.rendering_calendar', { current: i, total: months.length }))
+// 或 setProgress(...) 内部状态 + JSX 实时显示
+```
+
+不要让用户看着按钮 disabled 但没有任何反馈。

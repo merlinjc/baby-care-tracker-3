@@ -1209,6 +1209,67 @@ import { Timeline } from '@/components/timeline'
 - 移动端 Dialog 自动渲染为底部 sheet（带拖拽条），桌面端居中 modal 560px，UX 与原 drawer 一致；自带 X 关闭、ESC、背景点击关闭、焦点陷阱、return-focus，不再需要手写 IconButton + onClick={() => setShowRecommend(false)}。
 - 与 milestone v8.1 的迁移动机一致：彻底消除业务层"高于 z-50 的自制弹窗"，避免未来在该抽屉里加 `useConfirm()` 时再踩同样的层级冲突。
 
+## 2A. 每日打卡 + 成长日历（v7.2 T-S2-F11）
+
+| 组件 | 文件 | 说明 |
+|---|---|---|
+| `PhotoUploader` | `components/daily-checkin/photo-uploader.tsx` | render-prop；包装 ImageUploader(kind=daily-checkin)；上传成功 → createCheckin → asyncGenerateAiSummary；重复打卡(409)/窗口过期(400)/AI 配额耗尽 友好 toast |
+| `DailyCheckinCard` | `components/daily-checkin/daily-checkin-card.tsx` | 首页今日打卡卡片三态（未打卡 CTA / 处理中 spinner / 已打卡缩略图 + AI 小记前 2 行 + 跳日历）；viewer 隐藏 CTA |
+| `AiSummaryPanel` | `components/daily-checkin/ai-summary-panel.tsx` | AI 小记容器：展示 / 编辑（textarea 1000 字）/ 重新生成（confirm 提示扣配额）/ 空态生成；"已人工修改" pill 来自 `aiSummaryAt === null` |
+| `DailyCheckinDetail` | `components/daily-checkin/daily-checkin-detail.tsx` | Dialog (size=lg)：照片全图 + AiSummaryPanel + caption 编辑 + 替换照片(`autoGenerateAi=false`) + 删除；空态时显式 PhotoUploader CTA；权限 `canEdit && (isAdmin || createdBy === userId)` |
+| `GrowthCalendar` | `components/growth-calendar/growth-calendar.tsx` | 月视图主组件；`grid-cols-7`；cell 状态：future / supplement / expired / checked / out-of-month；自动判断 7d 窗口 + 出生日界 |
+| `CalendarCell` | `components/growth-calendar/calendar-cell.tsx` | 单元格：未来灰显 / 可补打卡（hover 显 + 号）/ 超窗口灰显 + tooltip / 已打卡（圆角照片背景 + 角标数字 + hover AI 小记首行）；全 button + aria-label |
+| `CalendarMonthSwitcher` | `components/growth-calendar/calendar-month-switcher.tsx` | ◀▶ + `年 月` 标题；`prevDisabled`（≤ 出生月）/ `nextDisabled`（≥ 当前月） |
+| `CalendarExportMenu` | `components/growth-calendar/calendar-export-menu.tsx` | DropdownMenu：导出图片 / 导出 PDF / 系统分享（按 navigator.share 可见性）；calendar-canvas / pdf-export 全部动态 import |
+
+### Daily Check-in 路由
+
+| 路由 | 组件 | 行为 |
+|---|---|---|
+| `/growth/calendar` | `pages/growth/calendar` `GrowthCalendarPage` | 月视图独立页；URL 参数 `?year=&month=&date=&babyId=`；?date 自动开 `<DailyCheckinDetail>` |
+
+### 2A.1 关键 Render-prop 与回调
+
+`PhotoUploader` children 形状：
+```ts
+{
+  openPicker(): void
+  isWorking: boolean       // 上传 + create 中
+  isGeneratingAi: boolean  // AI 小记生成中
+  progress: number         // 0-1
+  disabled: boolean
+}
+```
+
+`PhotoUploader` 回调：
+- `onCreated(checkin)` — DB 创建成功（aiSummary=null）
+- `onAiGenerated(checkin)` — AI 小记到位
+- `autoGenerateAi`（默认 true）— 详情抽屉里的"替换照片"用 false 避免覆盖已编辑过的小记
+
+---
+
+## 2B. WHO 百分位增强（v7.2 T-S2-F10）
+
+| 组件 / lib | 文件 | 说明 |
+|---|---|---|
+| `lib/who-standards` 扩展 | `lib/who-standards.ts` | 0-24 月 → **0-60 月**；24-60 月按 3 月粒度；nearestMonth 更新 |
+| `lib/who-percentile`（新） | `lib/who-percentile.ts` | `getPercentile / getPercentileLabel / isOutOfRange / getReferenceLinePoints / getReferenceAtAge`；分段线性插值算法（不引入 LMS） |
+| Growth 列表行 Badge | `pages/growth/index.tsx` | 行尾 `P50` / `<P3 ⚠`；异常行整行红底高亮 + 「向 AI 咨询」按钮（autoPrompt 跳 `/ai-assistant`） |
+| 数据点 hover | 同上 SVG | title 包含 `{value}{unit} · P75（中上水平）` |
+
+---
+
+## 2C. 报告分享 Dialog（v7.2 T-S2-F4）
+
+| 组件 / lib | 文件 | 说明 |
+|---|---|---|
+| `ReportShareDialog` | `components/report/report-share-dialog.tsx` | Dialog (size=md)：预览 + '附带成长日历' Checkbox + 三个 action（保存图片 / 导出 PDF / 系统分享）；calendar-canvas / pdf-export 全部动态 import |
+| `lib/calendar-canvas` | `lib/calendar-canvas.ts` | `renderCalendarImage({ baby, year, month, checkins })` → 1240×1754 jpeg Blob；2DPR；A4 比 |
+| `lib/pdf-export` | `lib/pdf-export.ts` | `renderPagesToPdf(pages[])` / `renderReportWithCalendarPdf({reportImage, calendarImages, metadata})` / `downloadBlob`；pdf-lib A4 contain |
+| `vendor-pdf` chunk | `vite.config.ts` manualChunks | pdf-lib 独立 chunk（gzip ~175 KB），仅在 calendar / report 路由动态加载 |
+
+---
+
 ## 3. 家庭协作组件（client/src/components/family/）
 
 | 组件 | 文件 | 说明 |
@@ -1268,6 +1329,10 @@ interface RecordDialogProps {
 | `useDialog<T>()` | `use-dialog.ts` | 弹窗开关；`openDialog(payload?)` 可携带 payload（编辑模式下的 CareRecord），`closeDialog` 自动清空 |
 | `useConfirm()` | `components/ui/confirm-dialog.tsx` | 全局 Promise 式确认弹窗；`confirm(options): Promise<boolean>` |
 | `useReportData(babyId, period, birthDate?)` | `use-report-data.ts` | 成长报告数据聚合（v5.0.0+）：基于 `GET /records?startDate&endDate`、疫苗 / 里程碑列表、`/trend/weekly`（仅周报）并行拉取并在前端聚合为 `{ metrics, daily, milestones, vaccines, growth, weeklyTrend }`；时间窗：`period='week'` = 本周一→今天，`period='month'` = 本月 1 号→今天，均受 `baby.birthDate` 限制 |
+| `useDailyCheckins({babyId, year, month})` | `use-daily-checkins.ts` | 按月查询打卡（v7.2 T-S2-F11）；queryKey 含 year/month 便于切月；60s staleTime |
+| `useDailyCheckin(babyId, date)` | `use-daily-checkins.ts` | 单日打卡（包含 404 → null 处理） |
+| `useCreateCheckin / useUpdateCheckin / useDeleteCheckin` | `use-daily-checkins.ts` | mutations；成功后 invalidate `['daily-checkins', babyId]` |
+| `useGenerateAiSummary(babyId)` | `use-daily-checkins.ts` | AI 小记 mutation；扣配额 + 失败回滚由 service 自身处理 |
 
 ## 5. 新增 Lib（client/src/lib/）
 
@@ -1282,6 +1347,10 @@ interface RecordDialogProps {
 | `detectAll` / `markEggShown` / `EggResult` | `easter-egg.ts` | 彩蛋检测引擎 |
 | `renderShareImage` / `downloadShareImage` / `shareImage` | `share-canvas.ts` | 分享图 V1（今日小结） + 成长报告分享（v5.0.0+ `renderReportImage`） |
 | `renderReportImage(opts)` | `share-canvas.ts` | v5.0.0+：渲染成长报告分享图（周报 / 月报）。入参 `{ baby, data: ReportData, aiSummary? }`；返回 `Promise<Blob>` JPEG。布局：封面（渐变 + 大号 W/M）→ 4 宫格关键指标 → 成就摘要行 → 可选 AI 总结段 → Footer；总高度按 AI 总结行数动态计算（`wrapText` 按字符断行）。DPR 限制为 2，质量 0.85。|
+| `daily-checkin-date.ts`（v7.2 T-S2-F11） | `lib/daily-checkin-date.ts` | 本地时区纯函数：`todayLocalYmd / isPast / isFuture / isWithinCheckinWindow(7d) / getMonthGrid / getMonthRange` 等；server vitest 28 用例覆盖跨月跨年/闰月/边界 |
+| `who-percentile.ts`（v7.2 T-S2-F10） | `lib/who-percentile.ts` | `getPercentile / getPercentileLabel / isOutOfRange / getReferenceLinePoints / getReferenceAtAge`；分段线性插值算法；server vitest 28 用例覆盖 |
+| `calendar-canvas.ts`（v7.2 T-S2-F11） | `lib/calendar-canvas.ts` | `renderCalendarImage({baby, year, month, checkins})` → A4 比 1240×1754 jpeg；2DPR；圆角缩略图 + 数字角标 + AI 小记首行渐变；onProgress 回调 |
+| `pdf-export.ts`（v7.2 T-S2-F11 / F4） | `lib/pdf-export.ts` | `renderPagesToPdf / renderReportWithCalendarPdf / downloadBlob`；pdf-lib A4 contain；总输入 8MB 软上限警告 |
 | `getRecordSummary(record)` / `getRecordDetails(record)` / `getRecordTypeLabel(type)` | `record.ts` | 记录展示工具：`getRecordSummary` 返回单行摘要文本；`getRecordDetails` 返回结构化的 `{ key, value }[]`，记录页卡片用其渲染详情标签组（地点 / 部位 / 性状 / 颜色 / 体温分级等） |
 
 ## 6. 新增 Service 方法
@@ -1433,6 +1502,30 @@ model AIQuota {
   @@unique([userId, date])
   @@index([userId, date])
   @@index([date])
+}
+
+// v7.2 T-S2-F11
+model DailyCheckin {
+  id          String    @id @default(cuid())
+  babyId      String
+  familyId    String
+  checkinDate String    // YYYY-MM-DD（本地时区，前端写本地时区字符串，后端不做换算）
+  photoKey    String    // COS 桶内 key（INF-02 方案 B），不是 URL
+  photoWidth  Int?
+  photoHeight Int?
+  caption     String?
+  aiSummary   String?
+  aiSummaryAt DateTime? // null = 用户已编辑 / 未生成
+  createdBy   String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  baby    Baby @relation(fields: [babyId], references: [id], onDelete: Cascade)
+  creator User @relation(fields: [createdBy], references: [id])
+
+  @@unique([babyId, checkinDate])      // 一天一张
+  @@index([babyId, familyId, checkinDate])
+  @@index([familyId])
 }
 ```
 

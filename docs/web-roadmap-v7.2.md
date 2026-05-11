@@ -414,13 +414,15 @@ model ConversationMessage {
 
 ### 12.2 数据模型（见 §13）
 
+> **v7.2 Sprint 2 修正（T-S2-F11-BE-01）**：原设计字段名 `photoUrl`（绝对 URL）已改为 `photoKey`（COS 桶内 key），与 INF-02 方案 B 一致。展示时由前端 `buildImageUrl(key)` 拼成 `/api/uploads/{key}` 走代理。
+
 ```prisma
 model DailyCheckin {
   id          String   @id @default(cuid())
   babyId      String
   familyId    String
   checkinDate String                // YYYY-MM-DD（本地时区，按家庭设置）
-  photoUrl    String                // 对象存储 URL
+  photoKey    String                // COS 桶内 key（v7.2 Sprint 2 修正：原 photoUrl）
   photoWidth  Int?
   photoHeight Int?
   caption     String?               // 用户手写说明（可选）
@@ -615,6 +617,25 @@ model User {
 
 **Sprint 3 末交付物**：v7.2.0 GA。
 
+### Sprint 4（建议档期 2026-06-22 → 2026-07-03，10 工作日）
+> 详见 [`docs/web-roadmap-v7.2-sprint4-design.md`](./web-roadmap-v7.2-sprint4-design.md) 与 [`docs/web-roadmap-v7.2-sprint4-tasks.md`](./web-roadmap-v7.2-sprint4-tasks.md)
+> 主线：**账号体系打磨 —— 长期免登 + 密码找回**
+
+| 任务 | 工期 | 优先级 |
+|------|------|------|
+| F-AUTO 自动登录（tokenVersion + rememberMe + 滑动续期 + AuthBootGate） | 2.0d | P0 |
+| F-FP 密码找回（腾讯云 SES + PasswordResetToken + 3 端点 + 2 落地页） | 3.5d | P0 |
+| F-INF 共享基础设施（EmailService + tokenVersion 嵌入 JWT） | 1.0d | P0 |
+| 文档 + Bug 修 + 灰度反馈 | 1.0d | — |
+
+**关键决策**：
+- 找回渠道**仅邮箱**，短信留到 v7.3+
+- 邮件服务用**腾讯云 SES**，**复用 INF-02 的 COS 子账号 AK/SK**（CAM 子账号补 `SendEmail` 权限即可）
+- 重置形态：邮件链接 → 落地页输新密码（30 分钟有效、单次消费、token DB 仅存 sha256）
+- 自动登录做完整版：`User.tokenVersion` 强制下线 + `rememberMe` 控制 cookie 30d / session
+
+**Sprint 4 末交付物**：v7.2.0-rc.4，灰度发布。
+
 ---
 
 ## 16. 性能基线（开工前需采集）
@@ -639,6 +660,9 @@ model User {
 - 疫苗下次提醒 + Web Push（v7.3）
 - AI 周报邮件订阅（v7.3）
 - 双端用户体系 `wechatUnionId` 接入
+- 短信验证码找回（v7.3+，自动登录 + 邮箱找回已在 Sprint 4 落地）
+- 多因子认证 / TOTP（v8 安全主题）
+- 「最近活跃设备」面板 + 主动「全部设备登出」（依赖 Sprint 4 的 tokenVersion，v7.3+）
 
 ---
 
@@ -647,3 +671,4 @@ model User {
 | 日期 | 版本 | 变更 |
 |------|------|------|
 | 2026-05-11 | v7.2 草案 v1.0 | 初版，12 项功能 + 3 sprint 排期（@唐瀚） |
+| 2026-05-11 | v7.2 草案 v1.1 | 新增 Sprint 4：自动登录 + 密码找回（@唐瀚） |
