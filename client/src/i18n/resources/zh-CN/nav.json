@@ -11,7 +11,10 @@
     "no_baby": "暂无宝宝",
     "add_baby": "添加宝宝",
     "settings": "设置",
-    "logout": "退出登录"
+    "logout": "退出登录",
+    "select_baby": "选择宝宝",
+    "babies_available_one": "{{count}} 位可选",
+    "babies_available_other": "{{count}} 位可选"
   },
   "header": {
     "menu": "菜单",

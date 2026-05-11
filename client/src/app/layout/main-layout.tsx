@@ -1,5 +1,6 @@
 import { Outlet, NavLink, Navigate } from 'react-router-dom';
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Check, ChevronDown, Clipboard, Compass, Home, User, UserCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -18,17 +19,22 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, BabyAvatar } from '@/components/ui/avatar';
 
+/**
+ * 导航项静态结构 — label 不在这里写死，改在渲染时通过 t() 取，
+ * 避免组件外的对象引用导致 i18n 切换不刷新。
+ */
 const navItems = [
-  { to: '/', icon: Home, label: '首页' },
-  { to: '/record', icon: Clipboard, label: '记录' },
-  { to: '/discover', icon: Compass, label: '发现' },
-  { to: '/profile', icon: UserCircle, label: '我的' },
+  { to: '/', icon: Home, labelKey: 'tabs.home' as const },
+  { to: '/record', icon: Clipboard, labelKey: 'tabs.record' as const },
+  { to: '/discover', icon: Compass, labelKey: 'tabs.discover' as const },
+  { to: '/profile', icon: UserCircle, labelKey: 'tabs.profile' as const },
 ];
 
 /**
  * SidebarBabyCard v7 — 桌面 Sidebar 底部当前宝宝卡（iOS 风圆润）
  */
 function SidebarBabyCard() {
+  const { t } = useTranslation('nav');
   const babies = useBabyStore((s) => s.babies);
   const currentBaby = useBabyStore((s) => s.currentBaby);
   const selectBaby = useBabyStore((s) => s.selectBaby);
@@ -79,8 +85,12 @@ function SidebarBabyCard() {
                 </div>
               </Avatar>
               <div className="flex-1 min-w-0 text-left">
-                <p className="text-[14px] font-semibold text-[var(--label-secondary)]">选择宝宝</p>
-                <p className="text-[12px] text-[var(--label-tertiary)]">{babies.length} 位可选</p>
+                <p className="text-[14px] font-semibold text-[var(--label-secondary)]">
+                  {t('sidebar.select_baby')}
+                </p>
+                <p className="text-[12px] text-[var(--label-tertiary)]">
+                  {t('sidebar.babies_available', { count: babies.length })}
+                </p>
               </div>
             </>
           )}
@@ -126,8 +136,12 @@ function SidebarBabyCard() {
  * - 桌面 Sidebar：圆角 Brand Logo + 激活态 tinted filled + spring icon
  * - 移动端 TabBar：iOS 标准 hairline 分隔 + 激活色 --brand + bold icon 切换
  * - 内容区默认 surface-0 底
+ *
+ * v7.2 F8-02：4 个 NavLink label 与 SidebarBabyCard 文案接入 i18n（nav 命名空间）。
+ * "Baby Care" 作为品牌名保留英文。
  */
 export function MainLayout() {
+  const { t } = useTranslation('nav');
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const family = useFamilyStore((s) => s.family);
   const loadFamily = useFamilyStore((s) => s.loadFamily);
@@ -193,7 +207,7 @@ export function MainLayout() {
               }
             >
               <item.icon className="w-5 h-5" />
-              {item.label}
+              {t(item.labelKey)}
             </NavLink>
           ))}
         </nav>
@@ -257,7 +271,7 @@ export function MainLayout() {
                       isActive ? 'font-semibold' : 'font-medium',
                     )}
                   >
-                    {item.label}
+                    {t(item.labelKey)}
                   </span>
                 </>
               )}
