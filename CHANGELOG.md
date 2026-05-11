@@ -17,6 +17,66 @@
 
 ---
 
+## [v7.2.0] Saplings — 计划中（开发分支：`feature/v7.2-roadmap`）
+
+> Roadmap：[`docs/web-roadmap-v7.2.md`](./docs/web-roadmap-v7.2.md)（v1.0，2026-05-11）
+> 主题：**内容沉淀 + 个性化 + 可访问性 + 工程基础**
+> 排期：3 个 sprint（约 6 周），目标 v7.2.0 GA。
+
+### Planned（按 Sprint）
+
+#### Sprint 1（2026-05-11 → 2026-05-22）— 工程基础 + 个性化基础
+- **F9** 路由级代码分割（`React.lazy` + Vite manualChunks + bundle 阈值 CI 卡控）
+- **F8** i18n 框架预埋（`react-i18next`，5 个高频页面接入，仅 zh-CN 完整）
+- **F12** 用户头像设置（COS 预签名上传 + 默认 SVG 头像 + Baby 头像复用）
+- **F2** 黄疸记录持久化（新增 `JaundiceRecord` 表 + 4 端点 + localStorage → 云端迁移脚本）
+- **F3** 导出独立页 `/export`（按宝宝/范围/类型/格式组合导出 + 历史下载列表）
+- **F6** 多宝快捷切换持久化 + URL 参数（`?babyId=` 三层数据源优先级）
+- **F1** 首次使用引导 / Onboarding（4 步 Stepper + `User.preferences.onboardingCompleted`）
+
+#### Sprint 2（2026-05-25 → 2026-06-05）— 内容沉淀核心
+- **F11** 宝宝每日打卡照片 + 每日 AI 总结 + 成长日历（核心亮点）
+  - 新增 `DailyCheckin` 表（`(babyId, checkinDate)` 唯一）
+  - COS 预签名上传 + EXIF GPS 剥离 + 1080px 压缩
+  - 异步 AI 小记生成（与 dailyInsight 独立的"小记"基调）
+  - 月/周日历视图 + 长截图 / PDF 导出
+  - patrol 新增 `checkinPhotoCleanup`（每周日 04:00）
+- **F10** 生长曲线对照 WHO 百分位线（P3/P15/P50/P85/P97 LMS Z-score 计算 + 异常值 autoPrompt 跳 AI）
+- **F4** 报告分享卡片 + 下载（接通现有 `renderReportImage` + `pdf-lib` 多页 PDF 含日历）
+
+#### Sprint 3（2026-06-08 → 2026-06-19）— 高级体验 + 收尾
+- **F5** AI 助手对话历史持久化 + 多会话（新增 `Conversation` / `ConversationMessage` 表 + 6 端点 + autoPrompt 自动新建会话）
+- **F7** a11y 全量 audit（`eslint-plugin-jsx-a11y` + `@axe-core/react` + Playwright a11y 断言 + 5-7 个修复 PR + `docs/web-a11y-audit-2026-05.md`）
+- 灰度反馈修复 + 性能优化 + Release Notes
+
+### Schema 变更（汇总）
+
+```prisma
+// 新增
+model JaundiceRecord { ... }
+model Conversation { ... }
+model ConversationMessage { ... }
+model DailyCheckin { ... }   // (babyId, checkinDate) 唯一
+
+// 字段调整
+model User {
+  avatar      String?    // 复用，迁移到 COS URL
+  preferences String?    // 新增，JSON: { onboardingCompleted, fontScale, lang, ... }
+}
+```
+
+Migration 顺序：`add_user_preferences` → `add_jaundice_records` → `add_conversations` → `add_daily_checkins`，每个独立 PR。
+
+### 文档同步计划
+- `docs/web-architecture.md` 新增 §5.5 / §5.6 / §5.7 / §5.8
+- `docs/web-api-spec.md` 新增 8 类路由
+- `docs/web-coding-conventions.md` 新增「文件上传 / i18n / a11y checklist」
+- `docs/web-component-library.md` 新增 8+ 组件
+- `docs/web-ui-spec.md` 补日历视图色彩约定
+- `docs/devops-workflow.md` 补 COS 桶配置 + patrol 新任务
+
+---
+
 ## [v5.0.0-alpha] Saplings — 2026-05-06（Web 版功能对齐 alpha）
 
 > 范围：Web 版（`client/` + `server/` + `shared/`）功能对齐与未完成需求落地。
