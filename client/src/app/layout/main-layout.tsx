@@ -1,5 +1,5 @@
 import { Outlet, NavLink, Navigate } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Check, ChevronDown, Clipboard, Compass, Home, User, UserCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -10,6 +10,7 @@ import { useBabyStore } from '@/stores/baby-store';
 import { useActiveBaby } from '@/hooks/use-active-baby';
 import { Footer } from '@/components/footer';
 import { getAgeLabel } from '@/lib/date';
+import { toast } from '@/components/ui/toast';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -138,6 +139,7 @@ export function MainLayout() {
   const family = useFamilyStore((s) => s.family);
   const loadFamily = useFamilyStore((s) => s.loadFamily);
   const loadBabies = useBabyStore((s) => s.loadBabies);
+  const babies = useBabyStore((s) => s.babies);
 
   // v7.2 T-S1-F6-02：在 layout 顶部统一挂一次 URL ↔ store 同步层。
   // 子页面 / SidebarBabyCard / BabySwitcher 都只读 store.currentBaby，
@@ -153,6 +155,31 @@ export function MainLayout() {
       }
     }
   }, [isAuthenticated, family?.id, loadFamily, loadBabies]);
+
+  // v7.2 T-S1-F2-05：黄疸记录 localStorage → 云端一次性迁移
+  // 仅在 isAuthenticated && babies.length > 0 后 1.5s 触发；幂等（lib 内部判断）。
+  // 用动态 import 让 jaundice service / lib 不污染入口 chunk（绝大多数用户不进 jaundice 页）。
+  const jaundiceMigrationFired = useRef(false);
+  useEffect(() => {
+    if (!isAuthenticated || babies.length === 0) return;
+    if (jaundiceMigrationFired.current) return;
+    jaundiceMigrationFired.current = true;
+    const timer = setTimeout(async () => {
+      try {
+        const { migrateJaundiceToCloud } = await import(
+          '@/lib/migrations/jaundice-to-cloud'
+        );
+        const res = await migrateJaundiceToCloud(babies.map((b) => b.id));
+        if (res.migrated > 0) {
+          toast.success(`已同步 ${res.migrated} 条黄疸记录到云端`);
+        }
+      } catch (e) {
+        // 防御性兜底：迁移层应不抛错；这里仅留日志
+        console.warn('[MainLayout] 黄疸迁移异常', e);
+      }
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [isAuthenticated, babies]);
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;

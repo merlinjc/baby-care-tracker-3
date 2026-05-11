@@ -1,13 +1,15 @@
 /**
- * jaundice.ts - 黄疸观察记录（客户端本地存储 MVP）
+ * jaundice.ts - 黄疸观察记录（v7.2 起改云端化）
  *
- * 设计决策：
- * - **不改后端 schema / 数据库 / 接口**：黄疸记录作为"观察类数据"而非核心育儿记录，
- *   本期以 `localStorage` 落地，快速上线并验证产品价值。
- * - 后续迭代若需要多端同步 / 家庭共享，再抽出同名类型到 shared，
- *   新增 `recordType = 'jaundice'` 或独立 `jaundice_records` 表 + 接口。
+ * v7.2 T-S1-F2 起本模块仅保留：
+ *   - 类型 / 常量（`KRAMER_ZONE_OPTIONS` / `JAUNDICE_TYPE_OPTIONS` /
+ *     `SYMPTOM_OPTIONS` / `ACTION_OPTIONS` / `JaundiceRecord` / `KramerZone` / `JaundiceType`）
+ *   - 纯函数（`computeAgeDays` / `classifyTsb`）
+ *   - 一次性迁移用的"读 localStorage" helper：`readLocalJaundiceRecords` /
+ *     `clearLocalJaundiceStorage`（migrations/jaundice-to-cloud 使用，业务侧不要调用）
  *
- * 存储 key：`baby_care_jaundice:${babyId}` → JSON 数组，按 `date` 降序存储。
+ * 旧版本的 listJaundiceRecords / saveJaundiceRecord / deleteJaundiceRecord
+ * 已删除：业务请改用 services/jaundice + hooks/use-jaundice。
  */
 
 /** Kramer 五分区法：按皮肤黄染向下蔓延的程度估计血清胆红素范围 */
@@ -90,82 +92,6 @@ export interface JaundiceRecord {
   updatedAt: string
 }
 
-const STORAGE_PREFIX = 'baby_care_jaundice:'
-
-function storageKey(babyId: string): string {
-  return `${STORAGE_PREFIX}${babyId}`
-}
-
-function safeParse(raw: string | null): JaundiceRecord[] {
-  if (!raw) return []
-  try {
-    const arr = JSON.parse(raw)
-    return Array.isArray(arr) ? (arr as JaundiceRecord[]) : []
-  } catch {
-    return []
-  }
-}
-
-/** 按 date 降序返回某宝宝的全部记录 */
-export function listJaundiceRecords(babyId: string): JaundiceRecord[] {
-  if (typeof localStorage === 'undefined') return []
-  const records = safeParse(localStorage.getItem(storageKey(babyId)))
-  return records.slice().sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-}
-
-/** 覆盖写入（内部使用） */
-function writeAll(babyId: string, list: JaundiceRecord[]): void {
-  if (typeof localStorage === 'undefined') return
-  try {
-    localStorage.setItem(storageKey(babyId), JSON.stringify(list))
-  } catch {
-    // ignore（隐私模式等）
-  }
-}
-
-export function saveJaundiceRecord(
-  babyId: string,
-  input: Omit<JaundiceRecord, 'id' | 'babyId' | 'createdAt' | 'updatedAt'> & {
-    id?: string
-  },
-): JaundiceRecord {
-  const now = new Date().toISOString()
-  const list = listJaundiceRecords(babyId)
-  if (input.id) {
-    const idx = list.findIndex((r) => r.id === input.id)
-    if (idx >= 0) {
-      const updated: JaundiceRecord = {
-        ...list[idx],
-        ...input,
-        babyId,
-        id: input.id,
-        updatedAt: now,
-      }
-      list[idx] = updated
-      writeAll(babyId, list)
-      return updated
-    }
-  }
-  const created: JaundiceRecord = {
-    ...input,
-    id:
-      typeof crypto !== 'undefined' && 'randomUUID' in crypto
-        ? crypto.randomUUID()
-        : `jaundice_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-    babyId,
-    createdAt: now,
-    updatedAt: now,
-  }
-  list.unshift(created)
-  writeAll(babyId, list)
-  return created
-}
-
-export function deleteJaundiceRecord(babyId: string, id: string): void {
-  const next = listJaundiceRecords(babyId).filter((r) => r.id !== id)
-  writeAll(babyId, next)
-}
-
 /** 根据出生日期计算某测量日的日龄（>=1） */
 export function computeAgeDays(birthDateIso: string, measureDateIso: string): number {
   const birth = new Date(birthDateIso)
@@ -190,4 +116,44 @@ export function classifyTsb(tsb?: number): {
   if (tsb < 12) return { level: 'attention', label: '关注', color: 'var(--info)' }
   if (tsb < 17) return { level: 'warn', label: '偏高', color: 'var(--warning)' }
   return { level: 'danger', label: '需就医', color: 'var(--danger)' }
+}
+
+// ============ localStorage 迁移辅助（仅供 migrations/jaundice-to-cloud 使用） ============
+
+/**
+ * 历史本地存储 key 前缀。F2 完成迁移后会被清理，不应在新代码引用。
+ * @internal
+ */
+export const LEGACY_JAUNDICE_STORAGE_PREFIX = 'baby_care_jaundice:'
+
+/**
+ * 读取某宝宝的本地缓存黄疸记录（仅供迁移脚本使用）。
+ * 失败 / 解析错误 / 非数组 → 返回 []。不抛错。
+ *
+ * @internal
+ */
+export function readLocalJaundiceRecords(babyId: string): JaundiceRecord[] {
+  if (typeof localStorage === 'undefined') return []
+  try {
+    const raw = localStorage.getItem(`${LEGACY_JAUNDICE_STORAGE_PREFIX}${babyId}`)
+    if (!raw) return []
+    const arr = JSON.parse(raw)
+    return Array.isArray(arr) ? (arr as JaundiceRecord[]) : []
+  } catch {
+    return []
+  }
+}
+
+/**
+ * 清理某宝宝的本地缓存黄疸记录（迁移成功后调用）。
+ *
+ * @internal
+ */
+export function clearLocalJaundiceStorage(babyId: string): void {
+  if (typeof localStorage === 'undefined') return
+  try {
+    localStorage.removeItem(`${LEGACY_JAUNDICE_STORAGE_PREFIX}${babyId}`)
+  } catch {
+    // ignore (隐私模式 / 配额)
+  }
 }

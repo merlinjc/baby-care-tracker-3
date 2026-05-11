@@ -6,12 +6,23 @@
  * - Alert 教育提示 → tinted Card warning
  * - TrendMini：去 gradient-header
  * - 列表：tinted warning Card 风
+ *
+ * v7.2 T-S1-F2-04：数据源从 localStorage 迁移到云端 API。
+ *   - listJaundiceRecords / saveJaundiceRecord / deleteJaundiceRecord 不再使用
+ *   - useJaundiceRecords / useCreateJaundice / useUpdateJaundice / useDeleteJaundice
+ *   - 字段映射在 services/jaundice 内部完成，UI 层不动
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { AlertTriangle, Baby, Pencil, PlusCircle, Sun, Trash2 } from 'lucide-react';import { useBabyStore } from '@/stores/baby-store'
 import { usePermission } from '@/hooks/use-permission'
 import { useDialog } from '@/hooks/use-dialog'
+import {
+  useJaundiceRecords,
+  useCreateJaundice,
+  useUpdateJaundice,
+  useDeleteJaundice,
+} from '@/hooks/use-jaundice'
 import { LargeTitleHeader } from '@/components/ui/large-title-header'
 import { SectionHeader } from '@/components/ui/section-header'
 import { Button } from '@/components/ui/button'
@@ -25,9 +36,6 @@ import { staggerContainer, staggerItem } from '@/lib/motion'
 import {
   KRAMER_ZONE_OPTIONS,
   classifyTsb,
-  deleteJaundiceRecord,
-  listJaundiceRecords,
-  saveJaundiceRecord,
   type JaundiceRecord,
 } from '@/lib/jaundice'
 
@@ -189,21 +197,44 @@ export function JaundicePage() {
   const { canEdit } = usePermission()
   const confirm = useConfirm()
   const dialog = useDialog<JaundiceRecord>()
-  const [records, setRecords] = useState<JaundiceRecord[]>([])
 
-  useEffect(() => {
-    if (!currentBaby) {
-      setRecords([])
-      return
-    }
-    setRecords(listJaundiceRecords(currentBaby.id))
-  }, [currentBaby])
+  const { data: records = [] } = useJaundiceRecords(currentBaby?.id)
+  const createMutation = useCreateJaundice(currentBaby?.id)
+  const updateMutation = useUpdateJaundice(currentBaby?.id)
+  const deleteMutation = useDeleteJaundice(currentBaby?.id)
 
-  const handleSave: React.ComponentProps<typeof JaundiceDialog>['onSubmit'] = async (data, id) => {
+  const handleSave: React.ComponentProps<typeof JaundiceDialog>['onSubmit'] = async (
+    data,
+    id,
+  ) => {
     if (!currentBaby) return
-    saveJaundiceRecord(currentBaby.id, { ...data, id })
-    setRecords(listJaundiceRecords(currentBaby.id))
-    toast.success(id ? '已更新' : '已添加')
+    try {
+      if (id) {
+        // 编辑：传入完整字段集合，service 内部映射并去重
+        await updateMutation.mutateAsync({
+          recordId: id,
+          patch: {
+            date: data.date,
+            ageDays: data.ageDays,
+            kramerZone: data.kramerZone,
+            scleraYellow: data.scleraYellow,
+            tcb: data.tcb ?? null,
+            tsb: data.tsb ?? null,
+            jaundiceType: data.jaundiceType,
+            symptoms: data.symptoms,
+            actions: data.actions,
+            note: data.note ?? null,
+          },
+        })
+      } else {
+        await createMutation.mutateAsync(data)
+      }
+      toast.success(id ? '已更新' : '已添加')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '保存失败'
+      toast.error(msg)
+      throw err
+    }
   }
 
   const handleDelete = async (r: JaundiceRecord) => {
@@ -214,8 +245,13 @@ export function JaundicePage() {
       variant: 'danger',
     })
     if (!ok || !currentBaby) return
-    deleteJaundiceRecord(currentBaby.id, r.id)
-    setRecords(listJaundiceRecords(currentBaby.id))
+    try {
+      await deleteMutation.mutateAsync(r.id)
+      toast.success('已删除')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '删除失败'
+      toast.error(msg)
+    }
   }
 
   if (!currentBaby) {
