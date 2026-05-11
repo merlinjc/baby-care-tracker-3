@@ -9,8 +9,10 @@
  */
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
-import { FileJson, FileSpreadsheet, Lock, Save } from 'lucide-react';import { useAuthStore } from '@/stores/auth-store'
+import { FileJson, FileSpreadsheet, Lock, Save } from 'lucide-react';
+import { useAuthStore } from '@/stores/auth-store'
 import { useBabyStore } from '@/stores/baby-store'
 import { authService } from '@/services/auth'
 import { exportService } from '@/services/baby-extra'
@@ -26,6 +28,7 @@ import { staggerContainer, staggerItem, pressableSubtle } from '@/lib/motion'
 type TabKey = 'profile' | 'password' | 'export'
 
 export function SettingsPage() {
+  const { t } = useTranslation('settings')
   const user = useAuthStore((s) => s.user)
   const loadUser = useAuthStore((s) => s.loadUser)
 
@@ -35,8 +38,8 @@ export function SettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [searchParams] = useSearchParams()
   const initialTab: TabKey = (() => {
-    const t = searchParams.get('tab') as TabKey | null
-    return t && ['profile', 'password', 'export'].includes(t) ? t : 'profile'
+    const tab = searchParams.get('tab') as TabKey | null
+    return tab && ['profile', 'password', 'export'].includes(tab) ? tab : 'profile'
   })()
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -48,9 +51,9 @@ export function SettingsPage() {
     try {
       await authService.updateProfile({ nickname: nickname.trim() })
       await loadUser()
-      toast.success('资料更新成功')
+      toast.success(t('toasts.profile_updated'))
     } catch {
-      toast.error('更新失败，请稍后再试')
+      toast.error(t('toasts.profile_failed'))
     } finally {
       setIsSubmitting(false)
     }
@@ -59,22 +62,22 @@ export function SettingsPage() {
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault()
     if (newPassword.length < 8) {
-      toast.error('新密码至少 8 位')
+      toast.error(t('toasts.password_too_short'))
       return
     }
     if (newPassword !== confirmPassword) {
-      toast.error('两次输入的密码不一致')
+      toast.error(t('toasts.password_mismatch'))
       return
     }
     setIsSubmitting(true)
     try {
       await authService.changePassword({ oldPassword, newPassword })
-      toast.success('密码修改成功')
+      toast.success(t('toasts.password_updated'))
       setOldPassword('')
       setNewPassword('')
       setConfirmPassword('')
     } catch {
-      toast.error('密码修改失败，请检查旧密码是否正确')
+      toast.error(t('toasts.password_failed'))
     } finally {
       setIsSubmitting(false)
     }
@@ -83,7 +86,7 @@ export function SettingsPage() {
   const handleExport = async (format: 'json' | 'csv') => {
     const currentBaby = useBabyStore.getState().currentBaby
     if (!currentBaby) {
-      toast.error('请先选择宝宝')
+      toast.error(t('toasts.no_baby'))
       return
     }
     try {
@@ -94,9 +97,9 @@ export function SettingsPage() {
       a.download = `baby_care_${currentBaby.name}.${format}`
       a.click()
       URL.revokeObjectURL(url)
-      toast.success(`${format.toUpperCase()} 导出成功`)
+      toast.success(t('toasts.export_success', { format: format.toUpperCase() }))
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : '导出失败')
+      toast.error(err instanceof Error ? err.message : t('toasts.export_failed'))
     }
   }
 
@@ -109,7 +112,7 @@ export function SettingsPage() {
       animate="animate"
     >
       <motion.div variants={staggerItem}>
-        <LargeTitleHeader title="设置" backTo="/profile" />
+        <LargeTitleHeader title={t('title')} backTo="/profile" />
       </motion.div>
 
       <motion.div variants={staggerItem}>
@@ -117,9 +120,9 @@ export function SettingsPage() {
           value={activeTab}
           onChange={(v) => setActiveTab(v as TabKey)}
           options={[
-            { value: 'profile', label: '资料' },
-            { value: 'password', label: '密码' },
-            { value: 'export', label: '导出' },
+            { value: 'profile', label: t('tabs.profile') },
+            { value: 'password', label: t('tabs.password') },
+            { value: 'export', label: t('tabs.export') },
           ]}
           size="md"
         />
@@ -135,17 +138,17 @@ export function SettingsPage() {
         >
           <Card as="section" padding="md">
             <form onSubmit={handleUpdateProfile} className="space-y-4">
-              <FormField label="昵称" htmlFor="settings-nickname" required>
+              <FormField label={t('profile.nickname')} htmlFor="settings-nickname" required>
                 <Input
                   id="settings-nickname"
                   type="text"
                   value={nickname}
                   onChange={(e) => setNickname(e.target.value)}
                   required
-                  placeholder="输入昵称"
+                  placeholder={t('profile.nickname_placeholder')}
                 />
               </FormField>
-              <FormField label="邮箱" htmlFor="settings-email" hint="邮箱不可修改">
+              <FormField label={t('profile.email')} htmlFor="settings-email" hint={t('profile.email_hint')}>
                 <Input
                   id="settings-email"
                   type="email"
@@ -161,7 +164,7 @@ export function SettingsPage() {
                 loading={isSubmitting}
                 leftIcon={<Save className="h-4 w-4" />}
               >
-                {isSubmitting ? '保存中...' : '保存'}
+                {isSubmitting ? t('profile.saving') : t('profile.save')}
               </Button>
             </form>
           </Card>
@@ -178,7 +181,7 @@ export function SettingsPage() {
         >
           <Card as="section" padding="md">
             <form onSubmit={handleChangePassword} className="space-y-4">
-              <FormField label="当前密码" htmlFor="settings-old-pwd" required>
+              <FormField label={t('password.old')} htmlFor="settings-old-pwd" required>
                 <Input
                   id="settings-old-pwd"
                   type="password"
@@ -186,10 +189,10 @@ export function SettingsPage() {
                   value={oldPassword}
                   onChange={(e) => setOldPassword(e.target.value)}
                   required
-                  placeholder="输入当前密码"
+                  placeholder={t('password.old_placeholder')}
                 />
               </FormField>
-              <FormField label="新密码" htmlFor="settings-new-pwd" required hint="至少 8 位">
+              <FormField label={t('password.new')} htmlFor="settings-new-pwd" required hint={t('password.new_hint')}>
                 <Input
                   id="settings-new-pwd"
                   type="password"
@@ -198,10 +201,10 @@ export function SettingsPage() {
                   onChange={(e) => setNewPassword(e.target.value)}
                   required
                   minLength={8}
-                  placeholder="至少 8 位"
+                  placeholder={t('password.new_placeholder')}
                 />
               </FormField>
-              <FormField label="确认新密码" htmlFor="settings-confirm-pwd" required>
+              <FormField label={t('password.confirm')} htmlFor="settings-confirm-pwd" required>
                 <Input
                   id="settings-confirm-pwd"
                   type="password"
@@ -210,7 +213,7 @@ export function SettingsPage() {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
                   minLength={8}
-                  placeholder="再次输入新密码"
+                  placeholder={t('password.confirm_placeholder')}
                 />
               </FormField>
               <Button
@@ -220,7 +223,7 @@ export function SettingsPage() {
                 loading={isSubmitting}
                 leftIcon={<Lock className="h-4 w-4" />}
               >
-                {isSubmitting ? '修改中...' : '修改密码'}
+                {isSubmitting ? t('password.submitting') : t('password.submit')}
               </Button>
             </form>
           </Card>
@@ -238,13 +241,13 @@ export function SettingsPage() {
           <Card as="section" padding="md" className="space-y-4">
             <div>
               <h2 className="headline" style={{ color: 'var(--label)' }}>
-                数据导出
+                {t('export.title')}
               </h2>
               <p
                 className="caption-1 mt-1"
                 style={{ color: 'var(--label-tertiary)' }}
               >
-                导出当前宝宝的护理记录数据
+                {t('export.desc')}
               </p>
             </div>
             <div className="grid grid-cols-2 gap-3" data-grid-2>
@@ -253,8 +256,8 @@ export function SettingsPage() {
                   {
                     fmt: 'json' as const,
                     Icon: FileJson,
-                    label: 'JSON 格式',
-                    desc: '完整数据 / 程序友好',
+                    label: t('export.json_label'),
+                    desc: t('export.json_desc'),
                     bg: 'var(--brand-soft)',
                     fg: 'var(--brand-ink)',
                     accent: 'var(--brand)',
@@ -262,13 +265,13 @@ export function SettingsPage() {
                   {
                     fmt: 'csv' as const,
                     Icon: FileSpreadsheet,
-                    label: 'CSV 格式',
-                    desc: '表格 / Excel 可读',
+                    label: t('export.csv_label'),
+                    desc: t('export.csv_desc'),
                     bg: 'var(--temperature-bg)',
                     fg: 'var(--temperature-fg)',
                     accent: 'var(--temperature)',
                   },
-                ] as const
+                ]
               ).map(({ fmt, Icon, label, desc, bg, fg, accent }) => (
                 <motion.div
                   key={fmt}

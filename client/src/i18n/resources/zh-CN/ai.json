@@ -1,0 +1,33 @@
+{
+  "title": "AI 护理助手",
+  "back": "返回",
+  "back_aria": "返回",
+  "greeting": "你好！我是宝宝护理助手，有什么可以帮你的吗？",
+  "input": {
+    "placeholder": "输入消息... (Shift+Enter 换行)",
+    "send_aria": "发送"
+  },
+  "suggestions": {
+    "title": "推荐问题",
+    "list": [
+      "宝宝几个月开始添加辅食？",
+      "新生儿每天需要睡多久？",
+      "宝宝发烧了怎么护理？",
+      "什么时候该带宝宝看医生？",
+      "如何帮助宝宝练习翻身？",
+      "宝宝不吃奶怎么办？"
+    ]
+  },
+  "errors": {
+    "quota_exhausted": "今日 AI 配额已用尽，请明天再试",
+    "service_error": "AI 服务异常",
+    "service_unavailable": "AI 服务暂未可用",
+    "request_failed": "抱歉，请求失败了，请稍后重试。"
+  },
+  "clear": {
+    "icon_aria": "清除聊天记录",
+    "confirm_title": "清除聊天记录？",
+    "confirm_desc": "所有历史对话将被清空，此操作不可撤销。",
+    "confirm_action": "清除"
+  }
+}

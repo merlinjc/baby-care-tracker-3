@@ -9,8 +9,10 @@
  * - 移除玻璃态、渐变 border-image
  */
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Bot, ChevronLeft, Send, Sparkles, Trash2 } from 'lucide-react';import { useState, useRef, useEffect, useCallback } from 'react'
+import { Bot, ChevronLeft, Send, Sparkles, Trash2 } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useBabyStore } from '@/stores/baby-store'
 import { aiService } from '@/services/ai'
 import { QuotaBar } from '@/components/quota-bar'
@@ -27,15 +29,6 @@ const STORAGE_KEY = 'baby_care_chat_history'
 interface ChatMessageVM extends ChatMessage {
   ts?: number
 }
-
-const SUGGESTED_QUESTIONS = [
-  '宝宝几个月开始添加辅食？',
-  '新生儿每天需要睡多久？',
-  '宝宝发烧了怎么护理？',
-  '什么时候该带宝宝看医生？',
-  '如何帮助宝宝练习翻身？',
-  '宝宝不吃奶怎么办？',
-]
 
 function loadHistory(): ChatMessageVM[] {
   try {
@@ -91,15 +84,17 @@ function TypingDots() {
 }
 
 export function AiAssistantPage() {
+  const { t } = useTranslation('ai')
   const currentBaby = useBabyStore((s) => s.currentBaby)
   const confirm = useConfirm()
   const location = useLocation()
   const navigate = useNavigate()
+  const suggestedQuestions = (t('suggestions.list', { returnObjects: true }) ?? []) as string[]
   const [messages, setMessages] = useState<ChatMessageVM[]>(() => {
     const history = loadHistory()
     return history.length > 0
       ? history
-      : [{ role: 'assistant', content: '你好！我是宝宝护理助手，有什么可以帮你的吗？', ts: Date.now() }]
+      : [{ role: 'assistant', content: t('greeting'), ts: Date.now() }]
   })
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -134,7 +129,7 @@ export function AiAssistantPage() {
       if (!content || isLoading) return
 
       if (quota && quota.remaining === 0) {
-        toast.warning('今日 AI 配额已用尽，请明天再试')
+        toast.warning(t('errors.quota_exhausted'))
         return
       }
 
@@ -160,7 +155,7 @@ export function AiAssistantPage() {
             setStreamingContent(fullContent)
           },
           onError: (code, message) => {
-            toast.error(message || 'AI 服务异常')
+            toast.error(message || t('errors.service_error'))
             throw new Error(`${code}: ${message}`)
           },
         })
@@ -178,12 +173,12 @@ export function AiAssistantPage() {
           const res = await aiService.chat(chatMessages, currentBaby?.id)
           setMessages((prev) => [
             ...prev,
-            { role: 'assistant', content: res.content || 'AI 服务暂未可用', ts: Date.now() },
+            { role: 'assistant', content: res.content || t('errors.service_unavailable'), ts: Date.now() },
           ])
         } catch {
           setMessages((prev) => [
             ...prev,
-            { role: 'assistant', content: '抱歉，请求失败了，请稍后重试。', ts: Date.now() },
+            { role: 'assistant', content: t('errors.request_failed'), ts: Date.now() },
           ])
           const e = err as { message?: string }
           if (e.message) toast.error(e.message)
@@ -198,14 +193,14 @@ export function AiAssistantPage() {
 
   const handleClearHistory = async () => {
     const ok = await confirm({
-      title: '清除聊天记录？',
-      description: '所有历史对话将被清空，此操作不可撤销。',
-      confirmText: '清除',
+      title: t('clear.confirm_title'),
+      description: t('clear.confirm_desc'),
+      confirmText: t('clear.confirm_action'),
       variant: 'danger',
     })
     if (!ok) return
     setMessages([
-      { role: 'assistant', content: '你好！我是宝宝护理助手，有什么可以帮你的吗？', ts: Date.now() },
+      { role: 'assistant', content: t('greeting'), ts: Date.now() },
     ])
     localStorage.removeItem(STORAGE_KEY)
     setShowSuggestions(true)
@@ -239,12 +234,12 @@ export function AiAssistantPage() {
         <div className="flex items-center gap-3 min-w-0">
           <Link
             to="/discover"
-            aria-label="返回"
+            aria-label={t('back_aria')}
             className="flex items-center gap-0.5 transition-colors"
             style={{ color: 'var(--brand-ink)' }}
           >
             <ChevronLeft className="h-5 w-5" />
-            <span className="callout font-medium hidden sm:inline">返回</span>
+            <span className="callout font-medium hidden sm:inline">{t('back')}</span>
           </Link>
           <div
             className="w-8 h-8 rounded-full flex items-center justify-center"
@@ -253,7 +248,7 @@ export function AiAssistantPage() {
             <Bot className="h-4 w-4" />
           </div>
           <h1 className="headline truncate" style={{ color: 'var(--label)' }}>
-            AI 护理助手
+            {t('title')}
           </h1>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -263,8 +258,8 @@ export function AiAssistantPage() {
             size="sm"
             icon={<Trash2 className="h-4 w-4" />}
             onClick={handleClearHistory}
-            aria-label="清除聊天记录"
-            title="清除聊天记录"
+            aria-label={t('clear.icon_aria')}
+            title={t('clear.icon_aria')}
           />
         </div>
       </header>
@@ -386,10 +381,10 @@ export function AiAssistantPage() {
               style={{ color: 'var(--label-tertiary)' }}
             >
               <Sparkles className="h-3 w-3" style={{ color: 'var(--sleep)' }} />
-              推荐问题
+              {t('suggestions.title')}
             </div>
             <div className="flex flex-wrap gap-2">
-              {SUGGESTED_QUESTIONS.map((q) => (
+              {suggestedQuestions.map((q) => (
                 <motion.button
                   key={q}
                   whileTap={{ scale: 0.96 }}
@@ -429,7 +424,7 @@ export function AiAssistantPage() {
                 handleSend()
               }
             }}
-            placeholder="输入消息... (Shift+Enter 换行)"
+            placeholder={t('input.placeholder')}
             rows={1}
             className="flex-1"
             style={{ minHeight: '40px', maxHeight: '120px', overflowY: 'auto' }}
@@ -438,7 +433,7 @@ export function AiAssistantPage() {
             variant="filled"
             onClick={() => handleSend()}
             disabled={isLoading || !input.trim()}
-            aria-label="发送"
+            aria-label={t('input.send_aria')}
             className="shrink-0 !rounded-full !w-10 !h-10 !p-0"
           >
             <Send className="h-4 w-4" />

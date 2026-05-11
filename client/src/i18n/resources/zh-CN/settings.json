@@ -1,0 +1,46 @@
+{
+  "title": "设置",
+  "tabs": {
+    "profile": "资料",
+    "password": "密码",
+    "export": "导出"
+  },
+  "profile": {
+    "nickname": "昵称",
+    "nickname_placeholder": "输入昵称",
+    "email": "邮箱",
+    "email_hint": "邮箱不可修改",
+    "save": "保存",
+    "saving": "保存中..."
+  },
+  "password": {
+    "old": "当前密码",
+    "old_placeholder": "输入当前密码",
+    "new": "新密码",
+    "new_hint": "至少 8 位",
+    "new_placeholder": "至少 8 位",
+    "confirm": "确认新密码",
+    "confirm_placeholder": "再次输入新密码",
+    "submit": "修改密码",
+    "submitting": "修改中..."
+  },
+  "export": {
+    "title": "数据导出",
+    "desc": "导出当前宝宝的护理记录数据",
+    "json_label": "JSON 格式",
+    "json_desc": "完整数据 / 程序友好",
+    "csv_label": "CSV 格式",
+    "csv_desc": "表格 / Excel 可读"
+  },
+  "toasts": {
+    "profile_updated": "资料更新成功",
+    "profile_failed": "更新失败，请稍后再试",
+    "password_too_short": "新密码至少 8 位",
+    "password_mismatch": "两次输入的密码不一致",
+    "password_updated": "密码修改成功",
+    "password_failed": "密码修改失败，请检查旧密码是否正确",
+    "no_baby": "请先选择宝宝",
+    "export_success": "{{format}} 导出成功",
+    "export_failed": "导出失败"
+  }
+}

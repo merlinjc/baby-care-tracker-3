@@ -1,0 +1,34 @@
+{
+  "title": "成长报告",
+  "back_to_discover": "返回发现",
+  "no_baby": {
+    "title": "请先添加宝宝",
+    "desc": "添加宝宝后再查看成长报告"
+  },
+  "period": {
+    "week": "本周报告",
+    "month": "本月报告"
+  },
+  "actions": {
+    "share": "分享",
+    "share_generating": "生成中",
+    "share_full_button": "分享这份报告",
+    "share_full_button_loading": "正在生成分享图…"
+  },
+  "share": {
+    "title_template": "{{name}} 成长报告",
+    "filename_week": "周报",
+    "filename_month": "月报",
+    "toast_shared": "已分享",
+    "toast_downloaded": "报告图片已下载",
+    "toast_failed": "分享失败"
+  },
+  "section": {
+    "metrics": "本期关键指标",
+    "weekly_compare": "上周 vs 本周",
+    "daily_rhythm": "每日节律",
+    "growth": "生长情况",
+    "achievements": "里程碑 & 疫苗",
+    "ai_summary": "AI 总结"
+  }
+}

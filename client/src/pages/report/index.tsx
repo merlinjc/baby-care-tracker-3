@@ -9,6 +9,7 @@
  * - 保留 ReportCover / ReportMetricsGrid / ReportDailyRhythm 等子组件不动
  */
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { BookOpen, Share2 } from 'lucide-react';
 import { motion } from 'framer-motion'
 import { useBabyStore } from '@/stores/baby-store'
@@ -31,6 +32,7 @@ import { renderReportImage, shareImage } from '@/lib/share-canvas'
 import { staggerContainer, staggerItem } from '@/lib/motion'
 
 export function ReportPage() {
+  const { t } = useTranslation('report')
   const currentBaby = useBabyStore((s) => s.currentBaby)
   const [period, setPeriod] = useState<ReportPeriod>('week')
   const [isSharing, setIsSharing] = useState(false)
@@ -42,11 +44,12 @@ export function ReportPage() {
     setIsSharing(true)
     try {
       const blob = await renderReportImage({ baby: currentBaby, data })
-      const filename = `${currentBaby.name}_${period === 'week' ? '周报' : '月报'}_${data.range.start.toISOString().slice(0, 10)}.jpg`
-      const result = await shareImage(blob, filename, `${currentBaby.name} 成长报告`)
-      toast.success(result === 'shared' ? '已分享' : '报告图片已下载')
+      const periodLabel = period === 'week' ? t('share.filename_week') : t('share.filename_month')
+      const filename = `${currentBaby.name}_${periodLabel}_${data.range.start.toISOString().slice(0, 10)}.jpg`
+      const result = await shareImage(blob, filename, t('share.title_template', { name: currentBaby.name }))
+      toast.success(result === 'shared' ? t('share.toast_shared') : t('share.toast_downloaded'))
     } catch (err) {
-      toast.error((err as { message?: string })?.message ?? '分享失败')
+      toast.error((err as { message?: string })?.message ?? t('share.toast_failed'))
     } finally {
       setIsSharing(false)
     }
@@ -62,7 +65,7 @@ export function ReportPage() {
         animate="animate"
       >
         <motion.div variants={staggerItem}>
-          <LargeTitleHeader title="成长报告" backTo="/discover" />
+          <LargeTitleHeader title={t('title')} backTo="/discover" />
         </motion.div>
         <motion.div variants={staggerItem}>
           <Card variant="cta" padding="lg" className="text-center">
@@ -71,10 +74,10 @@ export function ReportPage() {
               style={{ color: 'var(--label-tertiary)' }}
             />
             <p className="headline" style={{ color: 'var(--label)' }}>
-              请先添加宝宝
+              {t('no_baby.title')}
             </p>
             <p className="footnote mt-1" style={{ color: 'var(--label-tertiary)' }}>
-              添加宝宝后再查看成长报告
+              {t('no_baby.desc')}
             </p>
           </Card>
         </motion.div>
@@ -92,7 +95,7 @@ export function ReportPage() {
     >
       <motion.div variants={staggerItem}>
         <LargeTitleHeader
-          title="成长报告"
+          title={t('title')}
           backTo="/discover"
           rightAction={
             <Button
@@ -102,7 +105,7 @@ export function ReportPage() {
               onClick={handleShare}
               disabled={isSharing || data.isLoading}
             >
-              {isSharing ? '生成中' : '分享'}
+              {isSharing ? t('actions.share_generating') : t('actions.share')}
             </Button>
           }
         />
@@ -114,8 +117,8 @@ export function ReportPage() {
           value={period}
           onChange={(v) => setPeriod(v as ReportPeriod)}
           options={[
-            { value: 'week', label: '本周报告' },
-            { value: 'month', label: '本月报告' },
+            { value: 'week', label: t('period.week') },
+            { value: 'month', label: t('period.month') },
           ]}
           size="md"
         />
@@ -131,13 +134,13 @@ export function ReportPage() {
       ) : (
         <>
           <motion.section variants={staggerItem}>
-            <SectionHeader title="本期关键指标" variant="prominent" />
+            <SectionHeader title={t('section.metrics')} variant="prominent" />
             <ReportMetricsGrid metrics={data.metrics} days={data.range.days} />
           </motion.section>
 
           {period === 'week' && data.weeklyTrend && (
             <motion.section variants={staggerItem}>
-              <SectionHeader title="上周 vs 本周" variant="prominent" />
+              <SectionHeader title={t('section.weekly_compare')} variant="prominent" />
               <WeeklyTrendOverview
                 trend={data.weeklyTrend}
                 isLoading={false}
@@ -148,22 +151,22 @@ export function ReportPage() {
           )}
 
           <motion.section variants={staggerItem}>
-            <SectionHeader title="每日节律" variant="prominent" />
+            <SectionHeader title={t('section.daily_rhythm')} variant="prominent" />
             <ReportDailyRhythm daily={data.daily} />
           </motion.section>
 
           <motion.section variants={staggerItem}>
-            <SectionHeader title="生长情况" variant="prominent" />
+            <SectionHeader title={t('section.growth')} variant="prominent" />
             <ReportGrowthSection start={data.growth.start} end={data.growth.end} />
           </motion.section>
 
           <motion.section variants={staggerItem}>
-            <SectionHeader title="里程碑 & 疫苗" variant="prominent" />
+            <SectionHeader title={t('section.achievements')} variant="prominent" />
             <ReportAchievements milestones={data.milestones} vaccines={data.vaccines} />
           </motion.section>
 
           <motion.section variants={staggerItem}>
-            <SectionHeader title="AI 总结" variant="prominent" />
+            <SectionHeader title={t('section.ai_summary')} variant="prominent" />
             <ReportAiSummary baby={currentBaby} data={data} />
           </motion.section>
 
@@ -177,7 +180,7 @@ export function ReportPage() {
               disabled={isSharing}
               leftIcon={<Share2 className="h-4 w-4" />}
             >
-              {isSharing ? '正在生成分享图…' : '分享这份报告'}
+              {isSharing ? t('actions.share_full_button_loading') : t('actions.share_full_button')}
             </Button>
           </motion.div>
         </>
