@@ -21,6 +21,10 @@ import type {
   UploadContext,
 } from '@/types'
 
+// buildImageUrl 抽到 lib/image-url，避免消费方（Avatar 等）把本文件
+// （含 browser-image-compression 大包）一起打入入口 chunk。
+export { buildImageUrl } from '@/lib/image-url'
+
 /** 不同 kind 的压缩长边（px） */
 const MAX_DIMENSION_BY_KIND: Record<UploadKind, number> = {
   avatar: 512,
@@ -41,21 +45,6 @@ interface UploadOptions {
   onProgress?: (progress: number) => void
   /** 取消信号；abort 时上传立即终止 */
   signal?: AbortSignal
-}
-
-/**
- * 把 key 拼成可作为 <img src> 的代理 URL。
- *
- * - 相对路径（默认 `/api/uploads/{key}`），由 axios baseURL 与 vite proxy / 部署 nginx 处理
- * - 调用 GET /api/uploads/{key} 需要 JWT，否则 401。`<img>` 标签会自动带 cookie，
- *   但不会带 Authorization 头 —— 因此首版部署需要保证用户已登录态下访问主域，
- *   后续如有公开访问需求再调整为「带签名的临时 GET URL」方案。
- */
-export function buildImageUrl(key: string | null | undefined): string | undefined {
-  if (!key) return undefined
-  // 防御：已经是完整 URL 直接返回（兼容老数据 / 第三方 URL）
-  if (/^https?:\/\//.test(key)) return key
-  return `/api/uploads/${key}`
 }
 
 export const uploadService = {

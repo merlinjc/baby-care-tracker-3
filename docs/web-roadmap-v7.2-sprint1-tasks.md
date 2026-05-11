@@ -587,7 +587,7 @@ T-S1-REL-01    Sprint 1 验收与打 tag
 | T-S1-F8-03 | F8 | home + record 抽离 | 0.4d | ✅ |
 | T-S1-F8-04 | F8 | report + ai + settings 抽离 | 0.4d | ✅ |
 | T-S1-F8-05 | F8 | LanguageSwitcher + i18n 文档 | 0.1d | ✅ |
-| T-S1-F12-01 | F12 | 默认头像 lib + Avatar 升级 | 0.3d | ⬜ |
+| T-S1-F12-01 | F12 | 默认头像 lib + Avatar 升级 | 0.3d | ✅ |
 | T-S1-F12-02 | F12 | 用户头像上传 | 0.4d | ⬜ |
 | T-S1-F12-03 | F12 | Baby 头像上传 | 0.3d | ⬜ |
 | T-S1-F2-01 | F2 | JaundiceRecord schema + service | 0.5d | ⬜ |
