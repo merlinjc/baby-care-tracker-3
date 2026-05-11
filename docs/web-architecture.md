@@ -446,6 +446,61 @@ v7.2 起以下字段**统一存桶内 key**，不再存完整 URL：
 
 ---
 
+### 5.8 i18n 框架（v7.2 T-S1-F8）
+
+**目录与依赖**：
+
+```
+client/src/i18n/
+├── index.ts                          # i18next 初始化（同步 import 资源）
+├── README.md                         # 使用指南
+└── resources/zh-CN/
+    ├── common.json                   # actions / states / time / errors / units
+    └── nav.json                      # tabs / sidebar / page_titles
+```
+
+依赖：`i18next` + `react-i18next` + `i18next-browser-languagedetector`，单独打入 `vendor-i18n` chunk（gzip ~16KB）。
+
+**初始化时序**：
+
+```
+main.tsx
+  ├── import '@/i18n'                 ← 同步副作用 import，必须在 App 之前
+  │   └── i18n.use(LanguageDetector).use(initReactI18next).init({...})
+  │       检测顺序：localStorage('baby_care_lang') → navigator.language
+  │       fallbackLng: 'zh-CN'
+  │       supportedLngs: ['zh-CN']    ← v7.2 仅 zh-CN，其他 locale 走 fallback
+  └── createRoot(...).render(<App />)
+```
+
+**与 React.lazy 路由的兼容**：
+
+显式 `react.useSuspense: false`，避免 i18n 资源 hydration 与路由 Suspense fallback 重复触发 loading；资源同步 import 后第一次 render 即可读到。
+
+**接入边界（Sprint 1）**：
+
+| 模块 | 命名空间 | 接入任务 |
+|---|---|---|
+| `app/layout/main-layout` | `nav` | T-S1-F8-02 |
+| `pages/home` | `home` | T-S1-F8-03 |
+| `pages/record` | `record` | T-S1-F8-03 |
+| `pages/report` | `report` | T-S1-F8-04 |
+| `pages/ai-assistant` | `ai` | T-S1-F8-04 |
+| `pages/settings` | `settings` | T-S1-F8-04 |
+
+未接入页面（discover / profile / baby / family / growth / vaccine / milestone / jaundice / auth）保持原样硬编码中文，v7.3+ 渐进迁移。
+
+**跨设备语言种子**（与 INF-01 联动）：
+
+`User.preferences.lang` 字段在登录后由 `auth-store.user` 注入；F8-05 LanguageSwitcher 切换时同时写 `localStorage('baby_care_lang')` 与 `updatePreferences({ lang })`，下次跨设备登录时能继承用户选择。v7.2 仅写入；UI 暂不读取（因仅 zh-CN 可用）。
+
+**复用方**：
+
+- F1 Onboarding（步骤标题 / 跳过按钮文案）
+- 后续所有新功能默认走 i18n（不再允许直接 JSX 中文字面量在新增的 5 高频页面）
+
+---
+
 ## 6. 文件依赖图
 
 详见 [`specs/web-feature-parity/design.md` §9 文件变更清单](../specs/web-feature-parity/design.md)。

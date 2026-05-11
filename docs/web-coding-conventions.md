@@ -1309,4 +1309,124 @@ const handleAvatarChange = async (key: string) => {
 
 `browser-image-compression` 包体积约 836KB（gzip 后 ~50-80KB）。F12 / F11 接入后如发现首屏体积明显增加，应将其加入 `vite.config.ts#manualChunks` 单独成 chunk（参考 `vendor-motion`）。
 
+---
+
+## 20. i18n 文案约定（v7.2+ T-S1-F8）
+
+> 引入版本：v7.2 Sprint 1（F8 i18n 框架预埋）
+> 框架：`react-i18next` + `i18next-browser-languagedetector`
+> 完整指南：`client/src/i18n/README.md`
+
+### 20.1 强制接入范围
+
+以下 5 个高频页面 + 1 个公共 layout 在 v7.2 Sprint 1 内必须将所有可见中文走 `t()`，不允许新增硬编码中文字符串：
+
+- `pages/home/**`
+- `pages/record/**`
+- `pages/report/**`
+- `pages/ai-assistant/**`
+- `pages/settings/**`
+- `app/layout/main-layout.tsx`
+
+未列入的页面（discover / profile / baby / family / growth / vaccine / milestone / jaundice / auth）保留原样，v7.3+ 渐进迁移；新增功能在这些页面也建议优先走 i18n。
+
+### 20.2 命名空间（NS）划分
+
+每个页面对应一个独立 NS，公共复用文案归 `common` / `nav`：
+
+| 命名空间 | 用途 | 文件 |
+|---|---|---|
+| `common` | 按钮 / 状态 / 时间词 / 错误码 / 单位 | `resources/zh-CN/common.json` |
+| `nav` | 导航 / TabBar / Sidebar / 页面标题 | `resources/zh-CN/nav.json` |
+| `home` / `record` / `report` / `ai` / `settings` | 各高频页内文案 | 由 F8-03/04 按需新增 |
+
+**新增 NS 的步骤**（必须三步同时做，否则 `useTranslation('xxx')` 会回落到 common）：
+
+1. 新建 `resources/zh-CN/{ns}.json`
+2. 在 `client/src/i18n/index.ts` 的 `RESOURCES` 与 `NAMESPACES` 同步加入引用
+3. 业务层 `useTranslation('{ns}')`
+
+### 20.3 Key 命名规则
+
+- **嵌套对象 + 小写下划线**：`hero.title` / `quota.left` / `actions.save`
+- **占位符 camelCase**：`{{babyName}}` / `{{count}}` / `{{date}}`
+- **复数后缀**：i18next 自带 `_one` / `_other`；中文两种 form 文案常一致，但保留二元写法便于切英文时无痛
+- **错误码 → 文案**：归 `common.errors.{code}`（lowercase 错误码），如 `common.errors.network`
+
+### 20.4 业务层使用
+
+```tsx
+// ✅ 标准写法
+import { useTranslation } from 'react-i18next'
+
+export function HomePage() {
+  const { t } = useTranslation('home')
+  return <h1>{t('hero.title')}</h1>
+}
+
+// ✅ 跨 NS（多 NS 一次引）
+const { t } = useTranslation(['home', 'common'])
+t('hero.title')                          // 默认 home
+t('actions.save', { ns: 'common' })       // 显式 common
+
+// ✅ 占位符 / 复数
+t('time.minutes_ago', { count: 5 })       // → "5 分钟前"
+t('records', { count: 1 })                // → "1 条记录" (records_one)
+```
+
+### 20.5 反例
+
+```tsx
+// ❌ 在强制接入范围内的页面继续硬编码中文
+<h1>欢迎回来</h1>
+
+// ❌ 拼接 i18n 与硬编码片段
+<p>{t('greeting')}，今天是个好日子</p>
+//        ✅ 应该改为：t('greeting_with_suffix') 整句一并入资源
+
+// ❌ 在 useEffect 里调用 changeLanguage（触发整树重渲染）
+useEffect(() => { i18n.changeLanguage('en-US') }, [])
+//        ✅ 应该交给 LanguageSwitcher 组件统一管理（v7.2 暂未启用）
+
+// ❌ 把变量插入 t() 的 key
+const ns = isReport ? 'report' : 'home'
+t(`${ns}.title`)
+//        ✅ 应该提前 useTranslation(ns)，t() 只接受字面量 key（也利于静态分析）
+```
+
+### 20.6 跨设备语言种子（与 §18 联动）
+
+切换语言（Sprint 1 仅 zh-CN，但接口已就绪）：
+
+```ts
+// LanguageSwitcher 内部（v7.2 仅占位，v7.3+ 启用）
+import { useAuthStore } from '@/stores/auth-store'
+import i18n from '@/i18n'
+
+async function setLanguage(lang: string) {
+  // 1. 立刻切本地语言
+  await i18n.changeLanguage(lang)         // 同时写 localStorage('baby_care_lang')
+
+  // 2. 异步同步到云端，作为跨设备种子
+  await useAuthStore.getState().updatePreferences({
+    lang,
+    langManuallySet: true,
+  })
+}
+```
+
+### 20.7 性能边界
+
+- `vendor-i18n` chunk gzip 应保持 < 50KB（当前 ~16KB），新增大型 NS 资源若导致超阈值，应改为 `i18next-http-backend` 按需异步加载
+- 单个 NS JSON 不超过 200 行，否则拆分（如 `home` 可分 `home.hero` / `home.timeline`）
+- 不要在 render 中动态拼 key（如 `t(\`hero.${type}\`)`），会失去 ESLint / 静态分析能力；改用 switch + 字面量 key
+
+### 20.8 ESLint 防回退（计划，Sprint 3 a11y）
+
+将引入自定义规则 `no-hardcoded-chinese`：
+
+- 仅对强制接入范围内的页面生效
+- 检测 JSX text / 字符串字面量直接出现 `[\u4e00-\u9fff]+`
+- Sprint 1 不强制，靠 PR review
+
 

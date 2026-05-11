@@ -1,0 +1,42 @@
+{
+  "tabs": {
+    "home": "首页",
+    "record": "记录",
+    "discover": "发现",
+    "profile": "我的"
+  },
+  "sidebar": {
+    "switch_baby": "切换宝宝",
+    "current_baby": "当前宝宝",
+    "no_baby": "暂无宝宝",
+    "add_baby": "添加宝宝",
+    "settings": "设置",
+    "logout": "退出登录"
+  },
+  "header": {
+    "menu": "菜单",
+    "notifications": "通知",
+    "search": "搜索"
+  },
+  "footer": {
+    "copyright": "© 2026 Baby Care Tracker",
+    "icp": "ICP 备案",
+    "police_record": "公安备案"
+  },
+  "page_titles": {
+    "home": "首页",
+    "record": "记录",
+    "discover": "发现",
+    "profile": "我的",
+    "settings": "设置",
+    "report": "成长报告",
+    "ai_assistant": "AI 助手",
+    "baby": "宝宝档案",
+    "family": "家庭",
+    "growth": "生长曲线",
+    "vaccine": "疫苗计划",
+    "milestone": "里程碑",
+    "jaundice": "黄疸观察",
+    "export": "数据导出"
+  }
+}

@@ -27,6 +27,16 @@
 
 ### Added — Sprint 1 进行中
 
+- **T-S1-F8-01 i18next 框架预埋 + zh-CN 资源骨架**（2026-05-11 完成）
+  - 新增依赖：`react-i18next ^17` + `i18next ^26` + `i18next-browser-languagedetector ^8`
+  - `client/src/i18n/index.ts`：i18next 初始化 — `fallbackLng='zh-CN'` / `supportedLngs=['zh-CN']` / 检测顺序 `localStorage(baby_care_lang) → navigator` / `react.useSuspense=false`（与 React.lazy 路由兼容） / DEV 缺 key 打印
+  - `client/src/i18n/resources/zh-CN/{common,nav}.json`：公共 NS 起手，含 actions/states/time/errors/units（common）+ tabs/sidebar/page_titles（nav）
+  - `client/src/i18n/README.md`：完整指南（NS 划分 / key 命名 / 占位符 / 复数 / 切换验证 / FAQ）
+  - `client/src/main.tsx`：在 App 之前同步 `import '@/i18n'`（副作用初始化）
+  - `client/vite.config.ts#manualChunks`：i18n 三件套单独成 `vendor-i18n` chunk
+  - **收益**：`vendor-i18n` gzip **15.87 KB**（设计阈值 <50KB ✓）；入口 chunk gzip +1.29 KB（仅 i18n 副作用 import）；后续 F8-02/03/04 业务接入零基建成本
+  - 文档：`web-architecture.md §5.8` / `web-coding-conventions.md §20`（i18n 文案约定 8 节）
+
 - **T-S1-INF-02 COS 服务端代理上传/下载链路 + ImageUploader 通用组件**（2026-05-11 完成）
   - **架构**：上传走 `POST /api/uploads`（multipart）+ 下载走 `GET /api/uploads/*`（流式 pipe），桶完全私有，COS 凭证仅服务端持有；DB 字段从"绝对 URL"改为"桶内 key"，`buildImageUrl()` 兼容历史 URL 数据
   - **后端**：

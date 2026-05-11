@@ -84,6 +84,15 @@ export default defineConfig({
             return 'vendor-icons'
           }
 
+          // i18n
+          if (
+            /[\\/]node_modules[\\/](i18next|react-i18next|i18next-browser-languagedetector)[\\/]/.test(
+              id,
+            )
+          ) {
+            return 'vendor-i18n'
+          }
+
           // 通用工具
           if (
             /[\\/]node_modules[\\/](axios|clsx|tailwind-merge|class-variance-authority|zustand)[\\/]/.test(
