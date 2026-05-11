@@ -41,6 +41,7 @@ import { StatusCapsule } from '@/components/status-capsule'
 import { TodaySummary } from '@/components/today-summary'
 import { HomeSkeleton } from '@/components/home-skeleton'
 import { EasterEggDisplay } from '@/components/easter-egg-display'
+import { DailyCheckinCard } from '@/components/daily-checkin/daily-checkin-card'
 
 // UI
 import { toast } from '@/components/ui/toast'
@@ -380,6 +381,18 @@ export function HomePage() {
             canControlSleep={canEdit}
             onStartSleep={handleStartSleep}
             onEndSleep={handleEndSleep}
+          />
+        </motion.div>
+      )}
+
+      {/* Daily Check-in Card (T-S2-F11) */}
+      {currentBaby && family && (
+        <motion.div variants={staggerItem}>
+          <DailyCheckinCard
+            babyId={currentBaby.id}
+            familyId={family.id}
+            role={careRole}
+            canEdit={canEdit}
           />
         </motion.div>
       )}
