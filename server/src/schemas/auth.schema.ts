@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { avatarRefSchema } from './common.schema';
 
 export const registerSchema = z.object({
   email: z.string().email('邮箱格式无效').optional(),
@@ -43,7 +44,8 @@ export const userPreferencesPatchSchema = z
 
 export const updateProfileSchema = z.object({
   nickname: z.string().min(1, '昵称不能为空').max(20, '昵称最多20字符').optional(),
-  avatar: z.string().url('头像URL格式无效').optional(),
+  /** v7.2 INF-02 方案 B：接受 COS 对象 key（avatars/...）或历史 http(s) URL，详见 avatarRefSchema */
+  avatar: avatarRefSchema.optional(),
   /** v7.2+ 用户偏好部分更新（顶层 key 深合并语义，详见 userPreferencesPatchSchema） */
   preferences: userPreferencesPatchSchema.optional(),
 });

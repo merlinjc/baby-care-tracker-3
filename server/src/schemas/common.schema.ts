@@ -38,3 +38,46 @@ export const paginationSchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   pageSize: z.coerce.number().int().positive().max(100).default(20),
 });
+
+/**
+ * v7.2 T-S1-INF-02 方案 B：DB 中的 avatar 字段语义从"绝对 URL"改为"桶内 key"。
+ *
+ * - 新数据：以 `avatars/` / `babies/` 开头的 COS 对象 key（如 `avatars/u1/abc.jpg`）
+ * - 历史数据：完整 http(s):// URL（兼容存量、便于回滚）
+ * - 接口允许传 null / 空串，表示"清除头像"（业务侧自行处理空值落库）
+ *
+ * 校验策略：长度 ≤ 512 + 必须满足以下任一形态：
+ *   1) 以 avatars/ / babies/ / checkins/ 开头的 key（与 server/src/services/upload.service.ts#isValidKey 对齐）
+ *   2) http(s):// URL
+ *
+ * 用 `superRefine` 而不是 `union([z.string().url(), z.string().regex(...)])`，
+ * 可以一次给出明确错误信息且 zod 输出更稳定。
+ */
+const KEY_PREFIX_REGEX = /^(avatars|babies|checkins)\//;
+const HTTP_URL_REGEX = /^https?:\/\//i;
+
+export const avatarRefSchema = z
+  .string()
+  .max(512, '头像引用过长')
+  .superRefine((val, ctx) => {
+    if (val.length === 0) return; // 允许空串=清除
+    if (val.includes('..') || val.includes('\\')) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: '头像引用包含非法字符' });
+      return;
+    }
+    if (KEY_PREFIX_REGEX.test(val)) return;
+    if (HTTP_URL_REGEX.test(val)) {
+      // 进一步用原生 URL 验证防止 `http://` 这种半成品
+      try {
+        new URL(val);
+        return;
+      } catch {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: '头像 URL 格式无效' });
+        return;
+      }
+    }
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: '头像引用必须为 COS 对象 key 或 http(s) URL',
+    });
+  });
