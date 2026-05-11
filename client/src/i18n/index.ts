@@ -35,6 +35,7 @@ import zhAi from './resources/zh-CN/ai.json'
 import zhSettings from './resources/zh-CN/settings.json'
 import zhExport from './resources/zh-CN/export.json'
 import zhOnboarding from './resources/zh-CN/onboarding.json'
+import zhDailyCheckin from './resources/zh-CN/daily-checkin.json'
 
 /**
  * 资源注册表 — 后续新增命名空间 / 语言时统一在这里维护。
@@ -53,11 +54,12 @@ const RESOURCES = {
     settings: zhSettings,
     export: zhExport,
     onboarding: zhOnboarding,
+    'daily-checkin': zhDailyCheckin,
   },
 } as const
 
 /** 已注册的命名空间列表，TypeScript 类型推导用 */
-export const NAMESPACES = ['common', 'nav', 'home', 'record', 'report', 'ai', 'settings', 'export', 'onboarding'] as const
+export const NAMESPACES = ['common', 'nav', 'home', 'record', 'report', 'ai', 'settings', 'export', 'onboarding', 'daily-checkin'] as const
 export type Namespace = (typeof NAMESPACES)[number]
 
 /** 已支持的语言列表，未来切换器从此读取 */
