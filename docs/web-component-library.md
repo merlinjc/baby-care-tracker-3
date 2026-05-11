@@ -17,7 +17,27 @@ Sprint 1 工程基础 + 内容沉淀第一波：
 |------|------|----------------|
 | `RouteFallback` | `app/layout/route-fallback.tsx` | F9 路由级懒加载占位骨架；200ms 延迟显示动画点阵；`role="status" / aria-live`；占满 60vh 防布局抖动 |
 | `ImageUploader` | `components/ui/image-uploader.tsx` | INF-02 通用单图上传；render-prop API（业务侧自定义视觉）；客户端压缩到 ≤1MB + EXIF 剥离；走**服务端代理**（POST `/api/uploads`）而非直传 COS；`onChange(key)` 回传 **桶内 key**（不是 URL）；`onProgress` 回调；缺配置 503 静默 toast 降级 |
+| `AvatarUploader` | `components/avatar-uploader.tsx` | F12-2/3 头像上传薄封装；圆形头像 + 右下相机角标 + 上传中遮罩；`children` 透传由调用方传入 `<UserAvatar>` / `<BabyAvatar>` 决定头像渲染；`kind: 'avatar' \| 'baby-avatar'`；`badgeSize` 跟随头像 size |
 | `LanguageSwitcher` | `components/language-switcher.tsx` | F8-05 语言选择器占位；v7.2 仅 zh-CN 时 `disabled=true`，以 DropdownMenu 呈现"简体中文 + 即将推出"；挂在 Settings → 资料 tab；v7.3+ 把 disabled 改 false 并在 onChange 接 `i18n.changeLanguage` + `updatePreferences({ lang })` 即启用 |
+
+### v7.2 新增 hooks（client/src/hooks/）
+
+| Hook | 文件 | 用途 |
+|------|------|-----|
+| `useActiveBaby` | `hooks/use-active-baby.ts` | F6-1/2 多宝快捷切换；URL `?babyId=` ↔ zustand baby-store ↔ babies[0] 三级优先级；`switchBaby(id)` 同时改 store + URL（replaceState 不污染 history）+ invalidate React Query；纯函数 `resolveActiveBabyId(urlBabyId, babies, currentBabyId)` 抽出供后续单测使用。**用法**：在 `MainLayout` 顶部挂一次，子页面只读 `useBabyStore(s => s.currentBaby)` 即可 |
+| `useJaundiceRecords` / `useCreateJaundice` / `useUpdateJaundice` / `useDeleteJaundice` | `hooks/use-jaundice.ts` | F2-3 黄疸记录 React Query 包装；query key `['jaundice', babyId]`，mutate 后 invalidate；service 层做 client↔server 字段映射 |
+
+### v7.2 新增 service（client/src/services/）
+
+| Service | 文件 | 说明 |
+|---------|------|-----|
+| `jaundiceService` | `services/jaundice.ts` | F2-3 黄疸 CRUD；内部 `toServerCreate` / `toServerUpdate` / `toClient` 双向字段映射（date↔recordDate / ageDays↔dayAge / scleraYellow↔scleralIcterus / jaundiceType↔category / actions↔treatments），UI 不感知差异 |
+
+### v7.2 新增 lib（client/src/lib/）
+
+| 模块 | 文件 | 说明 |
+|------|------|-----|
+| `migrations/jaundice-to-cloud` | `lib/migrations/jaundice-to-cloud.ts` | F2-5 老用户 localStorage → 云端迁移；幂等（标记 key `baby_care_jaundice_migrated === 'v1'`）；失败保留本地下次重试；MainLayout 用动态 import 触发，不污染入口 chunk；migrated > 0 时 toast |
 
 #### `<ImageUploader>` 用法
 

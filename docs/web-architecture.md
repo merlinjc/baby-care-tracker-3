@@ -212,21 +212,22 @@ DELETE /babies/:id?cursor=2500
 
 **关键约束**：业务组件必须消费语义类（`.heading-*` / `.body-*` / `.caption`）或 CSS 变量 `var(--text-*)`，**禁止**写死 `text-[14px]` 等任意值样式，否则字体缩放会失效。特大档位同时放宽 `btn-*` / `chip` / `input-base` 的 padding，以满足触屏目标 ≥ 48px 的无障碍要求。
 
-### 5.2 黄疸记录（客户端本地存储 MVP，v5.0.0+）
+### 5.2 黄疸记录（v5 本地 MVP → v7.2 云端化）
 
-发现页新增"黄疸记录"子入口（`/jaundice`）。设计决策：
+发现页新增"黄疸记录"子入口（`/jaundice`）。
 
-- **不新增后端字段 / 表 / 接口**：黄疸作为"观察类"数据而非核心育儿记录，本期以 `localStorage` 落地，快速验证产品价值。
-- 存储位置：`client/src/lib/jaundice.ts`
-  - key：`baby_care_jaundice:${babyId}`
-  - value：按 `date` 降序的 `JaundiceRecord[]` JSON 数组
-- 字段覆盖医学上常用维度：日龄、Kramer 分区（Ⅰ-Ⅴ）、巩膜黄染、经皮胆红素 TcB、血清胆红素 TSB、主观分类（生理性 / 病理性 / 母乳性）、伴随表现（多选）、处置（多选）、备注。
-- 子页 `/jaundice`（`pages/jaundice/index.tsx`）：
-  - PageHeader + 新增按钮（canEdit 才出现）
-  - 教育提示条（提醒就医门槛）
-  - 迷你 SVG 趋势图（最近 10 次有数值的记录 + 12 / 17 mg/dL 虚线警戒）
-  - 时间线卡片列表（Kramer 分区 / TcB / TSB / 伴随表现 / 处置 / 备注）
-- 后续若需要跨端同步，再抽出同名类型到 `shared/types`，新增 `recordType = 'jaundice'` 或独立 `jaundice_records` 表 + 接口；当前本地存储与未来后端方案零冲突（迁移时一次性把本地数据 POST 上去即可）。
+**v5.0.0 MVP（已退役）**：在 `client/src/lib/jaundice.ts` 用 `localStorage[baby_care_jaundice:${babyId}]` 落地，快速验证产品价值。
+
+**v7.2 T-S1-F2 云端化**：
+
+- **新增 `JaundiceRecord` 表**（`server/prisma/schema.prisma`）：`recordDate` / `dayAge` / `kramerZone` / `scleralIcterus` / `tcb` / `tsb` / `category` / `symptoms[JSON]` / `treatments[JSON]` / `note` / `createdBy`；索引 `[babyId, familyId, recordDate]`。
+- **5 个端点**：`GET / POST / GET-id / PATCH / DELETE` 挂在 `/api/babies/:id/jaundice/*`，权限矩阵与 milestone 一致（admin 任意，editor 仅自己，viewer 拒绝）。
+- **客户端仍用 client 字段名**：`services/jaundice.ts` 内部双向映射 `date↔recordDate / ageDays↔dayAge / scleraYellow↔scleralIcterus / jaundiceType↔category / actions↔treatments`，UI 层（`pages/jaundice/index.tsx`、`components/jaundice-dialog.tsx`）保持不变。
+- **React Query 集成**：`hooks/use-jaundice.ts` 提供 `useJaundiceRecords / useCreateJaundice / useUpdateJaundice / useDeleteJaundice`，query key `['jaundice', babyId]`。
+- **一次性迁移**：`lib/migrations/jaundice-to-cloud.ts` 在 `MainLayout` `isAuthenticated && babies.length > 0` 后 1.5s 触发（动态 import，不污染入口 chunk）；幂等（标记 `baby_care_jaundice_migrated === 'v1'`）；失败保留 localStorage 下次重试；migrated > 0 时 toast。
+- **lib/jaundice.ts 收敛**：保留类型 / 常量 / `computeAgeDays / classifyTsb`；删除 `saveJaundiceRecord / deleteJaundiceRecord`；`listJaundiceRecords` 重命名 `readLocalJaundiceRecords` 仅供迁移用。
+
+字段覆盖医学上常用维度：日龄、Kramer 分区（Ⅰ-Ⅴ）、巩膜黄染、经皮胆红素 TcB、血清胆红素 TSB、主观分类（生理性 / 病理性 / 母乳性）、伴随表现（多选）、处置（多选）、备注。子页交互保持 v5 设计（教育提示条 + 迷你 SVG 趋势图 + 时间线卡片列表）。
 
 ### 5.3 成长报告（v5.0.0+）
 
@@ -498,6 +499,30 @@ main.tsx
 
 - F1 Onboarding（步骤标题 / 跳过按钮文案）
 - 后续所有新功能默认走 i18n（不再允许直接 JSX 中文字面量在新增的 5 高频页面）
+
+---
+
+### 5.9 多宝快捷切换 + URL 参数（v7.2 T-S1-F6）
+
+为支持「分享带 babyId 的链接」「跨设备打开同一胎」，v7.2 引入 URL ↔ store 的双向同步层：
+
+```
+URL ?babyId=xxx        ← 用户分享 / 跨设备打开
+     │ 命中
+     ▼
+zustand baby-store      ← persist 到 localStorage
+     │ 命中
+     ▼
+babies[0]              ← 兜底
+```
+
+**核心实现**：`client/src/hooks/use-active-baby.ts`：
+
+- 纯函数 `resolveActiveBabyId(urlBabyId, babies, currentBabyId)` 三级优先级解析；URL babyId 不在 babies 时返回 `shouldClearUrl: true` 优雅降级。
+- `useActiveBaby()` 在 `MainLayout` 顶部挂一次：useEffect 同步 URL → store + 清除非法 URL；返回 `switchBaby(id)` 给 BabySwitcher / SidebarBabyCard / BabyPage 列表使用，切换时同时改 store + URL（router 的 `replace: true` 不污染 history）+ invalidate `['todayStats' | 'records' | 'activeSleep', babyId]` 三个 React Query。
+- 子页面（home / report / growth / jaundice / record / milestone / vaccine 等）只读 `useBabyStore(s => s.currentBaby)`，不再调 `selectBaby`。
+
+**接入点**：`MainLayout` 顶部、`BabySwitcher`、`SidebarBabyCard`、`BabyPage` 列表点击切换；查看者无切换权限不触发。
 
 ---
 

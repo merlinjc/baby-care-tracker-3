@@ -286,7 +286,7 @@ T-S1-REL-01    Sprint 1 验收与打 tag
 
 ---
 
-### T-S1-F12-02 ⬜ 用户头像上传 UI + 落库
+### T-S1-F12-02 ✅ 用户头像上传 UI + 落库
 **类型**：feat
 **预估**：0.4d
 **依赖**：T-S1-INF-02 / T-S1-F12-01
@@ -304,7 +304,7 @@ T-S1-REL-01    Sprint 1 验收与打 tag
 
 ---
 
-### T-S1-F12-03 ⬜ Baby 头像上传入口
+### T-S1-F12-03 ✅ Baby 头像上传入口
 **类型**：feat
 **预估**：0.3d
 **依赖**：T-S1-INF-02 / T-S1-F12-01
@@ -319,7 +319,7 @@ T-S1-REL-01    Sprint 1 验收与打 tag
 
 ## 7. F2 · 黄疸记录持久化（2d）
 
-### T-S1-F2-01 ⬜ JaundiceRecord schema + migration + service 单元测试
+### T-S1-F2-01 ✅ JaundiceRecord schema + migration + service 单元测试
 **类型**：feat (DB)
 **预估**：0.5d
 **依赖**：—
@@ -335,7 +335,7 @@ T-S1-REL-01    Sprint 1 验收与打 tag
 
 ---
 
-### T-S1-F2-02 ⬜ Jaundice CRUD 路由 + 集成测试
+### T-S1-F2-02 ✅ Jaundice CRUD 路由 + 集成测试
 **类型**：feat (API)
 **预估**：0.5d
 **依赖**：T-S1-F2-01
@@ -348,7 +348,7 @@ T-S1-REL-01    Sprint 1 验收与打 tag
 
 ---
 
-### T-S1-F2-03 ⬜ 前端 service + React Query hook
+### T-S1-F2-03 ✅ 前端 service + React Query hook
 **类型**：feat
 **预估**：0.3d
 **依赖**：T-S1-F2-02
@@ -360,7 +360,7 @@ T-S1-REL-01    Sprint 1 验收与打 tag
 
 ---
 
-### T-S1-F2-04 ⬜ JaundicePage 改造为云端数据源
+### T-S1-F2-04 ✅ JaundicePage 改造为云端数据源
 **类型**：refactor
 **预估**：0.4d
 **依赖**：T-S1-F2-03
@@ -377,7 +377,7 @@ T-S1-REL-01    Sprint 1 验收与打 tag
 
 ---
 
-### T-S1-F2-05 ⬜ localStorage → 云端迁移脚本 + 一次性触发
+### T-S1-F2-05 ✅ localStorage → 云端迁移脚本 + 一次性触发
 **类型**：feat (migration)
 **预估**：0.3d
 **依赖**：T-S1-F2-04
@@ -445,7 +445,7 @@ T-S1-REL-01    Sprint 1 验收与打 tag
 
 ## 9. F6 · 多宝快捷切换持久化 + URL 参数（0.5d）
 
-### T-S1-F6-01 ⬜ useActiveBaby hook
+### T-S1-F6-01 ✅ useActiveBaby hook
 **类型**：feat
 **预估**：0.2d
 **依赖**：—
@@ -457,7 +457,7 @@ T-S1-REL-01    Sprint 1 验收与打 tag
 
 ---
 
-### T-S1-F6-02 ⬜ MainLayout + BabySwitcher 接入
+### T-S1-F6-02 ✅ MainLayout + BabySwitcher 接入
 **类型**：refactor
 **预估**：0.3d
 **依赖**：T-S1-F6-01
@@ -588,18 +588,18 @@ T-S1-REL-01    Sprint 1 验收与打 tag
 | T-S1-F8-04 | F8 | report + ai + settings 抽离 | 0.4d | ✅ |
 | T-S1-F8-05 | F8 | LanguageSwitcher + i18n 文档 | 0.1d | ✅ |
 | T-S1-F12-01 | F12 | 默认头像 lib + Avatar 升级 | 0.3d | ✅ |
-| T-S1-F12-02 | F12 | 用户头像上传 | 0.4d | ⬜ |
-| T-S1-F12-03 | F12 | Baby 头像上传 | 0.3d | ⬜ |
-| T-S1-F2-01 | F2 | JaundiceRecord schema + service | 0.5d | ⬜ |
-| T-S1-F2-02 | F2 | Jaundice CRUD 路由 + 集成测试 | 0.5d | ⬜ |
-| T-S1-F2-03 | F2 | 前端 service + hooks | 0.3d | ⬜ |
-| T-S1-F2-04 | F2 | JaundicePage 数据源迁移 | 0.4d | ⬜ |
-| T-S1-F2-05 | F2 | localStorage 一次性迁移 | 0.3d | ⬜ |
+| T-S1-F12-02 | F12 | 用户头像上传 | 0.4d | ✅ |
+| T-S1-F12-03 | F12 | Baby 头像上传 | 0.3d | ✅ |
+| T-S1-F2-01 | F2 | JaundiceRecord schema + service | 0.5d | ✅ |
+| T-S1-F2-02 | F2 | Jaundice CRUD 路由 + 集成测试 | 0.5d | ✅ |
+| T-S1-F2-03 | F2 | 前端 service + hooks | 0.3d | ✅ |
+| T-S1-F2-04 | F2 | JaundicePage 数据源迁移 | 0.4d | ✅ |
+| T-S1-F2-05 | F2 | localStorage 一次性迁移 | 0.3d | ✅ |
 | T-S1-F3-01 | F3 | 导出页骨架 + 路由 + i18n | 0.5d | ⬜ |
 | T-S1-F3-02 | F3 | 导出交互 + 历史列表 | 0.6d | ⬜ |
 | T-S1-F3-03 | F3 | 黄疸数据纳入导出 | 0.4d | ⬜ |
-| T-S1-F6-01 | F6 | useActiveBaby hook | 0.2d | ⬜ |
-| T-S1-F6-02 | F6 | MainLayout / BabySwitcher 接入 | 0.3d | ⬜ |
+| T-S1-F6-01 | F6 | useActiveBaby hook | 0.2d | ✅ |
+| T-S1-F6-02 | F6 | MainLayout / BabySwitcher 接入 | 0.3d | ✅ |
 | T-S1-F1-01 | F1 | OnboardingOverlay 组件 | 0.5d | ⬜ |
 | T-S1-F1-02 | F1 | App 触发 + preferences 写入 | 0.4d | ⬜ |
 | T-S1-F1-03 | F1 | 目标元素锚点 + 高亮 | 0.3d | ⬜ |

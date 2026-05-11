@@ -1566,6 +1566,122 @@ interface DeleteMilestoneResponse {
 
 ---
 
+## 7a. 黄疸记录接口（v7.2+ T-S1-F2）
+
+> **背景**：v7.2 之前黄疸记录在前端 `localStorage` 落地。v7.2 起改为云端同步：多设备 / 家庭成员可见同一份数据，离线编辑能力交给前端 React Query 缓存。
+>
+> **字段映射**（client lib/jaundice ↔ server JaundiceRecord）：
+> - `date` ↔ `recordDate`
+> - `ageDays` ↔ `dayAge`
+> - `scleraYellow` ↔ `scleralIcterus`
+> - `jaundiceType` ↔ `category`
+> - `actions` ↔ `treatments`
+> - `symptoms` / `kramerZone` / `tcb` / `tsb` / `note` 同名透传
+>
+> 客户端 `services/jaundice.ts` 内部双向映射，UI 层继续使用 client 字段名。
+
+### 7a.1 GET /api/babies/:id/jaundice
+
+获取宝宝黄疸记录列表（按 `recordDate` 倒序，默认 100 条）。
+
+**Query**：
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|-----|------|
+| `startDate` | string (ISO) | 否 | 闭区间起 |
+| `endDate` | string (ISO) | 否 | 闭区间止；与 startDate 二选一/同时使用，要求 start ≤ end |
+| `limit` | number | 否 | 默认 100，上限 500 |
+
+**Response 200**：
+
+```json
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "id": "ckxxx",
+        "babyId": "ckxxx",
+        "familyId": "ckxxx",
+        "recordDate": "2026-05-01T00:00:00.000Z",
+        "dayAge": 5,
+        "kramerZone": 3,
+        "scleralIcterus": true,
+        "tcb": 12.3,
+        "tsb": null,
+        "category": "physiologic",
+        "symptoms": ["吃奶正常", "尿色清亮"],
+        "treatments": ["加强喂养", "多晒太阳"],
+        "note": "观察中",
+        "createdBy": "ckxxx",
+        "createdAt": "2026-05-01T03:00:00.000Z",
+        "updatedAt": "2026-05-01T03:00:00.000Z"
+      }
+    ],
+    "total": 1
+  }
+}
+```
+
+### 7a.2 POST /api/babies/:id/jaundice
+
+创建一条黄疸记录。
+
+**Body**：除 `recordDate` 必填，其余全部可选。详见 `server/src/schemas/jaundice.schema.ts`。
+
+| 字段 | 类型 | 校验 |
+|------|------|-----|
+| `recordDate` | string (ISO) | 必填，可解析的日期 |
+| `dayAge` | number | 1 ≤ x ≤ 3650 |
+| `kramerZone` | 1-5 \| null | 5 分区，null 表示未见黄染 |
+| `scleralIcterus` | boolean | — |
+| `tcb` / `tsb` | number | 0 ≤ x ≤ 50 (mg/dL) |
+| `category` | enum | physiologic \| pathologic \| breast_milk \| null |
+| `symptoms` / `treatments` | string[] | 每项 ≤ 32 字符，最多 20 项 |
+| `note` | string | ≤ 500 字符 |
+
+**Response 201**：`{ success: true, data: { record: { ... } } }`，结构与 7a.1 单条一致。
+
+**权限**：`RECORD_CREATE`（admin / editor）。
+
+### 7a.3 GET /api/babies/:id/jaundice/:recordId
+
+获取单条详情。**响应**：`{ success: true, data: { record: { ... } } }`。
+
+### 7a.4 PATCH /api/babies/:id/jaundice/:recordId
+
+部分更新（所有字段可选；至少传一个字段）。可显式传 `null` 清空（如 `note: null`、`kramerZone: null`、`tcb: null`）。
+
+**权限矩阵**：
+
+| 角色 | 改自己创建的 | 改他人创建的 |
+|------|--------------|--------------|
+| admin | ✅ | ✅ |
+| editor | ✅ | ❌ 403 PERMISSION_DENIED |
+| viewer | ❌ 403 | ❌ 403 |
+
+### 7a.5 DELETE /api/babies/:id/jaundice/:recordId
+
+删除一条记录。权限矩阵同 7a.4（admin 可删任意，editor 仅删自己）。
+
+**Response 200**：`{ success: true, data: { message: "已删除" } }`。
+
+### 7a.6 错误码
+
+| HTTP | code | 说明 |
+|------|------|-----|
+| 400 | `INVALID_PARAMS` | recordDate 无法解析 / kramerZone 越界 / category 非法等 |
+| 403 | `PERMISSION_DENIED` | 跨家庭访问 / viewer 创建 / editor 改他人 |
+| 404 | `NOT_FOUND` | 记录不存在或不属于该 baby |
+
+### 7a.7 客户端一次性迁移
+
+老用户（v7.1 及之前）登录后，`MainLayout` 在 `isAuthenticated && babies.length > 0` 后 1.5s 内动态 import `lib/migrations/jaundice-to-cloud`，将 `localStorage["baby_care_jaundice:{babyId}"]` 全量上传，成功后清理对应 key 并 `toast.success("已同步 N 条黄疸记录到云端")`。
+
+迁移幂等：标记 key `baby_care_jaundice_migrated === 'v1'` 时跳过。失败保留 localStorage 下次重试。
+
+---
+
 ## 8. 趋势接口
 
 ### 8.1 GET /api/babies/:id/trends
