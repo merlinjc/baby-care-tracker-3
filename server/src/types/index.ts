@@ -42,6 +42,11 @@ export type {
   UploadKind,
   UploadContext,
   UploadResult,
+  // v7.2+ T-S2-F11 每日打卡
+  DailyCheckin,
+  DailyCheckinListQuery,
+  DailyCheckinCreateInput,
+  DailyCheckinPatchInput,
 } from '@shared/types/index';
 
 export {

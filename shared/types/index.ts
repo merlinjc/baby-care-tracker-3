@@ -371,7 +371,63 @@ export interface UploadResult {
   contentType: string;
 }
 
-// ============ Care Role (育儿角色，用于 AI 个性化) ============
+// ============ Daily Check-in (v7.2+ T-S2-F11) ============
+/**
+ * 每日打卡记录。一个 baby 每天 (checkinDate) 最多一条。
+ *
+ * 字段约定：
+ * - `checkinDate`：本地时区的 YYYY-MM-DD（前端 `lib/daily-checkin-date.todayLocalYmd()`）。
+ *   后端不做时区换算，前端传什么落什么；按字符串字典序可用于范围查询。
+ * - `photoKey`：COS 桶内 key（INF-02 方案 B），展示拼 `/api/uploads/{key}`。
+ * - `aiSummary` / `aiSummaryAt`：AI 自动小记；用户编辑后 `aiSummaryAt = null`，
+ *   UI 用此字段判断"已人工修改"。
+ */
+export interface DailyCheckin {
+  id: string;
+  babyId: string;
+  familyId: string;
+  checkinDate: string; // YYYY-MM-DD
+  photoKey: string;
+  photoWidth: number | null;
+  photoHeight: number | null;
+  caption: string | null;
+  aiSummary: string | null;
+  /** ISO string；null 表示未生成 / 已被用户编辑 */
+  aiSummaryAt: string | null;
+  createdBy: string;
+  creator?: Pick<User, 'id' | 'nickname' | 'avatar'>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 列表查询参数（按月/按区间） */
+export interface DailyCheckinListQuery {
+  /** YYYY-MM-DD 起（含），不传默认本月初 */
+  startDate?: string;
+  /** YYYY-MM-DD 止（含），不传默认本月末 */
+  endDate?: string;
+}
+
+export interface DailyCheckinCreateInput {
+  /** YYYY-MM-DD，必须落在 [today-7d, today] 区间且不早于宝宝出生日 */
+  checkinDate: string;
+  /** 上传后返回的 COS key */
+  photoKey: string;
+  photoWidth?: number;
+  photoHeight?: number;
+  caption?: string;
+}
+
+export interface DailyCheckinPatchInput {
+  photoKey?: string;
+  photoWidth?: number;
+  photoHeight?: number;
+  caption?: string | null;
+  /** 仅前端编辑后置入；后端会同时把 aiSummaryAt 置 null */
+  aiSummary?: string | null;
+}
+
+
 /**
  * 家庭成员在育儿中的角色，用于 AI 洞察 / 对话的人设分支。
  * - 妈妈 / 爸爸：父母视角，侧重喂养作息 + 情感支持

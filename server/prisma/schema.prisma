@@ -28,6 +28,7 @@ model User {
   vaccineRecords    VaccineRecord[]
   milestoneRecords  MilestoneRecord[]
   jaundiceRecords   JaundiceRecord[]
+  dailyCheckins     DailyCheckin[]
   familyMemberships FamilyMember[]
   createdFamilies   Family[]         @relation("FamilyCreator")
 }
@@ -79,6 +80,7 @@ model Baby {
   vaccineRecords   VaccineRecord[]
   milestoneRecords MilestoneRecord[]
   jaundiceRecords  JaundiceRecord[]
+  dailyCheckins    DailyCheckin[]
 
   @@index([familyId])
 }
@@ -235,6 +237,38 @@ model JaundiceRecord {
   creator User @relation(fields: [createdBy], references: [id])
 
   @@index([babyId, familyId, recordDate])
+  @@index([familyId])
+}
+
+/// 每日打卡（v7.2 T-S2-F11）
+///
+/// 产品语义：每个 baby 每天最多一张照片 + AI 小记。
+/// 字段说明：
+///   - checkinDate：本地时区的 YYYY-MM-DD（前端 `daily-checkin-date.todayLocalYmd()`）
+///                 不存 DateTime，避免时区漂移；查询用字符串区间过滤
+///   - photoKey：COS 桶内对象 key（INF-02 方案 B），展示时拼 `/api/uploads/{key}`
+///   - aiSummary：AI 生成的小记（markdown），可被用户编辑
+///   - aiSummaryAt：AI 生成时间；用户编辑后置 null（标识"已人工修改"）
+model DailyCheckin {
+  id          String    @id @default(cuid())
+  babyId      String
+  familyId    String
+  checkinDate String // YYYY-MM-DD（本地时区）
+  photoKey    String // COS key，非 URL
+  photoWidth  Int?
+  photoHeight Int?
+  caption     String?
+  aiSummary   String?
+  aiSummaryAt DateTime?
+  createdBy   String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  baby    Baby @relation(fields: [babyId], references: [id], onDelete: Cascade)
+  creator User @relation(fields: [createdBy], references: [id])
+
+  @@unique([babyId, checkinDate])
+  @@index([babyId, familyId, checkinDate])
   @@index([familyId])
 }
 
