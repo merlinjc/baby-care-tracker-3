@@ -28,6 +28,7 @@ import { FormField } from '@/components/ui/form-field'
 import { SegmentedControl } from '@/components/ui/segmented-control'
 import { BabyAvatar } from '@/components/ui/avatar'
 import { AvatarUploader } from '@/components/avatar-uploader'
+import { useActiveBaby } from '@/hooks/use-active-baby'
 import { staggerContainer, staggerItem, pressableSubtle } from '@/lib/motion'
 import type { Baby, TodayStats } from '@/types'
 
@@ -49,10 +50,10 @@ function getAgeDisplay(birthDate: string): string {
 export function BabyPage() {
   const babies = useBabyStore((s) => s.babies)
   const currentBabyId = useBabyStore((s) => s.currentBabyId)
-  const selectBaby = useBabyStore((s) => s.selectBaby)
   const createBaby = useBabyStore((s) => s.createBaby)
   const updateBaby = useBabyStore((s) => s.updateBaby)
   const deleteBaby = useBabyStore((s) => s.deleteBaby)
+  const { switchBaby } = useActiveBaby()
   const family = useFamilyStore((s) => s.family)
   const { isAdmin, isViewer } = usePermission()
   const confirm = useConfirm()
@@ -376,7 +377,7 @@ export function BabyPage() {
                   <Card
                     as="article"
                     padding="md"
-                    onClick={() => selectBaby(baby.id)}
+                    onClick={() => switchBaby(baby.id)}
                     className="flex items-center gap-3 cursor-pointer"
                     style={
                       isCurrent

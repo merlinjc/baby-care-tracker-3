@@ -5,11 +5,10 @@ import { Check, ChevronDown, Clipboard, Compass, Home, User, UserCircle } from '
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth-store';
-import { useQueryClient } from '@tanstack/react-query';
 import { useFamilyStore } from '@/stores/family-store';
 import { useBabyStore } from '@/stores/baby-store';
+import { useActiveBaby } from '@/hooks/use-active-baby';
 import { Footer } from '@/components/footer';
-import type { Baby } from '@/types';
 import { getAgeLabel } from '@/lib/date';
 import {
   DropdownMenu,
@@ -32,22 +31,15 @@ const navItems = [
 
 /**
  * SidebarBabyCard v7 — 桌面 Sidebar 底部当前宝宝卡（iOS 风圆润）
+ *
+ * v7.2 T-S1-F6-02：selectBaby + 手工 invalidate 切到 useActiveBaby().switchBaby，
+ * 切换同时同步 URL `?babyId=`，保持视觉与交互不变。
  */
 function SidebarBabyCard() {
   const { t } = useTranslation('nav');
-  const babies = useBabyStore((s) => s.babies);
-  const currentBaby = useBabyStore((s) => s.currentBaby);
-  const selectBaby = useBabyStore((s) => s.selectBaby);
-  const queryClient = useQueryClient();
+  const { babies, currentBaby, switchBaby } = useActiveBaby();
 
   if (babies.length === 0) return null;
-
-  const handleSelect = (baby: Baby) => {
-    selectBaby(baby.id);
-    queryClient.invalidateQueries({ queryKey: ['todayStats', baby.id] });
-    queryClient.invalidateQueries({ queryKey: ['records', baby.id] });
-    queryClient.invalidateQueries({ queryKey: ['activeSleep', baby.id] });
-  };
 
   return (
     <DropdownMenu>
@@ -110,7 +102,7 @@ function SidebarBabyCard() {
         {babies.map((baby) => {
           const isCurrent = baby.id === currentBaby?.id;
           return (
-            <DropdownMenuItem key={baby.id} onSelect={() => handleSelect(baby)}>
+            <DropdownMenuItem key={baby.id} onSelect={() => switchBaby(baby.id)}>
               <BabyAvatar baby={baby} size="sm" />
               <div className="flex-1 min-w-0 text-left">
                 <p className="text-[14px] text-[var(--label)] truncate">{baby.name}</p>
@@ -146,6 +138,12 @@ export function MainLayout() {
   const family = useFamilyStore((s) => s.family);
   const loadFamily = useFamilyStore((s) => s.loadFamily);
   const loadBabies = useBabyStore((s) => s.loadBabies);
+
+  // v7.2 T-S1-F6-02：在 layout 顶部统一挂一次 URL ↔ store 同步层。
+  // 子页面 / SidebarBabyCard / BabySwitcher 都只读 store.currentBaby，
+  // 切换时调 useActiveBaby().switchBaby（已挂载副作用，不会重复执行 effect）。
+  // useActiveBaby 内部已无副作用（除了 effect 依赖），返回值此处不需要使用。
+  useActiveBaby();
 
   useEffect(() => {
     if (isAuthenticated) {
