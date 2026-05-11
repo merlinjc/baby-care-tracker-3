@@ -181,9 +181,11 @@ class AuthService {
 
   async updateProfile(
     userId: string,
-    data: { nickname?: string; avatar?: string; preferences?: Record<string, unknown> },
+    data: { nickname?: string; avatar?: string | null; preferences?: Record<string, unknown> },
   ) {
-    // 显式判定 avatar 是否提供：允许传 null / 空串 清空头像
+    // avatar：保持 v7.1 之前的语义——仅当传入非 undefined 时更新。
+    // zod schema 限定 avatar 为可选 URL 字符串；通过 service 内部调用时也支持
+    // 显式传 null 清空头像（F12 会用到）。
     const hasAvatar = Object.prototype.hasOwnProperty.call(data, 'avatar');
 
     // preferences 走深合并：先读旧值，再合并 patch，最后写回 JSON 字符串
