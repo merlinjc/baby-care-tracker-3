@@ -38,6 +38,21 @@ Sprint 1 工程基础 + 内容沉淀第一波：
 | 模块 | 文件 | 说明 |
 |------|------|-----|
 | `migrations/jaundice-to-cloud` | `lib/migrations/jaundice-to-cloud.ts` | F2-5 老用户 localStorage → 云端迁移；幂等（标记 key `baby_care_jaundice_migrated === 'v1'`）；失败保留本地下次重试；MainLayout 用动态 import 触发，不污染入口 chunk；migrated > 0 时 toast |
+| `export-history` | `lib/export-history.ts` | F3-2 导出历史 localStorage（FIFO 上限 10 条）；`listExportHistory / addExportHistory / clearExportHistory / removeExportHistory`；只存元数据 + 文件名，重新下载用相同 params 重发请求 |
+| `onboarding-steps` | `lib/onboarding-steps.ts` | F1-1 新手引导 4 步定义 + `findFirstPendingStep / allStepsResolved` 纯函数；`isAlreadySatisfied` 让老用户自动跳过已达成步骤 |
+
+### v7.2 新增页面（client/src/pages/）
+
+| 页面 | 路径 | 说明 |
+|------|------|-----|
+| `ExportPage` | `/export` | F3 数据导出独立页；4 卡片矩阵 + 主按钮 + 历史列表；旧 `/settings?tab=export` deep link 自动 replace 重定向到 `/export` |
+
+### v7.2 新增业务组件（client/src/components/）
+
+| 组件 | 文件 | 用途 |
+|------|------|-----|
+| `OnboardingOverlay` | `components/onboarding/onboarding-overlay.tsx` | F1-1/3 引导浮层；基于 Radix Dialog；三段式 UI（indicator + icon + title/desc + 按钮组）；SpotlightCutout 用 `box-shadow: 0 0 0 9999px <mask>` 裁切目标区域；`MutationObserver + scrollIntoView` 找到 `[data-onboarding-target="..."]` 元素；3s 找不到自动降级居中卡 |
+| `OnboardingHost` | `components/onboarding/onboarding-host.tsx` | F1-2 触发与状态管理；唯一数据源 `user.preferences.onboardingCompleted / onboardingSkippedSteps`；`?onboarding=1` 强制触发；StrictMode 双触发用 `useRef` 防御；MainLayout 动态 import 不污染入口 chunk |
 
 #### `<ImageUploader>` 用法
 

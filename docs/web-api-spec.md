@@ -1919,18 +1919,49 @@ interface AIQuotaResponse {
 
 ```typescript
 interface ExportQuery {
-  babyId: string;           // 必填，宝宝 ID
-  format: 'csv' | 'json';  // 必填，导出格式
-  recordType?: RecordType;  // 可选，记录类型筛选（不传则导出全部）
-  startDate?: string;       // 可选，开始日期
-  endDate?: string;         // 可选，结束日期
+  babyId: string;            // 必填，宝宝 ID
+  format: 'csv' | 'json';    // 必填，导出格式
+  /**
+   * v7.2+ 多选数据类型：逗号分隔字符串（如 `feeding,sleep,vaccine`）。
+   * 取值范围：feeding | sleep | diaper | temperature | growth | vaccine | milestone | jaundice。
+   * 留空 / 不传 → 默认导出 5 个 Record 子类型（保持 v7.1 行为）。
+   * 与历史 `recordType` 互斥：同时传时 types 优先。
+   */
+  types?: string;
+  /** @deprecated v7.2+ 改用 types；保留以兼容旧前端 */
+  recordType?: RecordType;
+  startDate?: string;        // 可选，开始日期 ISO
+  endDate?: string;          // 可选，结束日期 ISO
 }
 ```
 
 **成功响应** `200`：
 
 - `format=csv`：`Content-Type: text/csv; Content-Disposition: attachment; filename=export_{babyId}_{date}.csv`
+  - v7.2 多选时 CSV 按 section 分块输出，section 之间空行 + `# section: <type>` 注释行：
+    ```
+    # section: records
+    id,recordType,...
+    ...
+
+    # section: vaccines
+    id,name,dose,...
+    ...
+
+    # section: jaundice
+    id,recordDate,...,symptoms,...
+    "...","s1|s2",...    ← symptoms / treatments 数组在 CSV 中以 `|` 分隔
+    ```
 - `format=json`：`Content-Type: application/json; Content-Disposition: attachment; filename=export_{babyId}_{date}.json`
+  - v7.2 多选时返回 `{ records?, vaccines?, milestones?, jaundice? }`，未选中的字段不出现：
+    ```jsonc
+    {
+      "records": [/* feeding/sleep/diaper/temperature/growth */],
+      "vaccines": [/* ... */],
+      "milestones": [/* ... */],
+      "jaundice": [/* symptoms/treatments 已还原为数组 */]
+    }
+    ```
 
 **权限要求**：家庭成员均可导出
 
@@ -1943,8 +1974,18 @@ interface ExportQuery {
 | 401 | `UNAUTHORIZED` | 未认证 |
 | 403 | `PERMISSION_DENIED` | 非家庭成员 |
 | 404 | `BABY_NOT_FOUND` | 宝宝不存在 |
-| 422 | `VALIDATION_ERROR` | 参数校验失败 |
+| 422 | `VALIDATION_ERROR` | 参数校验失败 / types 包含未知类型 |
 | 429 | `RATE_LIMITED` | 导出次数超限 |
+
+### 10.2 客户端导出独立页 `/export`（v7.2+ T-S1-F3）
+
+替代旧 `/settings?tab=export` 的简易入口，提供：
+
+- 4 卡片矩阵：宝宝（多胎切换）/ 范围（7d/30d/90d/all/custom）/ 类型（8 个 Checkbox）/ 格式（CSV/JSON）
+- 「开始导出」按钮：`exportService.exportData({...}, onProgress)`
+- 历史列表：`localStorage["baby_care_export_history"]` FIFO 上限 10 条；
+  支持「重新下载」（用同样的 params 重发请求，不依赖 7d 链接）
+- 旧 deep link `/settings?tab=export` 自动 `replace` 重定向到 `/export`
 
 ---
 

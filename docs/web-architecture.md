@@ -526,6 +526,80 @@ babies[0]              ← 兜底
 
 ---
 
+### 5.10 数据导出独立页（v7.2 T-S1-F3）
+
+**演进**：v7.1 导出功能寄生在 `Settings → 资料 tab` 内，仅 2 个按钮（CSV / JSON），固定导出当前 baby 全部 5 类 Record 数据，不可选范围 / 不可选类型 / 没有历史。v7.2 拆出独立页 `/export`，配套后端多类型扩展。
+
+**前端**：`client/src/pages/export/index.tsx`：
+
+- 4 张选择卡片：宝宝 / 时间范围（7d/30d/90d/all/custom）/ 数据类型（8 个 Checkbox）/ 导出格式（CSV/JSON）
+- 类型 8 选：feeding / sleep / diaper / temperature / growth / vaccine / milestone / jaundice
+- 进度：`exportService.exportData(params, onProgress)` 接 axios `onDownloadProgress`，按钮文案显示百分比
+- 历史：`lib/export-history.ts` localStorage FIFO 上限 10 条；只存"文件名 + 元数据 + types[]"，重新下载用相同 params 重发请求（**不依赖后端 7d 链接**）
+- 旧 deep link `/settings?tab=export` 在 SettingsPage 挂载时检测并 `replace` 重定向到 `/export`
+
+**后端**：`server/src/services/export.service.ts`：
+
+- 新增 `types[]` 多选参数（zod schema 用 `.transform` 把逗号分隔字符串解析为 enum 数组）
+- 保留 `recordType` 单选向后兼容（types 优先）
+- 多类型聚合输出：
+  - JSON：`{ records?, vaccines?, milestones?, jaundice? }`，未选中字段不出现，避免误用
+  - CSV：多 section 输出，section 之间空行 + `# section: <type>` 注释行；jaundice 的 `symptoms / treatments` 数组在 CSV 中以 `|` 分隔
+- 时间窗 `startDate / endDate` 同时作用于 4 张表（Record.startTime / Vaccine.vaccinatedDate / Milestone.achievedDate / Jaundice.recordDate）
+- 跨家庭隔离：`getFamilyIdForUser` + `baby.familyId` 校验
+
+---
+
+### 5.11 首次使用引导（v7.2 T-S1-F1）
+
+**目标**：新账号首次登录看到 4 步引导（添加宝宝 / 邀请家人 / 记录第一条 / 试问 AI），引导自动跳过老用户已满足的步骤；跳过 / 完成跨设备生效。
+
+**步骤定义**：`client/src/lib/onboarding-steps.ts`：
+
+```typescript
+export const ONBOARDING_STEPS: OnboardingStep[] = [
+  { id: 'create-baby', targetPath: '/baby', skippable: false,
+    isAlreadySatisfied: (ctx) => ctx.babiesCount > 0 },
+  { id: 'invite-family', targetPath: '/family', skippable: true,
+    isAlreadySatisfied: (ctx) => ctx.familyMemberCount > 1 },
+  { id: 'first-record', target: '[data-onboarding-target="add-record-fab"]',
+    targetPath: '/record', skippable: true,
+    isAlreadySatisfied: (ctx) => ctx.hasAnyRecord },
+  { id: 'try-ai', targetPath: '/ai-assistant', skippable: true },
+]
+```
+
+**触发链路**：
+
+```
+MainLayout 挂载
+  └→ <Suspense><OnboardingHostLazy /></Suspense>   ← 动态 import 不污染入口 chunk
+       └→ OnboardingHost 决策（StrictMode 防御 useRef）
+            ├→ user.preferences.onboardingCompleted ? 不弹
+            ├→ 计算 ctx { babiesCount, familyMemberCount, hasAnyRecord }
+            │     └→ hasAnyRecord 用 firstBabyId 查 1 条记录，React Query 缓存 30s
+            ├→ findFirstPendingStep(ctx, skipped) === -1 ? 静默 PATCH onboardingCompleted=true
+            └→ 找到 pending step i ? 打开 OnboardingOverlay（stepIndex=i）
+```
+
+**Overlay 实现**：`components/onboarding/onboarding-overlay.tsx`：
+
+- 基于 Radix Dialog（焦点陷阱 / Esc / aria-modal 全部交给 radix）
+- 三段式：步骤 indicator（动态宽圆点） / Lucide icon + title + description / 按钮组
+- 目标元素高亮：`querySelector(step.target)` + `getBoundingClientRect`，用 `box-shadow: 0 0 0 9999px <mask>` 在矩形外侧绘制半透蒙层，矩形内部留白 + brand 描边
+- `MutationObserver` + `scrollIntoView`：目标元素未渲染时持续观察 DOM；视口外自动滚入；3s 兜底降级为居中卡（不影响主流程）
+- 用户行为：「下一步」/「跳过此步」/「去试试」/「Esc / 关闭」/「完成」
+
+**状态保存**：
+
+- 完成 / 跳过整个流程 → `PATCH /api/auth/profile { preferences: { onboardingCompleted: true, onboardingSkippedSteps: [...] } }`
+- 单步跳过 → 仅追加 `onboardingSkippedSteps`（不结束流程，下次启动按 skipped 过滤）
+- localStorage 不另存任何引导状态（避免双向同步）；强制触发用 `?onboarding=1`
+
+**强制触发 / 测试**：访问 `https://app/?onboarding=1` 即使 `onboardingCompleted=true` 也会重新弹；用户操作（go / skip-all / complete）后会自动 replace URL 清除该参数。
+
+---
+
 ## 6. 文件依赖图
 
 详见 [`specs/web-feature-parity/design.md` §9 文件变更清单](../specs/web-feature-parity/design.md)。

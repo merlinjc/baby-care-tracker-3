@@ -398,7 +398,7 @@ T-S1-REL-01    Sprint 1 验收与打 tag
 
 ## 8. F3 · 导出独立页（1.5d）
 
-### T-S1-F3-01 ⬜ 路由 + 页面骨架 + i18n 文案
+### T-S1-F3-01 ✅ 路由 + 页面骨架 + i18n 文案
 **类型**：feat
 **预估**：0.5d
 **依赖**：T-S1-F9-01 / T-S1-F8-01
@@ -412,7 +412,7 @@ T-S1-REL-01    Sprint 1 验收与打 tag
 
 ---
 
-### T-S1-F3-02 ⬜ 导出交互 + 历史列表
+### T-S1-F3-02 ✅ 导出交互 + 历史列表
 **类型**：feat
 **预估**：0.6d
 **依赖**：T-S1-F3-01
@@ -431,7 +431,7 @@ T-S1-REL-01    Sprint 1 验收与打 tag
 
 ---
 
-### T-S1-F3-03 ⬜ 黄疸数据类型纳入导出
+### T-S1-F3-03 ✅ 黄疸数据类型纳入导出
 **类型**：feat
 **预估**：0.4d
 **依赖**：T-S1-F3-02 + T-S1-F2-02
@@ -478,7 +478,7 @@ T-S1-REL-01    Sprint 1 验收与打 tag
 
 ## 10. F1 · 首次使用引导（1.5d）
 
-### T-S1-F1-01 ⬜ OnboardingStep 数据 + Overlay 组件
+### T-S1-F1-01 ✅ OnboardingStep 数据 + Overlay 组件
 **类型**：feat
 **预估**：0.5d
 **依赖**：T-S1-F8-01
@@ -492,7 +492,7 @@ T-S1-REL-01    Sprint 1 验收与打 tag
 
 ---
 
-### T-S1-F1-02 ⬜ App.tsx 触发逻辑 + preferences 写入
+### T-S1-F1-02 ✅ App.tsx 触发逻辑 + preferences 写入
 **类型**：feat
 **预估**：0.4d
 **依赖**：T-S1-F1-01 + T-S1-INF-01
@@ -506,7 +506,7 @@ T-S1-REL-01    Sprint 1 验收与打 tag
 
 ---
 
-### T-S1-F1-03 ⬜ 目标元素 onboarding-target 锚点 + 高亮
+### T-S1-F1-03 ✅ 目标元素 onboarding-target 锚点 + 高亮
 **类型**：feat
 **预估**：0.3d
 **依赖**：T-S1-F1-01
@@ -519,7 +519,7 @@ T-S1-REL-01    Sprint 1 验收与打 tag
 
 ---
 
-### T-S1-F1-04 ⬜ a11y 校验 + 跨设备验证
+### T-S1-F1-04 ✅ a11y 校验 + 跨设备验证
 **类型**：test
 **预估**：0.3d
 **依赖**：T-S1-F1-01..03
@@ -595,15 +595,15 @@ T-S1-REL-01    Sprint 1 验收与打 tag
 | T-S1-F2-03 | F2 | 前端 service + hooks | 0.3d | ✅ |
 | T-S1-F2-04 | F2 | JaundicePage 数据源迁移 | 0.4d | ✅ |
 | T-S1-F2-05 | F2 | localStorage 一次性迁移 | 0.3d | ✅ |
-| T-S1-F3-01 | F3 | 导出页骨架 + 路由 + i18n | 0.5d | ⬜ |
-| T-S1-F3-02 | F3 | 导出交互 + 历史列表 | 0.6d | ⬜ |
-| T-S1-F3-03 | F3 | 黄疸数据纳入导出 | 0.4d | ⬜ |
+| T-S1-F3-01 | F3 | 导出页骨架 + 路由 + i18n | 0.5d | ✅ |
+| T-S1-F3-02 | F3 | 导出交互 + 历史列表 | 0.6d | ✅ |
+| T-S1-F3-03 | F3 | 黄疸数据纳入导出 | 0.4d | ✅ |
 | T-S1-F6-01 | F6 | useActiveBaby hook | 0.2d | ✅ |
 | T-S1-F6-02 | F6 | MainLayout / BabySwitcher 接入 | 0.3d | ✅ |
-| T-S1-F1-01 | F1 | OnboardingOverlay 组件 | 0.5d | ⬜ |
-| T-S1-F1-02 | F1 | App 触发 + preferences 写入 | 0.4d | ⬜ |
-| T-S1-F1-03 | F1 | 目标元素锚点 + 高亮 | 0.3d | ⬜ |
-| T-S1-F1-04 | F1 | 跨设备 + a11y 验证 | 0.3d | ⬜ |
+| T-S1-F1-01 | F1 | OnboardingOverlay 组件 | 0.5d | ✅ |
+| T-S1-F1-02 | F1 | App 触发 + preferences 写入 | 0.4d | ✅ |
+| T-S1-F1-03 | F1 | 目标元素锚点 + 高亮 | 0.3d | ✅ |
+| T-S1-F1-04 | F1 | 跨设备 + a11y 验证 | 0.3d | ✅ |
 | T-S1-DOC-01 | DOC | architecture / coding-conventions | 0.3d | ⬜ |
 | T-S1-DOC-02 | DOC | api-spec / component-library | 0.3d | ⬜ |
 | T-S1-DOC-03 | DOC | devops + i18n-guide + README | 0.3d | ⬜ |
