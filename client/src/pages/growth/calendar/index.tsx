@@ -15,20 +15,26 @@ import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
 import { useBabyStore } from '@/stores/baby-store'
+import { useAuthStore } from '@/stores/auth-store'
+import { useFamilyStore } from '@/stores/family-store'
+import { usePermission } from '@/hooks/use-permission'
 import { LargeTitleHeader } from '@/components/ui/large-title-header'
 import { Card } from '@/components/ui/card'
 import { GrowthCalendar } from '@/components/growth-calendar/growth-calendar'
 import { CalendarMonthSwitcher } from '@/components/growth-calendar/calendar-month-switcher'
+import { DailyCheckinDetail } from '@/components/daily-checkin/daily-checkin-detail'
 import { useDailyCheckins } from '@/hooks/use-daily-checkins'
+import { relationToCareRole } from '@/lib/care-role'
 import {
   todayLocalYmd,
   getNextMonth,
   getPreviousMonth,
+  isValidYmd,
 } from '@/lib/daily-checkin-date'
 import type { CalendarCellState } from '@/components/growth-calendar/calendar-cell'
-import type { DailyCheckin } from '@/types'
+import type { CareRole, DailyCheckin } from '@/types'
 
-/** 解析 ?year & ?month；非法时 fallback 当前月 */
+/** 解析 ?year & ?month；非法时回退：优先用 ?date 所在月，否则当前月 */
 function parseYearMonth(
   search: URLSearchParams,
 ): { year: number; month: number } {
@@ -37,15 +43,24 @@ function parseYearMonth(
   const fallbackM = today.getMonth() + 1
   const y = Number(search.get('year'))
   const m = Number(search.get('month'))
-  const validY = Number.isInteger(y) && y >= 2000 && y <= 2100 ? y : fallbackY
-  const validM = Number.isInteger(m) && m >= 1 && m <= 12 ? m : fallbackM
-  return { year: validY, month: validM }
+  if (Number.isInteger(y) && y >= 2000 && y <= 2100 && Number.isInteger(m) && m >= 1 && m <= 12) {
+    return { year: y, month: m }
+  }
+  // 退化用 ?date 所在月
+  const dateParam = search.get('date')
+  if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+    return { year: Number(dateParam.slice(0, 4)), month: Number(dateParam.slice(5, 7)) }
+  }
+  return { year: fallbackY, month: fallbackM }
 }
 
 export function GrowthCalendarPage() {
   const { t } = useTranslation('daily-checkin')
   const [search, setSearch] = useSearchParams()
   const currentBaby = useBabyStore((s) => s.currentBaby)
+  const user = useAuthStore((s) => s.user)
+  const family = useFamilyStore((s) => s.family)
+  const { canEdit, isAdmin } = usePermission()
 
   const [{ year, month }, setYearMonth] = useState(() => parseYearMonth(search))
 
@@ -102,23 +117,40 @@ export function GrowthCalendarPage() {
   const { data } = useDailyCheckins({ babyId: currentBaby?.id, year, month })
   const monthCount = data?.items.length ?? 0
 
-  // FE-03 占位：点击 cell 时记录 ymd 等待 FE-04 详情抽屉接管
+  // 详情抽屉日期来自 URL ?date=
+  const openDate = search.get('date')
+  const isOpen = !!openDate && isValidYmd(openDate)
+
+  const careRole: CareRole = useMemo(() => {
+    const me = family?.members?.find((m) => m.userId === user?.id)
+    return relationToCareRole(me?.relation ?? null) ?? 'other'
+  }, [family, user?.id])
+
+  // FE-04：cell 点击 → 设置 ?date=YYYY-MM-DD 打开详情抽屉
   const handleCellClick = useCallback(
     (ymd: string, state: CalendarCellState, _c?: DailyCheckin) => {
-      // FE-04 将替换为：打开详情抽屉 / 触发 PhotoUploader 直接补打卡
-      // 这里先做最小可用：把 date 写到 URL，FE-04 detail-drawer 监听同样的 query
       if (state === 'checked' || state === 'supplement') {
         setSearch(
           (prev) => {
             prev.set('date', ymd)
             return prev
           },
-          { replace: true },
+          { replace: false }, // 详情打开走 history.push，便于安卓物理返回键关闭
         )
       }
     },
     [setSearch],
   )
+
+  const handleDetailClose = useCallback(() => {
+    setSearch(
+      (prev) => {
+        prev.delete('date')
+        return prev
+      },
+      { replace: false },
+    )
+  }, [setSearch])
 
   if (!currentBaby) {
     return (
@@ -161,6 +193,21 @@ export function GrowthCalendarPage() {
           onCellClick={handleCellClick}
         />
       </Card>
+
+      {/* 单日详情抽屉（FE-04） */}
+      {family && openDate && (
+        <DailyCheckinDetail
+          open={isOpen}
+          onClose={handleDetailClose}
+          babyId={currentBaby.id}
+          familyId={family.id}
+          date={openDate}
+          currentUserId={user?.id}
+          canEdit={canEdit}
+          isAdmin={isAdmin}
+          role={careRole}
+        />
+      )}
     </div>
   )
 }

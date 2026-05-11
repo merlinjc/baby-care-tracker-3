@@ -9,8 +9,9 @@
  * - WHO 参考线 + 颜色保留（以业务色重映射）
  */
 import { useState, useEffect, useMemo } from 'react'
-import { Info, PlusCircle, TrendingUp } from 'lucide-react';
+import { Info, PlusCircle, TrendingUp, Calendar as CalendarIcon } from 'lucide-react';
 import { motion } from 'framer-motion'
+import { Link } from 'react-router-dom'
 import { useBabyStore } from '@/stores/baby-store'
 import { trendService } from '@/services/baby-extra'
 import { GrowthDialog } from '@/components/growth-dialog'
@@ -177,14 +178,25 @@ export function GrowthPage() {
           }
           backTo="/discover"
           rightAction={
-            <Button
-              variant="tinted"
-              size="sm"
-              leftIcon={<PlusCircle className="h-3.5 w-3.5" />}
-              onClick={growthDialog.openDialog}
-            >
-              记录
-            </Button>
+            <div className="flex items-center gap-2">
+              <Link to="/growth/calendar" aria-label="成长日历">
+                <Button
+                  variant="plain"
+                  size="sm"
+                  leftIcon={<CalendarIcon className="h-3.5 w-3.5" />}
+                >
+                  日历
+                </Button>
+              </Link>
+              <Button
+                variant="tinted"
+                size="sm"
+                leftIcon={<PlusCircle className="h-3.5 w-3.5" />}
+                onClick={growthDialog.openDialog}
+              >
+                记录
+              </Button>
+            </div>
           }
         />
       </motion.div>
