@@ -20,7 +20,7 @@ export type {
   // v7.2+ 用户个性化偏好
   UserPreferences,
   // v7.2+ 文件上传
-  UploadKind, UploadContext, PresignResult, PresignRequest,
+  UploadKind, UploadContext, UploadResult,
 } from '@baby-care-tracker/shared'
 
 export { Permission } from '@baby-care-tracker/shared'

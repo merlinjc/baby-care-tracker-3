@@ -144,63 +144,77 @@ baby-care-tracker-web/
 | `AI_DAILY_QUOTA` | 否 | 默认 `100` |
 | `AI_FETCH_TIMEOUT_MS` | 否 | 默认 `30000`（ms） |
 | `PATROL_ENABLED` | 否 | 默认 `false` |
-| `COS_SECRET_ID` | 否 | 启用图片上传必填；缺失时 `/api/uploads/presign` 返回 503，前端优雅降级 |
+| `COS_SECRET_ID` | 否 | 启用图片上传必填；缺失时 `/api/uploads` 返回 503，前端优雅降级 |
 | `COS_SECRET_KEY` | 否 | 同上 |
-| `COS_BUCKET` | 否 | 桶名，形如 `baby-care-1234567890`（含 APPID 后缀） |
-| `COS_REGION` | 否 | 形如 `ap-shanghai` |
-| `COS_PUBLIC_BASE_URL` | 否 | 可选 CDN 域名；不填用默认 `https://{bucket}.cos.{region}.myqcloud.com` |
-| `COS_PRESIGN_EXPIRES` | 否 | 预签名有效期（秒），默认 `300`（5 分钟），范围 60-3600 |
+| `COS_BUCKET` | 否 | 桶名，形如 `babycare-1300015547`（含 APPID 后缀） |
+| `COS_REGION` | 否 | 形如 `ap-beijing` |
+| `COS_MAX_UPLOAD_BYTES` | 否 | 服务端单文件最大字节数（multer + service 双层校验），默认 `2097152`（2MB） |
+| `COS_DOWNLOAD_CACHE_MAX_AGE` | 否 | 下载代理 Cache-Control max-age（秒），默认 `86400`（1 天）；设 0 禁用缓存 |
 
 ---
 
-### 4.4 腾讯云 COS 配置流程（v7.2+ 头像 / 打卡照片）
+### 4.4 腾讯云 COS 配置流程（v7.2+ 服务端代理模式）
+
+**架构提醒**：v7.2 起 COS 走 **服务端代理模式**——所有上传 / 下载经 Express，密钥永远不暴露给客户端。这与第三方"客户端直传"的常见做法**显式不同**，请勿配置桶为公有读或开 CORS（不必要）。
 
 **何时需要**：启用 F12 用户头像、Sprint 2 F11 每日打卡照片等图片上传功能。
-**何时跳过**：仅做核心记录功能、不需要图片上传时，可暂不配置；前端会优雅降级为默认头像。
+**何时跳过**：仅做核心记录功能、不需要图片上传时，可暂不配置；缺配置时 `/api/uploads` 返回 503，前端会优雅降级为默认头像。
 
 **步骤**：
 
 1. **建桶**：[腾讯云 COS 控制台](https://console.cloud.tencent.com/cos/bucket) → 创建存储桶
-   - 区域：与服务器同区（推荐 `ap-shanghai`，与 Lighthouse 一致）
-   - 访问权限：**公有读私有写**（公网通过 publicUrl 直接读图，写入由我方服务端预签名控制）
-   - 命名：建议 `baby-care-{env}-{appid}`，避免与其他项目冲突
+   - 区域：与服务器同区（生产 `ap-beijing`，与 Lighthouse 一致）
+   - 访问权限：**私有读私有写**（所有访问经我方服务端代理，密钥不暴露）
+   - 命名：形如 `babycare-{appid}`，APPID 后缀由腾讯云自动追加
 
-2. **配置 CORS**：桶概览 → 跨域访问 CORS 设置 → 添加规则
-   ```
-   来源 Origin: https://www.neo3.cn,http://localhost:5173
-   方法 Methods: PUT,GET,HEAD
-   Headers: *
-   Max-Age: 3600
-   ```
-   不配置 CORS 会导致前端 PUT 直传被浏览器拦截。
+2. **CORS 设置**：**不需要配置**。
+   - 服务端代理模式下，浏览器只与我方域名通信，不会跨域请求 COS
+   - 如果你之前配过 CORS，可以保留也可以移除，对功能无影响
 
-3. **创建 API 密钥**：[访问管理控制台](https://console.cloud.tencent.com/cam/capi) → 新建子账号 + AccessKey
-   - 权限策略：建议自定义策略仅授予 `cos:PutObject` / `cos:GetObject` / `cos:HeadObject` 对该桶的权限，最小权限原则
-   - 不要使用主账号密钥（泄露风险大）
+3. **创建 API 密钥**：[访问管理控制台](https://console.cloud.tencent.com/cam/capi)
+   - 推荐做法：**新建子账号** + 生成 AccessKey，**不要用主账号密钥**
+   - 权限策略：自定义策略，仅授予对该桶的 `cos:PutObject` / `cos:GetObject` / `cos:HeadObject` / `cos:DeleteObject` 权限（最小权限原则）
+   - 桶资源：`qcs::cos:ap-beijing:uid/xxx:babycare-1300015547/*`
 
 4. **写入服务器 `docker/.env`**：
    ```bash
    COS_SECRET_ID=YOUR_TENCENT_CLOUD_SECRET_ID_HERE
    COS_SECRET_KEY=YOUR_TENCENT_CLOUD_SECRET_KEY_HERE
-   COS_BUCKET=baby-care-prod-1234567890
-   COS_REGION=ap-shanghai
-   # COS_PUBLIC_BASE_URL=https://cdn.neo3.cn   # 可选 CDN 加速
+   COS_BUCKET=babycare-1300015547
+   COS_REGION=ap-beijing
+   COS_MAX_UPLOAD_BYTES=2097152      # 服务端兜底 2MB（客户端会先压到 ~1MB）
+   COS_DOWNLOAD_CACHE_MAX_AGE=86400  # 浏览器缓存 1 天
    ```
 
 5. **重启服务**：`pnpm remote restart` 或 deploy.sh 触发的 docker compose up
 
 6. **验证**：
    ```bash
-   # 不带凭证应得 503
-   curl -X POST https://www.neo3.cn/api/uploads/presign \
-     -H 'Content-Type: application/json' \
-     -d '{"kind":"avatar","ext":"jpg"}'
-   # 期望：401 UNAUTHORIZED（说明路由通了）
+   # 路由通了应得 401（缺 token）
+   curl -i -X POST https://www.neo3.cn/api/uploads
+   # → 401 UNAUTHORIZED
 
-   # 配完凭证后，带 token 应得 200 + uploadUrl
+   # 缺凭证（在 .env 故意置空）应得 503
+   curl -i -X POST https://www.neo3.cn/api/uploads \
+     -H 'Authorization: Bearer <test-jwt>' \
+     -F 'file=@./test.jpg' -F 'kind=avatar' -F 'ext=jpg'
+   # → 503 UPLOAD_NOT_CONFIGURED
+
+   # 配完凭证 + 带 token 应得 201 + { key, size, contentType }
    ```
 
-**降级行为**：缺任一 `COS_*` 字段 → `/api/uploads/presign` 返回 503 `UPLOAD_NOT_CONFIGURED` → 前端 ImageUploader 静默 toast 提示，不阻塞主流程。
+7. **下载验证**：用上一步返回的 key 直接 GET：
+   ```bash
+   curl -i https://www.neo3.cn/api/uploads/avatars/u1/abc.jpg \
+     -H 'Authorization: Bearer <test-jwt>'
+   # → 200 + Content-Type: image/jpeg + 流式 body
+   ```
+
+**Nginx 提示**：
+- 上传：`client_max_body_size 4m;`（COS_MAX_UPLOAD_BYTES 的 2x，给 multipart boundary 留余量）
+- 下载：`proxy_buffering on;`（让 nginx 帮忙缓冲流式响应）；`proxy_cache` 可选（key 是 immutable，加 nginx cache 能挡住重复回源 COS 的流量）
+
+**降级行为**：缺任一 `COS_*` 字段 → `/api/uploads` 返回 503 `UPLOAD_NOT_CONFIGURED` → 前端 ImageUploader toast 提示「图片上传服务未配置，请联系管理员」，主流程不阻塞，默认头像仍可显示。
 
 ---
 

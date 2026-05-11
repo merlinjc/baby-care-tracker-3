@@ -122,50 +122,77 @@ T-S1-REL-01    Sprint 1 验收与打 tag
 
 ---
 
-### T-S1-INF-02 ✅ COS 预签名上传链路（后端 + 前端通用组件）
+### T-S1-INF-02 ✅ COS 服务端代理上传/下载链路（后端 + 前端通用组件）
 **类型**：feat
 **预估**：1d
-**实际**：0.6d
+**实际**：1.0d（含一次方案重构）
 **依赖**：—（DevOps 配桶可与开发并行）
 **完成日期**：2026-05-11
-**输出**：
+
+> **方案演进**：最初按方案 A（前端直传 COS + 预签名 URL）落地，PR review 后切到**方案 B：服务端代理上传 + 服务端代理下载，桶私有**。原因：
+> - 桶私有 → 防止图片被外部枚举/盗链
+> - 客户端不持有任何 COS 凭证或预签名 URL
+> - 下载走 `/api/uploads/{key}` + JWT cookie，与现有鉴权体系一致，可走 CDN 缓存
+> - 牺牲：服务端走一道流量（图片压缩到 ≤1MB 后已可控）
+
+**输出**（方案 B 最终态）：
 
 后端：
-- `server/src/services/upload.service.ts`：`createPresignedUpload(userId, kind, ext, ctx)` + 内部纯函数 helper（normalizeExt / validateContext / buildKey / buildPublicUrl）
-- `server/src/routes/uploads.ts`：`POST /api/uploads/presign`（authenticate + presignRateLimit + zod validate）
-- `server/src/schemas/upload.schema.ts`：Zod schema 含 ext 格式 + date YYYY-MM-DD 校验
-- `server/src/middleware/rate-limit-persistent.ts`：新增 `presignRateLimit`（20 次/分钟/用户）
+- `server/src/services/upload.service.ts`：
+  - `putObject(userId, kind, ext, buffer, ctx, contentType?)`：multipart 上传后调 COS putObject
+  - `getObjectStream(key)`：返回 `{ stream, contentType, contentLength }`，pipe 到 res 零内存累积
+  - `isValidKey(key)`：防 path traversal（拒绝 `..` / 绝对路径 / 非法字符）
+  - 内部纯函数 helper：`normalizeExt / validateContext / buildKey / parseContentType`
+- `server/src/routes/uploads.ts`：
+  - `POST /api/uploads`：authenticate + presignRateLimit + multer.single('file') + multerErrorHandler + validateBody(uploadFieldsSchema) → `putObject` → 返回 `{ key, size, contentType }`
+  - `GET /api/uploads/*`（Express 4 通配符 `req.params[0]`）：authenticate → `getObjectStream` → 设置 Cache-Control immutable max-age=86400 → pipe
+- `server/src/schemas/upload.schema.ts`：`uploadFieldsSchema`（form fields，含 ext 白名单 + date YYYY-MM-DD 校验）
+- `server/src/middleware/rate-limit-persistent.ts`：`presignRateLimit`（20 次/分钟/用户，沿用名称避免 ripple）
 - `server/src/routes/index.ts`：挂载 `/uploads`
-- `server/src/config/env.ts`：新增 `COS_SECRET_ID/KEY/BUCKET/REGION/PUBLIC_BASE_URL/PRESIGN_EXPIRES`
-- `server/src/types/errors.ts`：新增 `UPLOAD_NOT_CONFIGURED / UPLOAD_INVALID_EXT / UPLOAD_MISSING_CONTEXT` 错误码
-- `server/.env.example` + `docker/.env.example`：补 COS 配置段
-- `server/package.json`：+ `cos-nodejs-sdk-v5`
-- `tests/unit/upload-service.test.ts`：22 个用例覆盖 isConfigured / normalizeExt 白名单 / validateContext / buildKey / buildPublicUrl / createPresignedUpload mock COS
+- `server/src/config/env.ts`：`COS_SECRET_ID / COS_SECRET_KEY / COS_BUCKET / COS_REGION / COS_MAX_UPLOAD_BYTES`(默认 2MB) / `COS_DOWNLOAD_CACHE_MAX_AGE`(默认 86400s)
+- `server/src/types/errors.ts`：`UPLOAD_NOT_CONFIGURED / UPLOAD_INVALID_EXT / UPLOAD_MISSING_CONTEXT / UPLOAD_TOO_LARGE`
+- `server/.env.example` + `docker/.env.example`：补 COS 配置段（不含密钥）
+- `server/package.json`：+ `cos-nodejs-sdk-v5` + `multer`（含 @types）
+- `tests/unit/upload-service.test.ts`：27 个用例覆盖 isConfigured / normalizeExt / validateContext / buildKey / isValidKey / putObject mock / parseContentType
 
 前端：
-- `client/src/services/upload.ts`：`uploadService.upload(file, kind, ctx, options)`，含 browser-image-compression 压缩 + EXIF 剥离 + XHR 直传 COS（含 onProgress）
-- `client/src/components/ui/image-uploader.tsx`：通用 render-prop 单图上传组件 + 默认按钮 fallback
+- `client/src/services/upload.ts`：
+  - `uploadService.upload(file, kind, ctx, options)`：browser-image-compression 压缩到 ≤1MB + EXIF GPS 剥离 → axios POST FormData 到 `/api/uploads`（带 `onUploadProgress`）→ 返回 `{ key, size, contentType }`
+  - `buildImageUrl(keyOrUrl)`：把 key 拼成 `/api/uploads/{key}`，对 `http(s)://` 开头的老数据原样返回
+- `client/src/components/ui/image-uploader.tsx`：通用 render-prop 单图上传组件，`onChange(key)` 回传 **桶内 key**（不是 URL！）
 - `client/package.json`：+ `browser-image-compression`
-- 类型：`shared/types/index.ts` 新增 `UploadKind / UploadContext / PresignResult / PresignRequest`
+- 类型：`shared/types/index.ts` 新增 `UploadKind / UploadContext / UploadResult`（取代方案 A 的 `PresignResult / PresignRequest`）
 - `server/src/types/index.ts` + `client/src/types/index.ts` re-export
 
 **关键设计决策**：
-- **直传模式**：前端 → COS（PUT），后端不接收文件 → 零内存压力
-- **缺配置降级**：任一 COS_* 字段缺失返回 503 `UPLOAD_NOT_CONFIGURED`，前端 toast 提示且保留原 value 不阻塞主流程
-- **EXIF GPS 剥离**：客户端压缩前 `preserveExif: false`，避免照片元数据泄露宝宝家庭地址
+- **服务端代理双向**：上传走 `POST /api/uploads`（multipart），下载走 `GET /api/uploads/*` 流式 pipe；桶完全私有，无 CORS / 公共域名
+- **凭证只在服务端**：`COS_SECRET_ID/KEY` 仅服务端持有，客户端无任何 COS 接触
+- **缺配置降级**：任一 COS_* 字段缺失，路由层返回 503 `UPLOAD_NOT_CONFIGURED`，前端 toast 提示且保留原 value 不阻塞主流程
+- **客户端压缩到 ≤1MB**：avatar/baby-avatar 长边 512px、daily-checkin 1080px；服务端兜底 2MB（`COS_MAX_UPLOAD_BYTES`），multer LIMIT_FILE_SIZE 转 `UPLOAD_TOO_LARGE`
+- **EXIF GPS 剥离**：`preserveExif: false`，避免照片元数据泄露宝宝家庭地址
+- **DB 字段语义变更**：`User.avatar / Baby.avatar` 等字段从"绝对 URL"改为"桶内 key"；`buildImageUrl()` 兼容历史 URL 数据
+- **下载缓存**：32 字符 hex key 不复用 → `Cache-Control: public, max-age=86400, immutable` 安全
 - **Key 不可枚举**：randomUUID 32 字符 hex 后缀
 - **ext 白名单**：jpg / jpeg / png / webp，jpeg 归一化为 jpg
-- **限流**：20 次/分钟/用户
+- **限流**：20 次/分钟/用户（仅上传）
 
 **测试结果**：
-- 后端单元 22/22 通过；server 全套 107/107（baseline 85 + INF-02 22）
-- 前端 build 通过；现有 chunk 体积无变化（F12 接入前 service / component 都未被使用）
+- 后端单元 27/27 通过；server 全套 **112/112**（baseline 85 + INF-01 10 + INF-02 27 - 已并入）
+- 前端 build 通过：入口 chunk gzip 仍维持 15.68 KB
 
 **为后续铺路**：
 - F12 用户/Baby 头像直接复用 `<ImageUploader kind="avatar|baby-avatar">`
 - Sprint 2 F11 每日打卡照片复用 `<ImageUploader kind="daily-checkin">`，无需再造轮子
+- 桶私有 + 服务端代理也是 v8 EdgeOne / 多区域 CDN 的前置条件
 
-**PR 标题**：`feat(uploads): COS 预签名上传链路 + ImageUploader 通用组件（T-S1-INF-02）`
+**文档**：
+- `docs/web-api-spec.md §11`：完整 11.1 上传 / 11.2 下载 / 11.3 DB 字段语义
+- `docs/web-architecture.md §5.7`：上传/下载链路图 + DB 字段对照
+- `docs/devops-workflow.md §4.3 §4.4`：私有桶配置（不需 CORS）+ 验证步骤 + Nginx body size 提示
+- `docs/web-coding-conventions.md §19`：9 节，强调"不要直传"、`buildImageUrl` 用法、key 语义
+- `docs/web-component-library.md`：ImageUploader Props + 用法（onChange 收 key + buildImageUrl 配对使用）
+
+**PR 标题**：`feat(uploads): COS 服务端代理上传/下载链路 + ImageUploader 通用组件（T-S1-INF-02）`
 
 ---
 
@@ -554,7 +581,7 @@ T-S1-REL-01    Sprint 1 验收与打 tag
 |----|------|------|------|------|
 | T-S1-F9-01 | F9 | 路由代码分割 + manualChunks + visualizer + RouteFallback | 0.5d | ✅ |
 | T-S1-INF-01 | 共享 | User.preferences + PATCH /profile 深合并 | 0.5d | ✅ |
-| T-S1-INF-02 | 共享 | COS 预签名上传链路 + ImageUploader | 1d | ✅ |
+| T-S1-INF-02 | 共享 | COS 服务端代理上传/下载 + ImageUploader | 1d | ✅ |
 | T-S1-F8-01 | F8 | i18next 初始化 + zh-CN 骨架 | 0.3d | ⬜ |
 | T-S1-F8-02 | F8 | main-layout 抽离 | 0.3d | ⬜ |
 | T-S1-F8-03 | F8 | home + record 抽离 | 0.4d | ⬜ |

@@ -27,30 +27,31 @@
 
 ### Added — Sprint 1 进行中
 
-- **T-S1-INF-02 COS 预签名上传链路 + ImageUploader 通用组件**（2026-05-11 完成）
+- **T-S1-INF-02 COS 服务端代理上传/下载链路 + ImageUploader 通用组件**（2026-05-11 完成）
+  - **架构**：上传走 `POST /api/uploads`（multipart）+ 下载走 `GET /api/uploads/*`（流式 pipe），桶完全私有，COS 凭证仅服务端持有；DB 字段从"绝对 URL"改为"桶内 key"，`buildImageUrl()` 兼容历史 URL 数据
   - **后端**：
-    - `server/src/services/upload.service.ts` 新增，`createPresignedUpload(userId, kind, ext, ctx)` 签 PUT URL；纯函数 helper（normalizeExt / validateContext / buildKey / buildPublicUrl）便于单测
-    - `server/src/routes/uploads.ts`：`POST /api/uploads/presign`（authenticate + presignRateLimit + zod validate）
-    - `server/src/schemas/upload.schema.ts`：Zod schema，含 ext 格式 + date YYYY-MM-DD 校验
-    - `server/src/middleware/rate-limit-persistent.ts`：新增 `presignRateLimit`（20 次/分钟/用户）
-    - `server/src/config/env.ts`：新增 `COS_SECRET_ID/KEY/BUCKET/REGION/PUBLIC_BASE_URL/PRESIGN_EXPIRES`
-    - `server/src/types/errors.ts`：新增 `UPLOAD_NOT_CONFIGURED / UPLOAD_INVALID_EXT / UPLOAD_MISSING_CONTEXT` 错误码
-    - `server/.env.example` + `docker/.env.example`：补 COS 配置段
-    - 依赖：+ `cos-nodejs-sdk-v5`
-    - 测试：`tests/unit/upload-service.test.ts` 22 个用例覆盖配置检查 / ext 白名单 / ctx 校验 / key 拼接 / publicUrl 构造（含 CDN 加速分支）/ mock COS 端到端组装
+    - `server/src/services/upload.service.ts`：`putObject(userId, kind, ext, buffer, ctx, contentType?)` + `getObjectStream(key)` + `isValidKey()` 防 path traversal；纯函数 helper（normalizeExt / validateContext / buildKey / parseContentType）便于单测
+    - `server/src/routes/uploads.ts`：`POST /api/uploads`（authenticate + presignRateLimit + multer.single + multerErrorHandler + zod validate） / `GET /api/uploads/*`（authenticate + 流式 pipe + Cache-Control immutable max-age=86400）
+    - `server/src/schemas/upload.schema.ts`：`uploadFieldsSchema`（form fields，含 ext 格式 + date YYYY-MM-DD 校验）
+    - `server/src/middleware/rate-limit-persistent.ts`：`presignRateLimit`（20 次/分钟/用户，仅上传）
+    - `server/src/config/env.ts`：`COS_SECRET_ID/KEY/BUCKET/REGION/MAX_UPLOAD_BYTES`(默认 2MB) / `COS_DOWNLOAD_CACHE_MAX_AGE`(默认 86400s)
+    - `server/src/types/errors.ts`：`UPLOAD_NOT_CONFIGURED / UPLOAD_INVALID_EXT / UPLOAD_MISSING_CONTEXT / UPLOAD_TOO_LARGE`
+    - 依赖：+ `cos-nodejs-sdk-v5` + `multer`（含 `@types/multer`）
+    - 测试：`tests/unit/upload-service.test.ts` 27 个用例覆盖配置检查 / ext 白名单 / ctx 校验 / key 拼接 / isValidKey 防 path traversal / mock COS putObject + getObjectStream
   - **前端**：
-    - `client/src/services/upload.ts`：`upload(file, kind, ctx, options)` 完整链路（压缩 → EXIF 剥 → presign → XHR 直传 COS，含 onProgress）
-    - `client/src/components/ui/image-uploader.tsx`：通用 render-prop 单图上传组件，缺配置 / 格式错 / 限流 / 网络错均自动 toast 降级
+    - `client/src/services/upload.ts`：`uploadService.upload(file, kind, ctx, options)` 完整链路（browser-image-compression 压缩到 ≤1MB → EXIF GPS 剥离 → axios POST FormData，带 `onUploadProgress`）；`buildImageUrl(keyOrUrl)` 把 key 拼成 `/api/uploads/{key}`，对 `http(s)://` 老数据原样返回
+    - `client/src/components/ui/image-uploader.tsx`：通用 render-prop 单图上传组件；`onChange(key)` 回传 **桶内 key**（不是 URL！）；缺配置 / 格式错 / 文件过大 / 限流 / 网络错均自动 toast 降级
     - 依赖：+ `browser-image-compression`
-  - **共享类型**：`shared/types/index.ts` 新增 `UploadKind / UploadContext / PresignResult / PresignRequest`
+  - **共享类型**：`shared/types/index.ts` 新增 `UploadKind / UploadContext / UploadResult`（取代 `PresignResult / PresignRequest`）
   - **关键设计**：
-    - 直传模式：前端 → COS（PUT），后端不接收文件 → 零内存压力
-    - 缺 COS 配置时返回 503，前端静默降级（保留原 value，业务主流程不阻塞）
+    - 服务端代理双向 → 桶私有 + 客户端无 COS 凭证 + 无需 CORS
+    - 客户端压缩到 ≤1MB（avatar 512px / daily-checkin 1080px），服务端 multer 兜底 2MB
     - EXIF GPS 自动剥离（隐私优先）
-    - Key 32 字符 hex 后缀防枚举
+    - Key 32 字符 hex 后缀防枚举；下载长缓存 immutable
     - ext 白名单 jpg/jpeg/png/webp，jpeg 归一化为 jpg
-  - **测试结果**：server 全套 **107/107 通过**（baseline 85 + 新增 22）；client build 通过
-  - 文档：`web-api-spec.md §11.1` / `web-architecture.md §5.7` / `web-coding-conventions.md §19` / `web-component-library.md v7.2 增量` / `devops-workflow.md §4.4 COS 配置流程`
+    - 缺 COS 配置时 503，前端静默降级（业务主流程不阻塞）
+  - **测试结果**：server 全套 **112/112 通过**（baseline 85 + INF-01 10 + INF-02 27 - dedupe）；client build 通过
+  - 文档：`web-api-spec.md §11`（重写）/ `web-architecture.md §5.7`（架构图）/ `web-coding-conventions.md §19`（9 节规范）/ `web-component-library.md`（ImageUploader）/ `devops-workflow.md §4.3 §4.4`（私有桶配置 + 验证）
 
 - **T-S1-INF-01 User.preferences 字段 + PATCH /profile 深合并**（2026-05-11 完成）
   - `prisma/schema.prisma` 新增 `User.preferences  String?`（SQLite TEXT 存 JSON）

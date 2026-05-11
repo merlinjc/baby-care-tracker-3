@@ -331,77 +331,114 @@ User.preferences  TEXT (SQLite) / TEXT (MySQL)   ← JSON 字符串
   - 用户切换后写一次 preferences（best-effort，失败不阻塞 UI）
 - 这是有意为之的"双写不一致容忍"设计：跨设备最终一致即可，运行时优先本地以保证 0 延迟
 
-### 5.7 文件上传链路（v7.2 T-S1-INF-02）
+### 5.7 文件上传 / 下载链路（v7.2 T-S1-INF-02 方案 B 服务端代理）
 
-为支持头像 / 宝宝头像 / 每日打卡照片等图片上传，v7.2 引入「**前端直传 COS + 后端仅签发预签名 URL**」架构：
+为支持头像 / 宝宝头像 / 每日打卡照片等图片上传，v7.2 采用「**客户端 multipart 提交 + 服务端代理 COS putObject/getObjectStream**」架构。**密钥仅在服务端持有**，客户端永远拿不到 COS URL。
 
 ```
+─────────── 上传链路 ───────────
+
 ┌─ Browser ──────────────────────────────────────────────────────┐
-│                                                                 │
 │  ImageUploader (component)                                      │
-│   ↓ 1. 选图                                                      │
-│  uploadService (services/upload.ts)                             │
-│   ↓ 2. browser-image-compression                                │
-│      - avatar: 长边 512px / JPEG 0.85                            │
-│      - daily-checkin: 长边 1080px / JPEG 0.85                    │
+│   ↓ 1. 选图 → uploadService.upload()                             │
+│  browser-image-compression                                       │
+│   ↓ 2. 压缩 + EXIF 剥离                                           │
+│      - avatar / baby-avatar: 长边 512px / JPEG 0.85 / ≤1MB        │
+│      - daily-checkin:        长边 1080px / JPEG 0.85 / ≤1MB       │
 │      - preserveExif: false（剥 GPS 防泄露）                       │
-│   ↓ 3. POST /api/uploads/presign                                │
+│   ↓ 3. FormData → POST /api/uploads (multipart/form-data)       │
 └──┬──────────────────────────────────────────────────────────────┘
-   │ Bearer JWT + presign 限流（20 次/分钟/用户）
+   │ Bearer JWT + presignRateLimit（20 次/分钟/用户）
    ▼
 ┌─ Express :3000 ────────────────────────────────────────────────┐
-│                                                                 │
 │  routes/uploads.ts                                              │
-│   ↓ authenticate + presignRateLimit + zod validate              │
-│  upload.service.ts                                              │
-│   ↓ 1. isConfigured() → 缺 COS_* 任一 → 503 UPLOAD_NOT_CONFIGURED│
-│   ↓ 2. normalizeExt() → 白名单 jpg/jpeg/png/webp                 │
-│   ↓ 3. validateContext() → kind 必填字段 + date 格式             │
-│   ↓ 4. buildKey() → avatars/{userId}/{cuid}.{ext} 等             │
-│   ↓ 5. cos.getObjectUrl({ Method:'PUT', Sign:true, Expires })    │
-│   ↓ 6. buildPublicUrl() → CDN 或默认 COS 域名                    │
-│  返回 { uploadUrl, publicUrl, key, expiresAt }                   │
+│   ↓ authenticate + multer.single('file')                        │
+│   ↓ multer 限制：fileSize=COS_MAX_UPLOAD_BYTES (默认 2MB)        │
+│   ↓                + mimetype 白名单 (jpeg/png/webp)             │
+│   ↓ validateBody(uploadFieldsSchema) zod 校验 form fields        │
+│  upload.service.putObject(userId, kind, ext, buffer, ctx)       │
+│   ↓ 1. isConfigured() → 缺 COS_* 任一 → 503                      │
+│   ↓ 2. normalizeExt() + validateContext()                       │
+│   ↓ 3. buildKey() → avatars/{userId}/{cuid}.{ext} 等             │
+│   ↓ 4. cos.putObject({ Bucket, Region, Key, Body, ContentType })│
+│  返回 { key, size, contentType }                                 │
+└──┬──────────────────────────────────────────────────────────────┘
+   │  201 Created
+   ▼
+┌─ Browser ──────────────────────────────────────────────────────┐
+│  业务层落库 key（不是 URL！）                                     │
+│   PATCH /auth/profile { avatar: key }                           │
+│   POST  /babies/:id/checkins { photoUrl: key, ... }             │
+└─────────────────────────────────────────────────────────────────┘
+
+
+─────────── 下载链路 ───────────
+
+┌─ Browser ──────────────────────────────────────────────────────┐
+│  <img src={buildImageUrl(user.avatar)} />                       │
+│   等价于 <img src="/api/uploads/avatars/u1/abc.jpg" />           │
+└──┬──────────────────────────────────────────────────────────────┘
+   │ 同源 cookie（含 JWT）
+   ▼
+┌─ Express :3000 ────────────────────────────────────────────────┐
+│  GET /api/uploads/* → routes/uploads.ts                          │
+│   ↓ authenticate                                                 │
+│   ↓ isValidKey() 防 path traversal（前缀白名单 / 拒 .. \）         │
+│  upload.service.getObjectStream(key)                             │
+│   ↓ cos.getObjectStream({ Bucket, Region, Key })                 │
+│   ↓ 拿到 Stream + headers                                         │
+│  res.setHeader('Cache-Control': public,max-age=86400,immutable)  │
+│  stream.pipe(res)  ← 流式转发，零内存累积                         │
 └──┬──────────────────────────────────────────────────────────────┘
    │
-   ▼ 4. 客户端直传（不经 Express）
-┌─ Tencent Cloud COS ────────────────────────────────────────────┐
-│                                                                 │
-│  PUT {uploadUrl}  Body: blob  Header: Content-Type              │
-│  → 200 OK                                                        │
+   ▼
+┌─ Tencent Cloud COS（私有读私有写）─────────────────────────────┐
+│  仅 SecretId/Key 持有方（我方 server）可读写                     │
 └─────────────────────────────────────────────────────────────────┘
-   │
-   ▼ 5. 业务接口落库 publicUrl
-   PATCH /auth/profile { avatar: publicUrl }
-   POST  /babies/:id/checkins { photoUrl: publicUrl, ... }
 ```
 
 **关键设计要点**：
 
 | 设计 | 选择 | 理由 |
 |------|------|------|
-| 直传模式 | 前端 → COS（PUT），后端不接收文件 | 零内存压力，单服务实例可处理无限大文件；后端只承担鉴权 + 签名 |
-| 预签名有效期 | 默认 5 分钟（COS_PRESIGN_EXPIRES） | 平衡用户从选图到上传完成的时间窗 vs 防止签名泄露被滥用 |
-| 鉴权方式 | 业务 API 走 JWT；PUT COS 走预签名 URL | COS 不识别我方 JWT；XHR 不携带 axios 拦截器的 Authorization 头 |
-| key 不可枚举 | randomUUID 32 字符 hex 后缀 | 即使桶 ACL 设为公开读，也无法通过遍历获取他人文件 |
-| EXIF GPS 剥离 | 客户端压缩前 `preserveExif: false` | 避免照片元数据泄露宝宝家庭地址 |
-| 缺配置降级 | 503 UPLOAD_NOT_CONFIGURED + 前端 toast | 业务主流程不阻塞，给运维时间补配置 |
-| ext 白名单 | jpg / jpeg / png / webp | 阻止上传可执行文件；jpeg 归一化为 jpg 让 key 美观 |
-| 限流 | 20 次/分钟/用户 | 覆盖正常使用（反复试头像 / 多张图选择），阻止恶意刷签 |
+| 服务端代理 | 客户端 → Express → COS（双向） | **密钥不暴露给客户端**；可加业务级权限 / 日志 / 审计 |
+| 桶 ACL | 私有读私有写 | 所有访问必经我方服务，绕过 Express 无法拿到任何对象 |
+| 上传内存模式 | multer memoryStorage（限 2MB）| 单图场景，写入 Buffer 直接 putObject，无 disk 临时文件 |
+| 下载流式 | `getObjectStream + pipe(res)` | 大文件零内存累积；保留 Content-Length / Content-Type |
+| 客户端压缩 | 长边 512/1080px + JPEG 0.85 + 目标 ≤1MB | 减小服务端存储开销与下游加载时间 |
+| EXIF GPS 剥离 | 客户端 `preserveExif: false` | 避免泄露宝宝家庭地址 |
+| key 不可枚举 | randomUUID 32 字符 hex 后缀 | 即使被遍历端点也无法猜出他人 key |
+| 路径校验 | isValidKey 前缀白名单 + 拒 `..` `\` 控制字符 | 防 path traversal 攻击 |
+| 缓存策略 | `Cache-Control: public, max-age=86400, immutable` | 32 字符 hex key 不会复用，激进缓存安全 |
+| 鉴权方式 | 业务 + 上传 + 下载全部 JWT | 同源 cookie 支撑 `<img src>` 自动鉴权 |
+| ext 白名单 | jpg / jpeg / png / webp | 阻止上传可执行文件；jpeg 归一化为 jpg |
+| 限流 | 20 次/分钟/用户（仅上传） | 防恶意刷写 COS；下载读不限流（依赖浏览器/CDN 缓存） |
+| 缺配置降级 | 503 UPLOAD_NOT_CONFIGURED + 前端 toast | 业务主流程不阻塞 |
 
-**桶 ACL 与公开访问**：
-- 桶建议设为「公有读私有写」，由我方服务端通过预签名 PUT 控制写入
-- 公网读取通过 COS 默认域名或自定义 CDN（COS_PUBLIC_BASE_URL）
-- 后续如需精细化访问控制（如打卡照片仅家庭成员可见），改为私有读 + 后端签 GET URL，**当前 v7.2 暂不实现**
+**DB 字段语义变更（关键）**：
+
+v7.2 起以下字段**统一存桶内 key**，不再存完整 URL：
+
+| 字段 | v7.1 及之前 | v7.2 起 |
+|------|------------|---------|
+| `User.avatar` | URL 或 null | key（如 `avatars/u1/abc.jpg`） |
+| `Baby.avatar` | URL 或 null | key（如 `babies/f1/b1/abc.jpg`） |
+| `DailyCheckin.photoUrl`（Sprint 2 F11）| — | key（如 `checkins/f1/b1/2026-05-11-abc.jpg`） |
+
+**展示**：前端用 `buildImageUrl(key)` 拼成 `/api/uploads/{key}` 作为 `<img src>`。
+**写入**：上传 API 返回的 `key` 直接作为字段值落库。
+
+> **历史数据兼容**：`buildImageUrl` 对已是 `http(s)://` 开头的字符串原样返回，避免破坏老数据 / 第三方头像（如微信扫码登录拿到的 unionid 头像 URL）。
 
 **与 prisma 落库的解耦**：
-- upload.service 只负责签 URL，**不写库**
-- 业务接口（`/auth/profile`、`/babies/:id/checkins` 等）拿到 `publicUrl` 后自行落库
-- 已被覆盖的旧文件（如用户换头像后的老 URL）依靠 patrol 任务异步清理（v7.2 Sprint 2 F11 时落地 `checkinPhotoCleanup`）
+- upload.service 只负责把对象写入 COS / 流式读出，**不写业务库**
+- 业务接口（`PATCH /auth/profile`、`POST /babies/:id/checkins` 等）拿到 `key` 后自行落库
+- 已被覆盖的旧文件（用户换头像后的老 key）依靠 patrol 任务异步清理（v7.2 Sprint 2 F11 时落地 `checkinPhotoCleanup`）
 
 **前端组件**：
-- `client/src/components/ui/image-uploader.tsx` 提供 render-prop API，业务侧只负责 children 视觉
-- 默认 children 为带 Camera 图标的圆形按钮，便于快速使用
-- 上传过程暴露 `progress: number (0-1)`，业务侧可绘制进度环
+- `client/src/services/upload.ts`：核心 service，导出 `uploadService.upload()` + `buildImageUrl(key)`
+- `client/src/components/ui/image-uploader.tsx`：通用 render-prop UI 组件
+- onChange 回调收到的是 **key**（而非 URL），与 DB 字段语义一致
 
 **复用方**：
 - v7.2 Sprint 1 F12：用户头像 + Baby 头像

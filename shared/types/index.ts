@@ -355,33 +355,20 @@ export interface UploadContext {
 }
 
 /**
- * POST /api/uploads/presign 的成功响应。
+ * POST /api/uploads (multipart/form-data) 的成功响应。
  *
- * 前端拿到后：
- * 1. fetch(uploadUrl, { method: 'PUT', body: blob, headers: { 'Content-Type': blob.type } })
- * 2. 上传成功后用 `publicUrl` 落库（写入 `User.avatar` / `Baby.avatar` / `DailyCheckin.photoUrl`）
- *
- * `key` 用于后续清理（如 patrol 任务删除已被覆盖的旧文件）。
+ * 架构说明（v7.2 方案 B 服务端代理）：
+ * - 客户端不再直传 COS，而是 multipart 提交给 Express，由服务端代理 putObject
+ * - 不再返回 publicUrl / uploadUrl —— 客户端只需 key
+ * - 展示时拼 `/api/uploads/{key}` 走我方下载代理（GET /api/uploads/* 路由）
  */
-export interface PresignResult {
-  /** 预签名 PUT URL，默认 5 分钟内过期（COS_PRESIGN_EXPIRES） */
-  uploadUrl: string;
-  /** 上传成功后用于展示与落库的公网 URL */
-  publicUrl: string;
-  /** 桶内对象 key，用于后续清理 / 校验 */
+export interface UploadResult {
+  /** 桶内对象 key，前端落库 + 拼接代理 URL 用 */
   key: string;
-  /** URL 过期时间 ISO 字符串（uploadUrl 的过期时间） */
-  expiresAt: string;
-}
-
-export interface PresignRequest {
-  kind: UploadKind;
-  /** 文件扩展名（不带点），白名单：jpg / jpeg / png / webp */
-  ext: string;
-  /** 上下文，按 kind 校验必填字段 */
-  babyId?: string;
-  familyId?: string;
-  date?: string;
+  /** 上传后的字节数（兜底信息） */
+  size: number;
+  /** 内容类型 */
+  contentType: string;
 }
 
 // ============ Care Role (育儿角色，用于 AI 个性化) ============

@@ -16,9 +16,11 @@ Sprint 1 工程基础 + 内容沉淀第一波：
 | 组件 | 文件 | 用途 / 关键特性 |
 |------|------|----------------|
 | `RouteFallback` | `app/layout/route-fallback.tsx` | F9 路由级懒加载占位骨架；200ms 延迟显示动画点阵；`role="status" / aria-live`；占满 60vh 防布局抖动 |
-| `ImageUploader` | `components/ui/image-uploader.tsx` | INF-02 通用单图上传；render-prop API（业务侧自定义视觉）；自动压缩 + EXIF 剥离 + presign + PUT COS；`onProgress` 回调；缺配置 503 静默 toast 降级 |
+| `ImageUploader` | `components/ui/image-uploader.tsx` | INF-02 通用单图上传；render-prop API（业务侧自定义视觉）；客户端压缩到 ≤1MB + EXIF 剥离；走**服务端代理**（POST `/api/uploads`）而非直传 COS；`onChange(key)` 回传 **桶内 key**（不是 URL）；`onProgress` 回调；缺配置 503 静默 toast 降级 |
 
 #### `<ImageUploader>` 用法
+
+> **架构说明（v7.2 方案 B）**：上传与下载均由服务端代理，桶私有。组件 `onChange` 回传的是 **桶内 key**（如 `avatars/u1/abc.jpg`），业务层直接把 key 写入 DB；展示时用 `buildImageUrl(key)` 拼成 `/api/uploads/{key}` 走我方下载代理。详见 `docs/web-api-spec.md §11`。
 
 **Props**：
 
@@ -26,7 +28,8 @@ Sprint 1 工程基础 + 内容沉淀第一波：
 interface ImageUploaderProps {
   kind: 'avatar' | 'baby-avatar' | 'daily-checkin'
   ctx?: { babyId?: string; familyId?: string; date?: string }  // 按 kind 必填
-  onChange: (publicUrl: string) => void | Promise<void>
+  /** 上传成功后回传 **桶内 key**（不是 URL！） */
+  onChange: (key: string) => void | Promise<void>
   value?: string | null
   accept?: string                   // 默认 'image/jpeg,image/png,image/webp'
   disabled?: boolean
@@ -37,7 +40,7 @@ interface ImageUploaderProps {
 
 interface ImageUploaderRenderProps {
   isUploading: boolean
-  progress: number       // 0-1
+  progress: number       // 0-1（仅 multipart POST 阶段；压缩阶段为 0）
   openPicker: () => void
   disabled: boolean
 }
@@ -45,10 +48,20 @@ interface ImageUploaderRenderProps {
 
 **示例 1：用户头像（F12）**
 ```tsx
-<ImageUploader kind="avatar" onChange={(url) => updateProfile({ avatar: url })}>
+import { ImageUploader } from '@/components/ui/image-uploader'
+import { buildImageUrl } from '@/services/upload'
+
+<ImageUploader
+  kind="avatar"
+  onChange={async (key) => {
+    // key 是桶内对象 key，例如 "avatars/u1/abc123.jpg"
+    await authService.updateProfile({ avatar: key })
+  }}
+>
   {({ openPicker, isUploading, progress }) => (
     <button onClick={openPicker} className="relative">
-      <UserAvatar user={user} size="xl" />
+      {/* 展示时用 buildImageUrl 拼成代理 URL */}
+      <UserAvatar user={{ ...user, avatar: buildImageUrl(user.avatar) }} size="xl" />
       {isUploading && (
         <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center">
           <span className="text-white text-xs">{Math.round(progress * 100)}%</span>
@@ -61,11 +74,16 @@ interface ImageUploaderRenderProps {
 
 **示例 2：默认按钮（无 children）**
 ```tsx
-<ImageUploader kind="avatar" onChange={save} />
+<ImageUploader kind="avatar" onChange={(key) => updateProfile({ avatar: key })} />
 // 渲染圆形 Camera 图标按钮 + 加载态
 ```
 
-**降级行为**：缺 COS 配置（503）/ 格式不支持（400）/ 限流（429）/ 网络错误均自动 toast，业务侧不需要 try/catch。
+**`buildImageUrl(key)` 兼容老数据**：
+- `null / undefined` → 返回 `undefined`（业务侧用默认头像）
+- `http(s)://...` 开头 → 原样返回（兼容 v7.1 及以前直接存绝对 URL 的少量历史数据）
+- 其他（桶内 key）→ 返回 `/api/uploads/{key}`，需要登录态才能加载
+
+**降级行为**：缺 COS 配置（503 `UPLOAD_NOT_CONFIGURED`）/ 格式不支持（400 `UPLOAD_INVALID_EXT`）/ 文件过大（400 `UPLOAD_TOO_LARGE`）/ 限流（429 `RATE_LIMITED`）/ 网络错误 / 用户取消 均自动 toast，业务侧不需要 try/catch。
 
 
 

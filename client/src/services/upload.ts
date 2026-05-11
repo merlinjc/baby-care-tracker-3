@@ -1,24 +1,22 @@
 /**
- * upload.ts - 文件上传客户端 service（v7.2 T-S1-INF-02）
+ * upload.ts - 文件上传客户端 service（v7.2 T-S1-INF-02 方案 B 服务端代理）
  *
  * 工作流：
- * 1. 客户端压缩 + EXIF GPS 剥离（browser-image-compression）
- * 2. POST /api/uploads/presign 拿到 { uploadUrl, publicUrl, key }
- * 3. fetch(uploadUrl, { method: 'PUT', body: blob }) 直传 COS
- * 4. 返回 publicUrl 给业务层落库
+ * 1. 客户端压缩 + EXIF GPS 剥离（browser-image-compression），目标 ≤1MB
+ * 2. FormData 提交到 POST /api/uploads（multipart/form-data）
+ * 3. 服务端 putObject 到 COS，返回 { key, size, contentType }
+ * 4. 业务层把 key 落库；展示时拼 `/api/uploads/{key}` 作为 src
  *
  * 设计要点：
- * - 压缩参数因 kind 不同：avatar / baby-avatar 长边 512px，daily-checkin 长边 1080px
- * - JPEG quality 0.85，平衡画质与体积（单图通常 ≤ 500KB）
- * - 不带认证调 COS PUT（COS 用预签名 URL 鉴权，axios 实例会自动加 Bearer 反而会被 COS 拒绝）
- * - 上传失败 throw 给调用方（业务侧负责 toast / 重试 UI）
+ * - 不同 kind 压缩长边不同：avatar/baby-avatar 512px，daily-checkin 1080px
+ * - 服务端代理后，密钥不暴露给客户端；DB 不再存 COS URL
+ * - 用 axios 提交 FormData（自动 multipart）+ onUploadProgress（无需自己写 XHR）
  */
 import imageCompression from 'browser-image-compression'
 import api from './api'
 import type {
   ApiResponse,
-  PresignRequest,
-  PresignResult,
+  UploadResult,
   UploadKind,
   UploadContext,
 } from '@/types'
@@ -30,121 +28,87 @@ const MAX_DIMENSION_BY_KIND: Record<UploadKind, number> = {
   'daily-checkin': 1080,
 }
 
-/** 压缩输出 MIME 与对应扩展名 */
+/** 客户端目标体积（MB），略小于服务端 COS_MAX_UPLOAD_BYTES（默认 2MB） */
+const TARGET_MAX_SIZE_MB = 1
+
 const COMPRESSED_MIME = 'image/jpeg'
 const COMPRESSED_EXT = 'jpg'
 
 interface UploadOptions {
   /** 自定义压缩长边（覆盖默认） */
   maxDimension?: number
-  /** 上传进度（0-1）回调，便于业务展示进度条 */
+  /** 上传进度（0-1）回调 */
   onProgress?: (progress: number) => void
   /** 取消信号；abort 时上传立即终止 */
   signal?: AbortSignal
 }
 
+/**
+ * 把 key 拼成可作为 <img src> 的代理 URL。
+ *
+ * - 相对路径（默认 `/api/uploads/{key}`），由 axios baseURL 与 vite proxy / 部署 nginx 处理
+ * - 调用 GET /api/uploads/{key} 需要 JWT，否则 401。`<img>` 标签会自动带 cookie，
+ *   但不会带 Authorization 头 —— 因此首版部署需要保证用户已登录态下访问主域，
+ *   后续如有公开访问需求再调整为「带签名的临时 GET URL」方案。
+ */
+export function buildImageUrl(key: string | null | undefined): string | undefined {
+  if (!key) return undefined
+  // 防御：已经是完整 URL 直接返回（兼容老数据 / 第三方 URL）
+  if (/^https?:\/\//.test(key)) return key
+  return `/api/uploads/${key}`
+}
+
 export const uploadService = {
   /**
-   * 完整上传链路：压缩 → presign → PUT COS → 返回公网 URL。
+   * 完整上传链路：压缩 → POST 服务端代理 → 返回 key。
    *
-   * @param file 用户选中的文件（File 实例）
+   * @param file 用户选中的文件
    * @param kind 上传分类，决定 key 前缀与压缩长边
    * @param ctx 上下文（baby-avatar / daily-checkin 必填）
-   * @returns 上传后的 publicUrl，可直接落库
+   * @returns { key, size, contentType }；业务侧把 key 落库
    * @throws 503 UPLOAD_NOT_CONFIGURED 当后端未配置 COS（业务侧应优雅降级）
-   * @throws 400 UPLOAD_INVALID_EXT / UPLOAD_MISSING_CONTEXT
-   * @throws Error('UPLOAD_FAILED') 当 PUT COS 失败
+   * @throws 400 UPLOAD_INVALID_EXT / UPLOAD_MISSING_CONTEXT / UPLOAD_TOO_LARGE
    */
   async upload(
     file: File,
     kind: UploadKind,
     ctx: UploadContext = {},
     options: UploadOptions = {},
-  ): Promise<{ publicUrl: string; key: string }> {
+  ): Promise<UploadResult> {
     // 1. 压缩 + EXIF 剥离
     const maxDimension = options.maxDimension ?? MAX_DIMENSION_BY_KIND[kind]
     const blob = await imageCompression(file, {
       maxWidthOrHeight: maxDimension,
-      // browser-image-compression 默认会保留 EXIF，需要显式禁用
+      // 显式禁用，避免 GPS 等元数据泄露
       preserveExif: false,
       useWebWorker: true,
       fileType: COMPRESSED_MIME,
       initialQuality: 0.85,
-      // 单图最大 1MB（压缩后的目标），超过则继续降质
-      maxSizeMB: 1,
+      // 客户端目标 1MB（服务端兜底 2MB），超过则继续降质
+      maxSizeMB: TARGET_MAX_SIZE_MB,
     })
 
-    // 2. 申请预签名 URL
-    const presignBody: PresignRequest = {
-      kind,
-      ext: COMPRESSED_EXT,
-      babyId: ctx.babyId,
-      familyId: ctx.familyId,
-      date: ctx.date,
-    }
-    const presignRes = await api.post<ApiResponse<PresignResult>>(
-      '/uploads/presign',
-      presignBody,
-    )
-    const presign = presignRes.data.data!
+    // 2. 组装 FormData → POST /api/uploads
+    const form = new FormData()
+    // 给上传文件一个稳定的文件名，便于后端日志可读（COS key 由服务端生成，与文件名无关）
+    form.append('file', blob, `upload.${COMPRESSED_EXT}`)
+    form.append('kind', kind)
+    form.append('ext', COMPRESSED_EXT)
+    if (ctx.babyId) form.append('babyId', ctx.babyId)
+    if (ctx.familyId) form.append('familyId', ctx.familyId)
+    if (ctx.date) form.append('date', ctx.date)
 
-    // 3. 直传 COS（不带 axios 拦截器，避免 Authorization 头干扰 COS 签名校验）
-    await putToCos(presign.uploadUrl, blob, {
-      onProgress: options.onProgress,
+    const res = await api.post<ApiResponse<UploadResult>>('/uploads', form, {
+      // 让 axios / 浏览器自己计算 boundary
+      headers: { 'Content-Type': 'multipart/form-data' },
       signal: options.signal,
-    })
-
-    return { publicUrl: presign.publicUrl, key: presign.key }
-  },
-}
-
-/**
- * 用 XHR 直传 COS（取代 fetch，原因：fetch 不能监听上传进度）。
- *
- * 失败 throw Error，调用方决定是否 toast / 重试。
- */
-function putToCos(
-  uploadUrl: string,
-  blob: Blob,
-  options: { onProgress?: (progress: number) => void; signal?: AbortSignal } = {},
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest()
-    xhr.open('PUT', uploadUrl)
-    xhr.setRequestHeader('Content-Type', blob.type || 'application/octet-stream')
-
-    if (options.onProgress) {
-      xhr.upload.addEventListener('progress', (e) => {
-        if (e.lengthComputable) {
-          options.onProgress!(e.loaded / e.total)
+      onUploadProgress: (e) => {
+        if (options.onProgress && e.total) {
+          options.onProgress(e.loaded / e.total)
         }
-      })
-    }
-
-    xhr.addEventListener('load', () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        resolve()
-      } else {
-        reject(
-          new Error(
-            `UPLOAD_FAILED: COS 返回 ${xhr.status} ${xhr.statusText || ''}`.trim(),
-          ),
-        )
-      }
+      },
     })
 
-    xhr.addEventListener('error', () => reject(new Error('UPLOAD_FAILED: 网络错误')))
-    xhr.addEventListener('abort', () => reject(new Error('UPLOAD_ABORTED')))
-
-    if (options.signal) {
-      if (options.signal.aborted) {
-        xhr.abort()
-        reject(new Error('UPLOAD_ABORTED'))
-        return
-      }
-      options.signal.addEventListener('abort', () => xhr.abort())
-    }
-
-    xhr.send(blob)
-  })
+    return res.data.data!
+  },
 }

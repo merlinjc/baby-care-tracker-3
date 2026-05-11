@@ -1182,36 +1182,50 @@ await updatePreferences({ ...cur, onboardingCompleted: true })
 - ❌ 不要为单个偏好键新增独立的 PATCH 端点（如 `/auth/onboarding`）。请直接调 `updatePreferences({ onboardingCompleted: true })`
 - ✅ 大型 / 嵌套结构的偏好需要持久化时，再讨论"是不是应该建独立表"
 
-## 19. 文件上传约定（v7.2+ T-S1-INF-02）
+## 19. 文件上传 / 下载约定（v7.2+ T-S1-INF-02 服务端代理）
 
-### 19.1 统一走 `<ImageUploader>` + `uploadService.upload`
+### 19.1 架构提醒：服务端代理，不是直传
+
+v7.2 起 COS 走「**服务端代理**」模式（方案 B）：
+- 上传：客户端 → POST /api/uploads (multipart) → Express → cos.putObject
+- 下载：`<img src="/api/uploads/{key}">` → Express → cos.getObjectStream
+- COS 桶为**私有读私有写**，密钥仅在服务端持有
+
+**❌ 不要试图实现客户端直传 COS**（复古方案 A），具体表现：
+- 不要在前端配置 COS SDK / 读 COS_SECRET_KEY
+- 不要写 `fetch(uploadUrl, { method: 'PUT' })` 类的代码
+- 不要给桶配置 CORS（不必要）
+
+### 19.2 统一走 `<ImageUploader>` + `uploadService.upload`
 
 所有图片类上传必须走 `uploadService.upload(file, kind, ctx)`：
 
 ```typescript
-// ✅ 正确：业务层用通用组件
-<ImageUploader kind="avatar" onChange={(url) => updatePreferences({ avatar: url })}>
+// ✅ 正确：业务层用通用组件，onChange 收到 key（不是 URL！）
+<ImageUploader kind="avatar" onChange={async (key) => {
+  await authService.updateProfile({ avatar: key })
+}}>
   {({ openPicker, isUploading }) => (
     <button onClick={openPicker}>
-      <UserAvatar user={user} />
+      <img src={buildImageUrl(user.avatar)} />
       {isUploading && <ProgressOverlay />}
     </button>
   )}
 </ImageUploader>
 
-// ❌ 禁止：自己写 fetch / FormData 直传后端
+// ❌ 禁止：自己写 fetch / FormData 直传 COS
 const fd = new FormData()
 fd.append('file', file)
-await api.post('/some/upload', fd)
+await fetch('https://xxx.cos.ap-beijing.myqcloud.com/...', { method: 'PUT', body: fd })
 ```
 
 `uploadService.upload` 已包含：
-1. 自动压缩（avatar 长边 512px / daily-checkin 长边 1080px / JPEG 0.85）
-2. EXIF GPS 元数据剥离（避免泄露宝宝家庭地址）
-3. presign + 直传 COS（不经 Express，零内存压力）
+1. 自动压缩（avatar 长边 512px / daily-checkin 长边 1080px / JPEG 0.85 / 目标 ≤1MB）
+2. EXIF GPS 元数据剥离
+3. multipart POST 到 `/api/uploads`
 4. 上传进度回调（onProgress: 0-1）
 
-### 19.2 Kind 与上下文契约
+### 19.3 Kind 与上下文契约
 
 | kind | 必填 ctx | 用途 |
 |------|---------|------|
@@ -1223,44 +1237,76 @@ await api.post('/some/upload', fd)
 1. `shared/types/index.ts#UploadKind` 加新值
 2. `server/src/services/upload.service.ts#REQUIRED_CONTEXT` 加必填字段
 3. `server/src/services/upload.service.ts#buildKey` 加 case 分支
-4. `client/src/services/upload.ts#MAX_DIMENSION_BY_KIND` 加压缩长边
-5. 单元测试覆盖新 kind 的 ctx 校验与 key 拼接
+4. `server/src/services/upload.service.ts#isValidKey` 前缀白名单加新前缀
+5. `client/src/services/upload.ts#MAX_DIMENSION_BY_KIND` 加压缩长边
+6. 单元测试覆盖新 kind 的 ctx 校验、key 拼接、isValidKey
 
-### 19.3 落库职责分离
+### 19.4 DB 字段语义：存 key，不存 URL
 
-upload.service **只签 URL，不落库**。业务接口拿到 publicUrl 后自行落库：
+```typescript
+// ✅ 正确：DB 字段存 key
+User.avatar = 'avatars/u1/abc123def456.jpg'
+
+// 展示时拼成代理 URL
+<img src={buildImageUrl(user.avatar)} />
+//      → /api/uploads/avatars/u1/abc123def456.jpg
+
+// ❌ 错误：把 publicUrl 写入 DB
+User.avatar = 'https://babycare-1300015547.cos.ap-beijing.myqcloud.com/...'
+//   桶切换 / 区域迁移时全表数据失效；密钥泄露语义
+```
+
+`buildImageUrl` 对已是 `http(s)://` 开头的字符串原样返回，兼容历史数据 / 第三方 URL（如微信扫码登录头像）。
+
+### 19.5 落库职责分离
+
+upload.service **只代理对象，不写业务库**。业务接口拿到 key 后自行落库：
 
 ```typescript
 // ✅ 正确：组件层组合 upload + 业务 API
-const handleAvatarChange = async (publicUrl: string) => {
-  await authService.updateProfile({ avatar: publicUrl })
+const handleAvatarChange = async (key: string) => {
+  await authService.updateProfile({ avatar: key })
   // React Query invalidate
 }
 
 // ❌ 错误：在 upload.service 里直接落库
-//   会让 upload 与具体业务耦合，无法支撑 daily-checkin 等非 user 场景
+//   会让 upload 与具体业务耦合，无法支撑 daily-checkin 等场景
 ```
 
-### 19.4 失败降级与用户感知
+### 19.6 失败降级与用户感知
 
 - **后端缺 COS 配置 (503 `UPLOAD_NOT_CONFIGURED`)**：`<ImageUploader>` 内部 toast「图片上传服务未配置，请联系管理员」，**保留原 value**，业务主流程不阻塞
 - **格式不支持 (400 `UPLOAD_INVALID_EXT`)**：toast「不支持的图片格式，请使用 JPG / PNG / WebP」
+- **文件过大 (400 `UPLOAD_TOO_LARGE`)**：toast「图片过大，请选择小一点的图片」（理论上客户端已压到 1MB，超大才会触发）
 - **限流 (429 `RATE_LIMITED`)**：toast「上传过于频繁，请稍后再试」
 - **网络错误 / COS 5xx**：toast 显示原始错误前缀「上传失败：xxx」
-- **用户主动取消** (`UPLOAD_ABORTED`)：静默不 toast
+- **用户主动取消** (`abort` / `canceled`)：静默不 toast
 
 业务侧调用方**不需要 try/catch**：组件已经处理了所有错误展示。
 
-### 19.5 安全 / 合规
+### 19.7 下载与缓存
 
-- ❌ 禁止把上传文件原始 File 通过 `URL.createObjectURL` 长期持有，会内存泄漏；展示用 publicUrl 即可
+下载走 `GET /api/uploads/{key}`，由 Express 流式代理：
+- `<img src>` 标签自动带同源 cookie，axios `withCredentials: true` 已配置；同源访问下 JWT 通过 cookie 传递（v7.2 沿用现有方案）
+- 响应头：`Cache-Control: public, max-age=86400, immutable`（默认 1 天）
+- key 是 32 字符 hex 不会复用，`immutable` 缓存策略安全
+
+**何时改 max-age**：
+- 头像 / 宝宝头像：默认 1 天即可（用户偶尔换）
+- 打卡照片：可考虑设置更长（如 30 天），key 永远不变
+- 调试期：可临时设 `COS_DOWNLOAD_CACHE_MAX_AGE=0` 禁用缓存
+
+### 19.8 安全 / 合规
+
+- ❌ 禁止把上传文件原始 File 通过 `URL.createObjectURL` 长期持有，会内存泄漏
 - ❌ 禁止扩展白名单到 SVG / GIF（XSS 风险 / 体积过大）
-- ❌ 禁止把 EXIF 保留开关 (`preserveExif: true`) 暴露给业务层 —— 隐私优先于"完美保真"
-- ✅ 上传敏感场景（如未来私密相册）需要服务端配私有桶 + 签 GET URL，**不能复用当前公有读模式**
-- ✅ 大文件上传需求（>10MB 视频）应单独评估，当前 `uploadService` 仅适配图片场景
+- ❌ 禁止在客户端代码中导入 `cos-nodejs-sdk-v5` 或类似 SDK
+- ❌ 禁止把 EXIF 保留开关 (`preserveExif: true`) 暴露给业务层 —— 隐私优先
+- ✅ 大文件需求（>10MB 视频）应单独评估，当前 `uploadService` 仅适配图片场景
+- ✅ 跨家庭权限校验：当前下载只校验 JWT，未来若打卡照片需要"仅家庭成员可见"，应在 GET 路由加 `familyId` 校验
 
-### 19.6 manualChunks 提醒
+### 19.9 manualChunks 提醒
 
-`browser-image-compression` 包体积约 836KB（含 sourcemap，gzip 后 ~50-80KB）。F12 / F11 接入后如发现首屏体积明显增加，应将其加入 `vite.config.ts#manualChunks` 单独成 chunk（参考 `vendor-motion`）。
+`browser-image-compression` 包体积约 836KB（gzip 后 ~50-80KB）。F12 / F11 接入后如发现首屏体积明显增加，应将其加入 `vite.config.ts#manualChunks` 单独成 chunk（参考 `vendor-motion`）。
 
 

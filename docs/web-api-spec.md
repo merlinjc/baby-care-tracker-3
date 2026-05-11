@@ -1832,41 +1832,38 @@ interface ExportQuery {
 
 ---
 
-## 11. 文件上传接口（v7.2+）
+## 11. 文件上传 / 下载接口（v7.2+，方案 B 服务端代理）
 
-### 11.1 POST /api/uploads/presign
+> **架构说明**：v7.2 起所有图片读写**全部经 Express 代理**，COS 桶设为「私有读私有写」，密钥仅在服务端持有。
+> - 上传：客户端 multipart → Express → `cos.putObject`
+> - 下载：客户端 `<img src="/api/uploads/{key}">` → Express `cos.getObjectStream` → 流式回包
+> - **DB 字段存 key**（如 `avatars/u1/abc.jpg`），而非完整 URL
 
-申请腾讯云 COS 预签名 PUT URL，前端用该 URL 直传文件，后端不接收文件本体。
+### 11.1 POST /api/uploads — 上传图片
 
-**请求体**：
+接收 `multipart/form-data`，由服务端代理写入 COS。
+
+**请求**（`multipart/form-data`）：
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `file` | File | ✓ | 图片文件，mimetype 必须为 `image/jpeg` / `image/png` / `image/webp`；服务端兜底大小限制 `COS_MAX_UPLOAD_BYTES`（默认 2MB） |
+| `kind` | string | ✓ | `avatar` / `baby-avatar` / `daily-checkin` |
+| `ext` | string | ✓ | 文件扩展名（含或不含点都可），白名单：jpg/jpeg/png/webp |
+| `babyId` | string | 见 ctx | baby-avatar / daily-checkin 必填 |
+| `familyId` | string | 见 ctx | baby-avatar / daily-checkin 必填 |
+| `date` | string | 见 ctx | daily-checkin 必填，YYYY-MM-DD |
+
+**成功响应** `201`：
 
 ```typescript
-interface PresignRequest {
-  /** 上传分类，决定 key 前缀与必填上下文字段 */
-  kind: 'avatar' | 'baby-avatar' | 'daily-checkin';
-  /** 文件扩展名（含/不含点都可），白名单：jpg / jpeg / png / webp */
-  ext: string;
-  /** baby-avatar / daily-checkin 必填 */
-  babyId?: string;
-  /** baby-avatar / daily-checkin 必填 */
-  familyId?: string;
-  /** daily-checkin 必填，YYYY-MM-DD 格式 */
-  date?: string;
-}
-```
-
-**成功响应** `200`：
-
-```typescript
-interface PresignResult {
-  /** 预签名 PUT URL，默认 5 分钟内过期（受 COS_PRESIGN_EXPIRES 控制） */
-  uploadUrl: string;
-  /** 上传成功后用于展示与落库的公网 URL */
-  publicUrl: string;
-  /** 桶内对象 key，用于后续清理 / 校验 */
+interface UploadResult {
+  /** 桶内对象 key，前端落库 + 拼接代理 URL 用 */
   key: string;
-  /** uploadUrl 过期时间 ISO 字符串 */
-  expiresAt: string;
+  /** 上传后的字节数 */
+  size: number;
+  /** 内容类型 */
+  contentType: string;
 }
 ```
 
@@ -1878,46 +1875,86 @@ interface PresignResult {
 | `baby-avatar` | `babies/{familyId}/{babyId}/{cuid}.{ext}` | familyId, babyId |
 | `daily-checkin` | `checkins/{familyId}/{babyId}/{date}-{cuid}.{ext}` | familyId, babyId, date |
 
-`{cuid}` 为 32 字符随机十六进制串，确保 URL 不可枚举。
+`{cuid}` 为 32 字符随机十六进制串。所有 ctx 字符串字段拒绝包含 `/` `\` `..`（防 path traversal）。
 
 **前端流程**：
 
 ```typescript
-// 1. 选图 + 压缩（client/services/upload.ts 自动处理）
-// 2. 申请 presign
-const presign = await api.post('/uploads/presign', {
-  kind: 'avatar',
-  ext: 'jpg',
-})
+// 客户端：使用 services/upload.ts 一行调用
+import { uploadService, buildImageUrl } from '@/services/upload'
 
-// 3. PUT 直传 COS（不带 Authorization；COS 用预签名 URL 鉴权）
-await fetch(presign.data.uploadUrl, {
-  method: 'PUT',
-  body: blob,
-  headers: { 'Content-Type': 'image/jpeg' },
-})
+const { key } = await uploadService.upload(file, 'avatar')  // 自动压缩 + EXIF 剥离 + multipart POST
+await authService.updateProfile({ avatar: key })             // 落库 key（不是 URL！）
 
-// 4. 业务接口落库 publicUrl
-await api.patch('/auth/profile', { avatar: presign.data.publicUrl })
+// 展示：拼成 /api/uploads/{key} 走代理下载
+<img src={buildImageUrl(user.avatar)} />
 ```
 
 **ext 白名单**：仅允许 `jpg` / `jpeg` / `png` / `webp`。`jpeg` 会被服务端归一化为 `jpg`。
 
-**限流**：20 次 / 分钟 / 用户（避免 presign 滥刷）。
+**限流**：20 次 / 分钟 / 用户。
 
 **错误响应**：
 
 | 状态码 | 错误码 | 触发条件 |
 |-------|--------|---------|
 | 401 | `UNAUTHORIZED` | 未认证 |
-| 400 | `UPLOAD_INVALID_EXT` | ext 不在白名单 |
-| 400 | `UPLOAD_MISSING_CONTEXT` | kind 对应的 ctx 字段缺失（如 baby-avatar 缺 babyId） |
-| 400 | `INVALID_PARAMS` | date 格式不合法 / 未知 kind |
+| 400 | `UPLOAD_INVALID_EXT` | ext 或 mimetype 不在白名单 |
+| 400 | `UPLOAD_MISSING_CONTEXT` | kind 对应的 ctx 字段缺失 |
+| 400 | `UPLOAD_TOO_LARGE` | 文件超过 `COS_MAX_UPLOAD_BYTES` |
+| 400 | `INVALID_PARAMS` | date 格式不合法 / 缺 file 字段 / ctx 含非法字符 |
 | 422 | `VALIDATION_ERROR` | zod schema 校验失败 |
-| 429 | `RATE_LIMITED` | 预签名次数超限 |
+| 429 | `RATE_LIMITED` | 上传次数超限 |
 | 503 | `UPLOAD_NOT_CONFIGURED` | 后端缺 `COS_SECRET_ID/SECRET_KEY/BUCKET/REGION` 任一字段 |
 
-**降级策略**：缺 COS 配置时返回 503，前端 `<ImageUploader>` toast 提示「图片上传未配置，请联系管理员」并保留原 value，主流程不阻塞。
+---
+
+### 11.2 GET /api/uploads/:key — 下载图片（流式代理）
+
+通过 Express 流式代理 COS `getObjectStream`，密钥不暴露给客户端。
+
+**请求**：
+
+```
+GET /api/uploads/avatars/u1/abc123def456...jpg
+Authorization: Bearer <jwt>
+```
+
+> 注意：path 中的 `/` 是 key 的一部分，URL 不需要 encode。
+
+**成功响应** `200`：
+- `Content-Type`: 与 COS 对象一致（`image/jpeg` 等）
+- `Content-Length`: 字节数
+- `Cache-Control: public, max-age={COS_DOWNLOAD_CACHE_MAX_AGE}, immutable`（默认 1 天）
+- Body: 图片二进制流
+
+由于 key 32 字符 hex 不会复用（用户换头像 / 重新打卡都会生成新 key），`immutable` 缓存策略安全。
+
+**错误响应**：
+
+| 状态码 | 错误码 | 触发条件 |
+|-------|--------|---------|
+| 401 | `UNAUTHORIZED` | 未认证 |
+| 400 | `INVALID_PARAMS` | key 非法（不以 avatars/ / babies/ / checkins/ 开头 / 含 `..` `\` / 控制字符 / 长度 > 256） |
+| 404 | `NOT_FOUND` | 对象不存在 |
+| 503 | `UPLOAD_NOT_CONFIGURED` | 后端缺 COS 配置 |
+
+**`<img>` 标签使用注意**：浏览器 `<img>` 不会自动带 Authorization 头，**只会带 cookie**。当前 v7.2 通过同源 + JWT cookie 维持鉴权（前端 axios 已配置 `withCredentials`），如有跨域 / 公开访问需求请走「带签名的临时 GET URL」方案（未来版本扩展）。
+
+---
+
+### 11.3 配套 DB 字段语义说明
+
+v7.2 起以下字段**统一存桶内 key**，不再存完整 URL：
+
+| 字段 | 旧（v7.1）| 新（v7.2）|
+|------|----------|----------|
+| `User.avatar` | URL 或 null | key（如 `avatars/u1/abc.jpg`）或 null |
+| `Baby.avatar` | URL 或 null | key（如 `babies/f1/b1/abc.jpg`）或 null |
+| `DailyCheckin.photoUrl`（Sprint 2 F11）| — | key（如 `checkins/f1/b1/2026-05-11-abc.jpg`） |
+
+**展示**：前端用 `buildImageUrl(key)` 拼成 `/api/uploads/{key}`。
+**写入**：上传 API 返回的 `key` 直接作为字段值落库。
 
 ---
 

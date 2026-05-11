@@ -1,23 +1,26 @@
 /**
- * ImageUploader - 通用单图上传组件（v7.2 T-S1-INF-02）
+ * ImageUploader - 通用单图上传组件（v7.2 T-S1-INF-02 方案 B 服务端代理）
  *
  * 设计目标：
  * - 视觉无主张：仅暴露"点击/拖拽 → 选择 → 上传 → 回调 onChange"的最小行为
  * - 业务侧负责"长什么样"（头像圆形 / 打卡卡片方形等），通过 children render-prop 传入预览 UI
  * - 上传失败 toast 提示，不抛出（业务侧不需关心）
- * - 缺 COS 配置时 503 → toast 提示「上传未配置」并保持原 value
+ *
+ * 与 v7.2 服务端代理架构配套：
+ * - 上传成功后 onChange 收到的是 **桶内 key**（如 `avatars/u1/abc.jpg`），不是 URL
+ * - 业务层把 key 写入 DB（`User.avatar` / `Baby.avatar` 等）
+ * - 展示时用 `buildImageUrl(key)` 拼成 `/api/uploads/{key}` 走我方下载代理
  *
  * 用法：
- *   <ImageUploader kind="avatar" value={user.avatar} onChange={save}>
- *     {({ isUploading, openPicker, progress }) => (
+ *   <ImageUploader kind="avatar" onChange={async (key) => {
+ *     await authService.updateProfile({ avatar: key })
+ *   }}>
+ *     {({ openPicker, isUploading }) => (
  *       <button onClick={openPicker}>
- *         <Avatar src={user.avatar} />
- *         {isUploading && <ProgressRing value={progress} />}
+ *         <img src={buildImageUrl(user.avatar)} />
  *       </button>
  *     )}
  *   </ImageUploader>
- *
- * 默认 children（不传时）：渲染一个简单的"+"按钮，便于快速使用。
  */
 import { useCallback, useRef, useState, type ReactNode } from 'react'
 import { Camera, Loader2 } from 'lucide-react'
@@ -28,9 +31,9 @@ import { cn } from '@/lib/utils'
 import type { UploadKind, UploadContext } from '@/types'
 
 export interface ImageUploaderRenderProps {
-  /** 当前是否正在上传中 */
+  /** 当前是否正在上传中（含压缩 + 网络） */
   isUploading: boolean
-  /** 上传进度 0-1（仅 PUT COS 阶段；presign / 压缩阶段为 0） */
+  /** 上传进度 0-1（仅 multipart POST 阶段；压缩阶段为 0） */
   progress: number
   /** 触发文件选择对话框 */
   openPicker: () => void
@@ -43,9 +46,12 @@ export interface ImageUploaderProps {
   kind: UploadKind
   /** 上下文（baby-avatar / daily-checkin 必填对应字段） */
   ctx?: UploadContext
-  /** 上传成功后的公网 URL 回调；业务侧负责落库 */
-  onChange: (publicUrl: string) => void | Promise<void>
-  /** 当前已有的图片 URL（仅供 children render-prop 读取，组件本身不渲染图） */
+  /**
+   * 上传成功后的 **key 回调**（如 `avatars/u1/abc.jpg`）；业务侧负责落库。
+   * 注意：传入的不是 URL！展示时用 `buildImageUrl(key)` 拼接。
+   */
+  onChange: (key: string) => void | Promise<void>
+  /** 当前已有的 key（仅供 children render-prop 读取） */
   value?: string | null
   /** 自定义 accept（默认 image/jpeg,image/png,image/webp） */
   accept?: string
@@ -94,28 +100,35 @@ export function ImageUploader({
       setIsUploading(true)
       setProgress(0)
       try {
-        const { publicUrl } = await uploadService.upload(file, kind, ctx, {
+        const result = await uploadService.upload(file, kind, ctx, {
           maxDimension,
           onProgress: (p) => setProgress(p),
         })
-        await onChange(publicUrl)
+        await onChange(result.key)
         toast.success('上传成功')
       } catch (err) {
-        // 缺 COS 配置：503 UPLOAD_NOT_CONFIGURED
-        if (err instanceof ApiError && err.code === 'UPLOAD_NOT_CONFIGURED') {
-          toast.error('图片上传服务未配置，请联系管理员')
-        } else if (
-          err instanceof ApiError &&
-          err.code === 'UPLOAD_INVALID_EXT'
-        ) {
-          toast.error('不支持的图片格式，请使用 JPG / PNG / WebP')
-        } else if (err instanceof ApiError && err.code === 'RATE_LIMITED') {
-          toast.error('上传过于频繁，请稍后再试')
+        if (err instanceof ApiError) {
+          switch (err.code) {
+            case 'UPLOAD_NOT_CONFIGURED':
+              toast.error('图片上传服务未配置，请联系管理员')
+              break
+            case 'UPLOAD_INVALID_EXT':
+              toast.error('不支持的图片格式，请使用 JPG / PNG / WebP')
+              break
+            case 'UPLOAD_TOO_LARGE':
+              toast.error('图片过大，请选择小一点的图片')
+              break
+            case 'RATE_LIMITED':
+              toast.error('上传过于频繁，请稍后再试')
+              break
+            default:
+              toast.error(err.message || '上传失败')
+          }
         } else {
           const msg = err instanceof Error ? err.message : '上传失败'
-          // UPLOAD_ABORTED 静默
-          if (!msg.includes('UPLOAD_ABORTED')) {
-            toast.error(msg.replace(/^UPLOAD_FAILED:\s*/, '上传失败：'))
+          // 用户主动取消时静默
+          if (!/abort|canceled/i.test(msg)) {
+            toast.error(`上传失败：${msg}`)
           }
         }
       } finally {
@@ -145,11 +158,7 @@ export function ImageUploader({
         aria-hidden="true"
         tabIndex={-1}
       />
-      {children ? (
-        children(renderProps)
-      ) : (
-        <DefaultUploaderButton {...renderProps} />
-      )}
+      {children ? children(renderProps) : <DefaultUploaderButton {...renderProps} />}
     </div>
   )
 }
