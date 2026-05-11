@@ -27,6 +27,7 @@ model User {
   records           Record[]
   vaccineRecords    VaccineRecord[]
   milestoneRecords  MilestoneRecord[]
+  jaundiceRecords   JaundiceRecord[]
   familyMemberships FamilyMember[]
   createdFamilies   Family[]         @relation("FamilyCreator")
 }
@@ -77,6 +78,7 @@ model Baby {
   records          Record[]
   vaccineRecords   VaccineRecord[]
   milestoneRecords MilestoneRecord[]
+  jaundiceRecords  JaundiceRecord[]
 
   @@index([familyId])
 }
@@ -191,6 +193,49 @@ model MilestoneRecord {
   // 打卡式：同一 baby 下每个里程碑名称仅一条记录
   @@unique([babyId, name])
   @@index([babyId, familyId])
+}
+
+/// 黄疸观察记录（v7.2 T-S1-F2）
+///
+/// 字段语义对齐：
+///   - recordDate：测量当日（UTC 00:00 落库；前端按本地时区显示）
+///   - dayAge：日龄，可在前端通过出生日期 + recordDate 推算，也可单独传
+///   - kramerZone：Kramer 五分区法 1-5；null 表示皮肤未见明显黄染
+///   - scleralIcterus：巩膜是否黄染
+///   - tcb / tsb：经皮 / 血清胆红素 mg/dL
+///   - category：'physiologic' | 'pathologic' | 'breast_milk'
+///   - symptoms / treatments：JSON 字符串数组（SQLite/MySQL 通用）
+///
+/// 与客户端 lib/jaundice 的字段映射：
+///   client.date <-> recordDate
+///   client.ageDays <-> dayAge
+///   client.scleraYellow <-> scleralIcterus
+///   client.jaundiceType <-> category
+///   client.symptoms <-> symptoms (JSON.parse)
+///   client.actions <-> treatments (JSON.parse)
+model JaundiceRecord {
+  id             String   @id @default(cuid())
+  babyId         String
+  familyId       String
+  recordDate     DateTime
+  dayAge         Int?
+  kramerZone     Int?
+  scleralIcterus Boolean?
+  tcb            Float?
+  tsb            Float?
+  category       String?
+  symptoms       String?  // JSON string
+  treatments     String?  // JSON string
+  note           String?
+  createdBy      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  baby    Baby @relation(fields: [babyId], references: [id], onDelete: Cascade)
+  creator User @relation(fields: [createdBy], references: [id])
+
+  @@index([babyId, familyId, recordDate])
+  @@index([familyId])
 }
 
 model OperationLog {

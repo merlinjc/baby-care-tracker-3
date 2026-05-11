@@ -25,6 +25,7 @@ beforeEach(async () => {
     prisma.record.deleteMany(),
     prisma.vaccineRecord.deleteMany(),
     prisma.milestoneRecord.deleteMany(),
+    prisma.jaundiceRecord.deleteMany(),
     prisma.baby.deleteMany(),
     prisma.familyMember.deleteMany(),
     prisma.family.deleteMany(),
