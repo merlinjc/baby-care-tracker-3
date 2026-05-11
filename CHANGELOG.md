@@ -25,6 +25,59 @@
 > 主题：**内容沉淀 + 个性化 + 可访问性 + 工程基础**
 > 排期：3 个 sprint（约 6 周），目标 v7.2.0 GA。
 
+### Added — Sprint 2（v7.2.0-rc.2，2026-05-11 一次性交付）
+
+> Sprint 2 设计：[`docs/web-roadmap-v7.2-sprint2-design.md`](./docs/web-roadmap-v7.2-sprint2-design.md)
+> Sprint 2 任务：[`docs/web-roadmap-v7.2-sprint2-tasks.md`](./docs/web-roadmap-v7.2-sprint2-tasks.md)
+> 22 个 task 全部完成；server vitest **234 → 262** 全过；client 入口 chunk gzip **21.47 KB**（≤ 22 KB 目标）
+
+- **F11 每日打卡 + AI 小记 + 成长日历（Sprint 2 主线）**
+  - **后端**（4 task）
+    - `DailyCheckin` schema：`@@unique([babyId, checkinDate])` + `photoKey`（INF-02 方案 B，非 URL）
+    - `daily-checkin.service`：CRUD + 7d 补打卡窗口校验 + 跨家庭隔离 + editor/admin 权限矩阵
+    - `daily-checkin.service.generateAiSummary`：调 `aiService.chat`（含配额扣减/回滚） + 落 `aiSummary + aiSummaryAt`，温柔感性基调（区别于 dailyInsight）
+    - `routes/checkins.ts`：5 端点 + AI 小记端点（挂 `aiRateLimit`）
+    - `patrol.runDailyCheckinOrphanCleanup`：周日 04:00 + 30d 阈值 + COS list/delete 批处理
+    - 测试：17 service 集成 + 16 schema + 12 AI 集成 + 6 patrol = 51 用例
+  - **前端**（5 task）
+    - `services/daily-checkin.ts` + `hooks/use-daily-checkins.ts`：list 按月 / 单日 / mutation 全套
+    - `PhotoUploader`：包装 ImageUploader(kind=daily-checkin) + create + asyncAi；`autoGenerateAi=false` 用于"替换照片"
+    - `DailyCheckinCard`：首页三态（未打卡 CTA / 处理中 / 已打卡缩略图 + AI 前 2 行）
+    - `AiSummaryPanel`：展示 / 编辑（textarea 1000 字）/ 重新生成（confirm 扣配额提示）/ 空态生成
+    - `DailyCheckinDetail`：单日详情 Dialog (size=lg)：照片全图 + AiSummaryPanel + caption + 替换照片 + 删除
+    - `GrowthCalendar` 月视图：cell 四态（future/supplement/expired/checked）+ 周一首列 + 出生日界 + 7d 窗口
+    - `CalendarMonthSwitcher` ◀▶：prevDisabled (≤ 出生月) / nextDisabled (≥ 当前月)
+    - `CalendarExportMenu`：导出图片 / 导出 PDF / 系统分享，全部动态 import
+    - `pages/growth/calendar` 独立路由：`?year/?month/?date/?babyId`
+    - `lib/calendar-canvas`：A4 比 1240×1754 jpeg，2DPR + 圆角缩略图 + 数字角标 + AI 小记首行渐变
+  - **i18n**：新 NS `daily-checkin`（card / ai_summary / calendar / detail / errors）
+
+- **F10 WHO 百分位线增强**（2 task）
+  - `lib/who-standards`：0-24 月 → 0-60 月（24-60 月按 3 月粒度）
+  - `lib/who-percentile` (NEW)：分段线性插值 + 边界饱和；`getPercentile / getPercentileLabel / isOutOfRange / getReferenceLinePoints / getReferenceAtAge`
+  - `pages/growth`：chartMonths 上限 24 → 60；X 轴标签自适应（≤24 月/3，>24 月/6）
+  - 数据点 hover title `+P75（中上水平）`；异常值数据点放大 + 染红
+  - 历史记录 Badge `P50` / `<P3 ⚠`；异常行红底高亮 + 「向 AI 咨询」按钮（autoPrompt 协议）
+  - 测试：28 用例覆盖 5 档参考点直接命中 / 边界饱和 / 月龄插值 / 月龄超界 / 标签映射 / 单调性
+
+- **F4 报告分享 Dialog + PDF 导出**（2 task）
+  - `pdf-lib ^1.17.1` 接入；`vendor-pdf` chunk 拆分（仅 calendar / report 路由动态加载）
+  - `lib/pdf-export`：`renderPagesToPdf / renderReportWithCalendarPdf / downloadBlob`，A4 contain
+  - `<ReportShareDialog>`：预览（renderReportImage） + 三个 action（PNG / PDF / 系统分享）+ "附带成长日历" Checkbox
+  - PDF 第 1 页报告 + 后续每月一页日历，进度态 toast；元数据 title/author/subject 完整填写
+  - `pages/report` 分享按钮 → 打开 Dialog（替代直接 share）
+
+- **基础设施 / 文档**
+  - `vite.config.ts` manualChunks 增加 `vendor-pdf`
+  - `tests/setup.ts` 增加 `dailyCheckin.deleteMany` 清表
+  - 文档同步：
+    - `web-architecture.md` §5.12 / 5.13 / 5.14（每日打卡 / 百分位 / 报告 PDF）
+    - `web-api-spec.md` §12（每日打卡 6 端点 + 5 个新错误码）
+    - `web-component-library.md` §2A / 2B / 2C（13 个新组件 + 4 hook + 4 lib）
+    - `web-coding-conventions.md` §21 / §22（每日打卡 6 条约定 + PDF/Canvas 4 条约定）
+    - `devops-workflow.md` §4.5（patrol 三任务表 + 30d 阈值说明）
+    - `web-roadmap-v7.2.md` §12.2 字段修正（`photoUrl` → `photoKey`）
+
 ### Added — Sprint 1 进行中
 
 - **T-S1-F8-02/03/04/05 i18n 增量接入（5 高频页 + 1 公共 layout + LanguageSwitcher）**（2026-05-11 完成）
