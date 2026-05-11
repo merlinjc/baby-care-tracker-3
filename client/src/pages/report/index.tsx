@@ -25,35 +25,30 @@ import { ReportDailyRhythm } from '@/components/report/report-daily-rhythm'
 import { ReportGrowthSection } from '@/components/report/report-growth-section'
 import { ReportAchievements } from '@/components/report/report-achievements'
 import { ReportAiSummary } from '@/components/report/report-ai-summary'
+import { ReportShareDialog } from '@/components/report/report-share-dialog'
 import { ListSkeleton } from '@/components/ui/list-skeleton'
-import { toast } from '@/components/ui/toast'
 import { useReportData, type ReportPeriod } from '@/hooks/use-report-data'
-import { renderReportImage, shareImage } from '@/lib/share-canvas'
 import { staggerContainer, staggerItem } from '@/lib/motion'
 
 export function ReportPage() {
   const { t } = useTranslation('report')
   const currentBaby = useBabyStore((s) => s.currentBaby)
   const [period, setPeriod] = useState<ReportPeriod>('week')
-  const [isSharing, setIsSharing] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
 
   const data = useReportData(currentBaby?.id, period, currentBaby?.birthDate)
 
-  const handleShare = async () => {
-    if (!currentBaby || isSharing) return
-    setIsSharing(true)
-    try {
-      const blob = await renderReportImage({ baby: currentBaby, data })
-      const periodLabel = period === 'week' ? t('share.filename_week') : t('share.filename_month')
-      const filename = `${currentBaby.name}_${periodLabel}_${data.range.start.toISOString().slice(0, 10)}.jpg`
-      const result = await shareImage(blob, filename, t('share.title_template', { name: currentBaby.name }))
-      toast.success(result === 'shared' ? t('share.toast_shared') : t('share.toast_downloaded'))
-    } catch (err) {
-      toast.error((err as { message?: string })?.message ?? t('share.toast_failed'))
-    } finally {
-      setIsSharing(false)
-    }
+  const handleShare = () => {
+    if (!currentBaby || data.isLoading) return
+    setShareOpen(true)
   }
+
+  const filenameStem = currentBaby
+    ? `${currentBaby.name}_${period === 'week' ? t('share.filename_week') : t('share.filename_month')}_${data.range.start.toISOString().slice(0, 10)}`
+    : ''
+  const shareTitle = currentBaby
+    ? t('share.title_template', { name: currentBaby.name })
+    : ''
 
   if (!currentBaby) {
     return (
@@ -103,9 +98,9 @@ export function ReportPage() {
               size="sm"
               leftIcon={<Share2 className="h-3.5 w-3.5" />}
               onClick={handleShare}
-              disabled={isSharing || data.isLoading}
+              disabled={data.isLoading}
             >
-              {isSharing ? t('actions.share_generating') : t('actions.share')}
+              {t('actions.share')}
             </Button>
           }
         />
@@ -177,13 +172,24 @@ export function ReportPage() {
               size="lg"
               block
               onClick={handleShare}
-              disabled={isSharing}
               leftIcon={<Share2 className="h-4 w-4" />}
             >
-              {isSharing ? t('actions.share_full_button_loading') : t('actions.share_full_button')}
+              {t('actions.share_full_button')}
             </Button>
           </motion.div>
         </>
+      )}
+
+      {/* 分享 Dialog（v7.2 T-S2-F4） */}
+      {currentBaby && shareOpen && (
+        <ReportShareDialog
+          open={shareOpen}
+          onClose={() => setShareOpen(false)}
+          baby={currentBaby}
+          data={data}
+          filenameStem={filenameStem}
+          shareTitle={shareTitle}
+        />
       )}
     </motion.div>
   )
