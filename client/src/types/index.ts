@@ -17,6 +17,8 @@ export type {
   AIQuotaStatus, ChatStreamEvent,
   // FR-F 扩展：按角色差异化
   CareRole,
+  // v7.2+ 用户个性化偏好
+  UserPreferences,
 } from '@baby-care-tracker/shared'
 
 export { Permission } from '@baby-care-tracker/shared'

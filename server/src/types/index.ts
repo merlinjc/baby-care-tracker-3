@@ -2,6 +2,7 @@
 export type {
   User,
   AuthUser,
+  UserPreferences,
   Family,
   FamilyMember,
   FamilyDetail,

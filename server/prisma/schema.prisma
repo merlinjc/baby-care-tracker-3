@@ -15,6 +15,12 @@ model User {
   nickname     String
   avatar       String?
   familyId     String?
+  /// 用户个性化偏好（JSON 字符串，SQLite/MySQL 通用）。
+  /// 服务端通过 `auth.service` 的深合并工具按顶层 key 增量更新，
+  /// 已知键：onboardingCompleted / onboardingSkippedSteps / lang /
+  /// langManuallySet / fontScale / themeMode（v7.2+，见 shared/types UserPreferences）。
+  /// 不要直接覆写整段字符串。
+  preferences  String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

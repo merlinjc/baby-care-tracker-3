@@ -1112,3 +1112,72 @@ fallback 统一用 `client/src/app/layout/route-fallback.tsx`：
 - ✅ 路由切换的过渡感由 `<RouteFallback>` 统一负责，不要在每个 page 内部再写一层"页面加载中"
 
 
+
+## 18. 用户偏好 `User.preferences` 写入约定（v7.2+）
+
+### 18.1 入口统一收敛
+
+所有"跨设备 / 跨会话保持"的用户个性化配置必须走 `User.preferences`，不要再为每种偏好新增独立字段或独立表。
+
+**写入入口（按优先级）**：
+
+```typescript
+// ✅ 业务最常用：经过 store，立即同步 UI
+const updatePreferences = useAuthStore((s) => s.updatePreferences)
+await updatePreferences({ onboardingCompleted: true })
+
+// ✅ 不在 React 上下文时：直接调 service
+await authService.updatePreferences({ lang: 'en-US' })
+
+// ⚠️ 也允许（向后兼容）但语义不够明确：
+await authService.updateProfile({
+  preferences: { onboardingCompleted: true },
+})
+```
+
+### 18.2 顶层 key 级深合并语义
+
+**只传想改的字段**，不要先读再合再整段写。后端 `auth.service.updateProfile` 会按顶层 key 合并：
+
+```typescript
+// ✅ 正确：只更新一个键
+await updatePreferences({ onboardingCompleted: true })
+
+// ❌ 错误：自己合并（竞态 + 多余网络）
+const cur = useAuthStore.getState().user!.preferences ?? {}
+await updatePreferences({ ...cur, onboardingCompleted: true })
+```
+
+特殊语义：
+- `undefined` = 不更新该键（保留原值）
+- `null` / `false` / `''` / `[]` = 显式赋值（按字面意义）
+- 未知键 = 透传保留（不会丢，便于灰度 / 跨版本兼容）
+
+### 18.3 类型契约
+
+- 新增已知键 → 必须先在 `shared/types/index.ts#UserPreferences` 加字段
+- 然后在 `server/src/schemas/auth.schema.ts#userPreferencesPatchSchema` 加 zod 校验
+- 客户端 store / hook 自动通过 `Partial<UserPreferences>` 拿到类型推导
+- 旧版客户端不知道新键 → 透传 `passthrough()` 保留即可
+
+### 18.4 与本地 zustand persist 的关系
+
+`font-scale-store` / `theme-store` 仍保留本地 zustand persist，作为**运行时副本**：
+
+| 维度 | 本地 zustand | `User.preferences` |
+|------|-------------|---------------------|
+| 用途 | 首屏 0 延迟应用 | 跨设备同步种子 |
+| 写入触发 | 用户在当前设备切换时 | 用户切换后 best-effort 同步一次 |
+| 读取优先 | ✓（首屏立即用） | ✗（仅首次登录初始化本地用） |
+| 失败容忍 | — | 失败不阻塞 UI |
+
+**约定**：
+- 本地切换主题 / 字体档时：先更新本地 zustand → 再 fire-and-forget 调 `updatePreferences`（失败 toast 但不撤销本地变更）
+- 首次登录拉到 `user.preferences` 后：仅当本地 zustand 仍是默认值时用 preferences 覆盖（避免覆盖用户在新设备上已经做过的选择）
+
+### 18.5 反例 / 禁忌
+
+- ❌ 不要把"用户业务数据"（如宝宝、家庭、记录）塞进 preferences。这里只放"用户对 App 的偏好设置"
+- ❌ 不要在 service 里直接 `prisma.user.update({ preferences: JSON.stringify(...) })` 绕过深合并 —— 会把其他键全冲掉
+- ❌ 不要为单个偏好键新增独立的 PATCH 端点（如 `/auth/onboarding`）。请直接调 `updatePreferences({ onboardingCompleted: true })`
+- ✅ 大型 / 嵌套结构的偏好需要持久化时，再讨论"是不是应该建独立表"

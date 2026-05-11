@@ -292,6 +292,45 @@ client/vite.config.ts > build.rollupOptions.output.manualChunks
 - 切换 page 增量：仅 2-11 KB gzip（如打开 settings 仅多 2.37 KB，milestone 8.62 KB）
 - `>500KB chunks` build 警告：消除
 
+### 5.6 用户偏好 `User.preferences`（v7.2 T-S1-INF-01）
+
+为支持「首次引导是否完成」「语言」「字体档 / 主题跨设备种子」等跨端、跨会话的个性化设置，v7.2 在 `User` 上新增 `preferences` 字段：
+
+```
+User.preferences  TEXT (SQLite) / TEXT (MySQL)   ← JSON 字符串
+```
+
+**为什么是 JSON 字符串而非独立表 / JSONB**：
+- 偏好键稀疏 + 不需要按键索引查询
+- 单条用户只有一行偏好，写竞争不存在
+- SQLite/MySQL/Postgres 跨数据库通用，零迁移成本
+- 前后端跨版本演进时未知键可透传保留
+
+**写入语义（关键）**：
+- 写口收敛到 `PATCH /api/auth/profile` 的 `preferences` 入参，服务端 `auth.service.updateProfile` 走"**顶层 key 级深合并**"：
+  - 先读旧 preferences，反序列化为对象（脏数据时 fallback 为 null）
+  - 用 `mergePreferences(base, patch)` 把 patch 中非 `undefined` 的 key 覆盖到 base
+  - 写回 JSON 字符串
+- 客户端只需传"想修改的子集"，无需 `先 fetch → 合 → 整段 PUT` 这种竞态模式
+- 显式传 `null` 视为"设为 null"，不删除；要"清空"请用合理默认值（`onboardingCompleted: false` 等）
+- 未知键透传保留：便于灰度发布、跨小程序/Web 端版本不一致
+
+**类型契约**：
+- 共享类型 `shared/types/index.ts#UserPreferences`（已知键带严格类型）
+- Zod 校验 `server/src/schemas/auth.schema.ts#userPreferencesPatchSchema`（已知键校验 + `.passthrough()` 允许未知键）
+- 前端 store action `useAuthStore().updatePreferences(patch)` 调一次 API 后同步 `user.preferences`，UI 立即生效
+
+**读侧**：
+- `sanitizeUser()` 把 `preferences` 字段反序列化为对象输出（旧用户从未写过 → `null`）
+- `getMe` / `login` / `register` / `updateProfile` 返回的 `AuthUser` 均带 `preferences: UserPreferences | null`
+
+**与本地 zustand persist 的关系**：
+- `font-scale-store` / `theme-store` 仍保留本地 zustand persist，作为运行时副本（保证首屏渲染时立即应用，无网络等待）
+- `User.preferences.fontScale / themeMode` 仅作为**跨设备同步种子**：
+  - 用户首次登录时，如本地无值 → 用 preferences 的值初始化本地 store
+  - 用户切换后写一次 preferences（best-effort，失败不阻塞 UI）
+- 这是有意为之的"双写不一致容忍"设计：跨设备最终一致即可，运行时优先本地以保证 0 延迟
+
 ---
 
 ## 6. 文件依赖图

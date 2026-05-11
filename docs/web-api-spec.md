@@ -303,14 +303,53 @@ interface AuthUserResponse {
 
 ### 2.5 PATCH /api/auth/profile
 
-更新当前用户信息。
+更新当前用户信息。**v7.2+ 新增 `preferences` 字段**，用于增量更新用户个性化偏好。
 
 **请求体**：
 
 ```typescript
 interface UpdateProfileRequest {
-  nickname?: string;   // 昵称，1-20 字符
-  avatar?: string;     // 头像 URL
+  nickname?: string;              // 昵称，1-20 字符
+  avatar?: string | null;         // 头像 URL；显式传 null 清空
+  /** v7.2+：用户偏好（顶层 key 级深合并语义） */
+  preferences?: Partial<UserPreferences>;
+}
+
+interface UserPreferences {
+  onboardingCompleted?: boolean;          // F1：首次引导是否完成
+  onboardingSkippedSteps?: string[];      // F1：已跳过的步骤 ID
+  lang?: string;                          // F8：当前语言（如 'zh-CN'）
+  langManuallySet?: boolean;              // F8：是否手动切换过
+  fontScale?: 'sm' | 'md' | 'lg' | 'xl';  // v7.1 字体档跨设备种子
+  themeMode?: 'light' | 'warm-night' | 'system';  // v7.1 主题模式跨设备种子
+  // 未知键允许透传（前后端跨版本兼容）
+}
+```
+
+**`preferences` 深合并语义**（关键）：
+
+- 服务端按**顶层 key 级别**做部分更新，未传的 key 保留原值
+- 客户端只需传想要修改的子集，无需先拉再合再写
+- 显式传 `null` 视为"将该 key 设为 null"（不删除）；如需"清空"请用合理默认值
+- 未知键透传保留（便于灰度发布、跨版本兼容）
+- 库里实际持久化为 JSON 字符串（`User.preferences`）；脏数据解析失败时 `getMe` 返回 `preferences: null`，不抛错
+
+**示例**：
+
+```bash
+# 标记首次引导完成
+PATCH /api/auth/profile
+{ "preferences": { "onboardingCompleted": true } }
+
+# 切换语言（不影响 onboardingCompleted）
+PATCH /api/auth/profile
+{ "preferences": { "lang": "en-US", "langManuallySet": true } }
+
+# 同时改昵称与字体档
+PATCH /api/auth/profile
+{
+  "nickname": "Alice",
+  "preferences": { "fontScale": "lg" }
 }
 ```
 
@@ -318,7 +357,7 @@ interface UpdateProfileRequest {
 
 ```typescript
 interface AuthUserResponse {
-  user: AuthUser;
+  user: AuthUser;   // 完整 user 对象，含合并后的 preferences（已反序列化为对象）
 }
 ```
 
@@ -327,7 +366,13 @@ interface AuthUserResponse {
 | 状态码 | 错误码 | 触发条件 |
 |-------|--------|---------|
 | 401 | `UNAUTHORIZED` | Token 无效或过期 |
-| 422 | `VALIDATION_ERROR` | 字段校验失败 |
+| 422 | `VALIDATION_ERROR` | 字段校验失败（如 fontScale 取值不在白名单） |
+
+**前端调用约定**：
+
+- 业务代码请优先使用 `useAuthStore().updatePreferences(patch)` 或 `authService.updatePreferences(patch)`，语义比直接调 `updateProfile` 更明确
+- 该接口写后会同步 `auth-store.user.preferences`，UI 立即生效
+- 不要绕过该接口在本地保存"用户偏好"（双写不一致）。本地缓存仅作为运行时副本（如 `font-scale-store` / `theme-store` 的 zustand persist），跨设备同步走该接口
 
 ---
 

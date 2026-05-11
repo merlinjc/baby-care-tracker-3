@@ -27,6 +27,17 @@
 
 ### Added — Sprint 1 进行中
 
+- **T-S1-INF-01 User.preferences 字段 + PATCH /profile 深合并**（2026-05-11 完成）
+  - `prisma/schema.prisma` 新增 `User.preferences  String?`（SQLite TEXT 存 JSON）
+  - `shared/types/index.ts` 新增 `UserPreferences` 接口（onboardingCompleted / onboardingSkippedSteps / lang / langManuallySet / fontScale / themeMode），`User.preferences` 类型化为 `UserPreferences | null`
+  - `server/src/schemas/auth.schema.ts` 新增 `userPreferencesPatchSchema`：已知键严格校验 + `.passthrough()` 未知键透传
+  - `server/src/services/auth.service.ts`：新增 `parsePreferences` / `mergePreferences` 工具；`updateProfile` 走顶层 key 级深合并；`sanitizeUser` 输出反序列化对象；脏 JSON 兜底为 null
+  - `client/src/services/auth.ts`：`updateProfile` 接受 `preferences` 入参；新增 `updatePreferences(patch)` 便捷方法
+  - `client/src/stores/auth-store.ts`：新增 `updatePreferences(patch)` action
+  - `tests/integration/auth-update-profile.test.ts`：10 个用例覆盖深合并 / 部分字段 / 未知键 / 脏数据 / 向后兼容
+  - **测试结果**：server 85/85 通过（baseline 75 + 新增 10）；client build 通过，体积无变化
+  - 文档：`web-api-spec.md §2.5` / `web-architecture.md §5.6` / `web-coding-conventions.md §18`
+
 - **F9 路由级代码分割**（T-S1-F9-01，2026-05-11 完成）
   - `client/src/app/routes.tsx`：14 个 page 全部 `React.lazy` + 动态 `import()`；命名导出通过 `.then(m => ({ default: m.XxxPage }))` 适配
   - `client/src/app/layout/route-fallback.tsx`：200ms 延迟动画点阵 + `role="status" / aria-live` 完备

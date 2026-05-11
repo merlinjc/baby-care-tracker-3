@@ -97,7 +97,7 @@ server/src/
 - `routes/uploads.ts` + `services/upload.service.ts`（F12 / 共享给 F11）
 - `routes/jaundice.ts` + `services/jaundice.service.ts`（F2）
 - `schemas/jaundice.schema.ts`（F2）
-- `routes/auth.ts` 扩展 `PATCH /api/auth/me` 支持 `preferences` 部分更新（F1 / F12 复用）
+- `routes/auth.ts` 扩展 `PATCH /api/auth/profile` 支持 `preferences` 部分更新（F1 / F12 复用）
 
 ### 2.4 现有依赖
 
@@ -272,7 +272,7 @@ export interface UserPreferences {
 **API**：
 
 ```
-PATCH /api/auth/me
+PATCH /api/auth/profile
 Body: { nickname?, avatar?, preferences?: Partial<UserPreferences> }
 说明：preferences 走「深合并」（顶层 key 级别），不是全量替换；
      前端传哪个 key 就只更新哪个 key。
@@ -280,7 +280,7 @@ Body: { nickname?, avatar?, preferences?: Partial<UserPreferences> }
 
 **前端 store 接入**：
 - `auth-store` 的 `user` 类型加 `preferences?: UserPreferences`
-- 新增 `updatePreferences(patch)` action，内部调 `PATCH /api/auth/me`
+- 新增 `updatePreferences(patch)` action，内部调 `PATCH /api/auth/profile`
 
 ### 3.4 上传 / 头像 / 引导 / 黄疸 / 导出 / 多宝 / i18n 之间的依赖
 
@@ -755,7 +755,7 @@ ProfilePage / SettingsPage
      │ save(publicUrl)
      ▼
 ┌──────────────────────┐
-│ PATCH /api/auth/me    │
+│ PATCH /api/auth/profile    │
 │ { avatar: publicUrl } │
 └──────────────────────┘
      │
@@ -797,7 +797,7 @@ export function getDefaultAvatarDataUri(name: string): string { ... }
 
 ### 6.4 后端
 
-`PATCH /api/auth/me` 已存在，仅需：
+`PATCH /api/auth/profile` 已存在，仅需：
 - Zod schema 加 `avatar: z.string().url().optional()`
 - service 层把 `avatar` 字段一并 set
 
@@ -1135,7 +1135,7 @@ useEffect(() => {
 
 ### 10.4 状态保存
 
-- 完成 / 跳过 → `PATCH /api/auth/me { preferences: { onboardingCompleted: true, onboardingSkippedSteps: [...] } }`
+- 完成 / 跳过 → `PATCH /api/auth/profile { preferences: { onboardingCompleted: true, onboardingSkippedSteps: [...] } }`
 - localStorage 不另存，全部依赖 `user.preferences`（避免双向同步麻烦）
 - session 内 `hasSeenInThisSession` ref 防止 React StrictMode 双触发
 

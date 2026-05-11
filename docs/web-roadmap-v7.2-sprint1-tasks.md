@@ -93,26 +93,32 @@ T-S1-REL-01    Sprint 1 验收与打 tag
 
 ## 4. 共享基础设施（必须先于 F1 / F12 / F2 落地）
 
-### T-S1-INF-01 ⬜ User.preferences 字段 + PATCH /me 扩展
+### T-S1-INF-01 ✅ User.preferences 字段 + PATCH /profile 深合并
 **类型**：feat (DB schema)
 **预估**：0.5d
+**实际**：0.4d
 **依赖**：—
+**完成日期**：2026-05-11
 **输出**：
-- `server/prisma/migrations/xxx_add_user_preferences/`
-- `server/src/schemas/auth.schema.ts`：PATCH /me 加 `preferences` 部分字段 zod
-- `server/src/services/auth.service.ts`：`updateMe` 支持 preferences 深合并（顶层 key 级别）
-- `server/src/routes/auth.ts`：返回 user 时序列化 `preferences` 为对象（非字符串）
-- `shared/types/user.ts`：+ `UserPreferences` 接口（设计文档 §3.3）
-- `client/src/stores/auth-store.ts`：user 类型 + `updatePreferences(patch)` action
-- `client/src/services/auth.ts`：`updatePreferences` API 包装
-- 单元测试：updateMe 深合并 + 部分字段 + 非法字段拒绝
+- `server/prisma/schema.prisma`：`User.preferences  String?`（SQLite TEXT 存 JSON）
+- `server/src/schemas/auth.schema.ts`：新增 `userPreferencesPatchSchema`（已知键严格校验 + `.passthrough()` 透传未知键），`updateProfileSchema` 接入 `preferences` 可选字段
+- `server/src/services/auth.service.ts`：新增 `parsePreferences` / `mergePreferences` 工具；`updateProfile` 走顶层 key 级深合并；`sanitizeUser` 输出反序列化对象
+- `server/src/types/index.ts`：re-export `UserPreferences`
+- `shared/types/index.ts`：新增 `UserPreferences` 接口（6 个已知键），`User` 加 `preferences?: UserPreferences | null`
+- `client/src/types/index.ts`：re-export `UserPreferences`
+- `client/src/services/auth.ts`：`updateProfile` 接受 `preferences` 入参；新增便捷方法 `updatePreferences(patch)`
+- `client/src/stores/auth-store.ts`：新增 `updatePreferences(patch)` action
+- `server/tests/integration/auth-update-profile.test.ts`：新增 10 个用例覆盖深合并 / 部分字段 / 未知键透传 / 脏 JSON 兜底
 
-**验收**：
-- 单元测试通过
-- `PATCH /api/auth/me` 传 `{ preferences: { onboardingCompleted: true } }` 不会覆盖其他 preferences key
-- 旧用户 `user.preferences == null` 时前端按空对象处理，不报错
+**沿用既有命名**：API 仍为 `PATCH /api/auth/profile`（不引入新端点 `/me`），与现有路由 / 文档一致；设计文档中描述的 `/me` 仅为示意。
 
-**PR 标题**：`feat(api): User.preferences 字段 + PATCH /me 深合并（INF）`
+**实际收益**：
+- 后端：85/85 测试全绿（baseline 75 + 新增 10）
+- 前端：build 通过，体积无变化（仅类型扩展，无 runtime 新依赖）
+- 客户端获得一行 API 即可写偏好：`useAuthStore().updatePreferences({ key: value })`
+- 为 F1 / F8 / F12 / 未来主题字体跨设备同步提供统一写入口
+
+**PR 标题**：`feat(api): User.preferences 字段 + PATCH /profile 顶层 key 深合并（T-S1-INF-01）`
 
 ---
 
@@ -533,7 +539,7 @@ T-S1-REL-01    Sprint 1 验收与打 tag
 | ID | 功能 | 标题 | 工期 | 状态 |
 |----|------|------|------|------|
 | T-S1-F9-01 | F9 | 路由代码分割 + manualChunks + visualizer + RouteFallback | 0.5d | ✅ |
-| T-S1-INF-01 | 共享 | User.preferences + PATCH /me 深合并 | 0.5d | ⬜ |
+| T-S1-INF-01 | 共享 | User.preferences + PATCH /profile 深合并 | 0.5d | ✅ |
 | T-S1-INF-02 | 共享 | COS 预签名上传链路 + ImageUploader | 1d | ⬜ |
 | T-S1-F8-01 | F8 | i18next 初始化 + zh-CN 骨架 | 0.3d | ⬜ |
 | T-S1-F8-02 | F8 | main-layout 抽离 | 0.3d | ⬜ |

@@ -1,6 +1,24 @@
 import api from './api';
-import type { AuthUser, LoginRequest, RegisterRequest, AuthResponse } from '@baby-care-tracker/shared';
+import type {
+  AuthUser,
+  LoginRequest,
+  RegisterRequest,
+  AuthResponse,
+  UserPreferences,
+} from '@baby-care-tracker/shared';
 import type { WechatLoginRequest } from './wechat-auth';
+
+/**
+ * PATCH /auth/profile 请求体（v7.2+ T-S1-INF-01 起支持 preferences）
+ *
+ * - nickname / avatar：传统字段，保持向后兼容
+ * - preferences：顶层 key 级深合并语义，部分更新即可（详见 shared/types UserPreferences）
+ */
+export interface UpdateProfileRequest {
+  nickname?: string;
+  avatar?: string | null;
+  preferences?: Partial<UserPreferences>;
+}
 
 export const authApi = {
   login: async (data: LoginRequest): Promise<AuthResponse> => {
@@ -23,8 +41,18 @@ export const authApi = {
     return res.data.data.user;
   },
 
-  updateProfile: async (data: { nickname?: string; avatar?: string }): Promise<AuthUser> => {
+  updateProfile: async (data: UpdateProfileRequest): Promise<AuthUser> => {
     const res = await api.patch('/auth/profile', data);
+    return res.data.data.user;
+  },
+
+  /**
+   * 便捷方法：仅更新 preferences（部分字段）。
+   * 等价于 `updateProfile({ preferences: patch })`，但语义更明确，
+   * 业务调用方（F1 引导 / F8 i18n / 主题 / 字体档跨设备种子）请优先使用本方法。
+   */
+  updatePreferences: async (patch: Partial<UserPreferences>): Promise<AuthUser> => {
+    const res = await api.patch('/auth/profile', { preferences: patch });
     return res.data.data.user;
   },
 
@@ -56,3 +84,4 @@ export const authApi = {
 
 // Alias for compatibility with stores
 export const authService = authApi;
+

@@ -8,6 +8,45 @@ import {
   ConflictError,
   ErrorCodes,
 } from '../types/errors';
+import type { UserPreferences } from '../types';
+
+/**
+ * 把存在 `User.preferences`（JSON 字符串）反序列化为对象。
+ * - 字段为 null / 空串 / 解析失败 → 返回 null（旧用户从未写过）
+ * - 解析失败时记录 warning，不抛错（避免 1 个用户脏数据拖垮整库登录）
+ */
+function parsePreferences(raw: string | null | undefined): UserPreferences | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as UserPreferences;
+    }
+    return null;
+  } catch (err) {
+    console.warn('[auth.service] 解析 User.preferences 失败，按 null 处理', err);
+    return null;
+  }
+}
+
+/**
+ * 顶层 key 级别的深合并（部分更新语义）：
+ * - 客户端传哪个 key 就只更新哪个 key，未传的 key 保留原值
+ * - 客户端传 `undefined` 视为"不更新该 key"
+ * - 客户端传非 undefined（包括 null / false / 空数组）视为"显式赋值"
+ * 不做嵌套 key 合并（v7.2 期间所有偏好都是扁平结构）。
+ */
+function mergePreferences(
+  base: UserPreferences | null,
+  patch: Record<string, unknown>,
+): UserPreferences {
+  const merged: Record<string, unknown> = { ...(base ?? {}) };
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === undefined) continue;
+    merged[key] = value;
+  }
+  return merged as UserPreferences;
+}
 
 class AuthService {
   async register(data: {
@@ -140,12 +179,34 @@ class AuthService {
     };
   }
 
-  async updateProfile(userId: string, data: { nickname?: string; avatar?: string }) {
+  async updateProfile(
+    userId: string,
+    data: { nickname?: string; avatar?: string; preferences?: Record<string, unknown> },
+  ) {
+    // 显式判定 avatar 是否提供：允许传 null / 空串 清空头像
+    const hasAvatar = Object.prototype.hasOwnProperty.call(data, 'avatar');
+
+    // preferences 走深合并：先读旧值，再合并 patch，最后写回 JSON 字符串
+    let preferencesUpdate: { preferences: string } | Record<string, never> = {};
+    if (data.preferences !== undefined) {
+      const current = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { preferences: true },
+      });
+      if (!current) {
+        throw new UnauthorizedError('用户不存在');
+      }
+      const base = parsePreferences(current.preferences);
+      const merged = mergePreferences(base, data.preferences);
+      preferencesUpdate = { preferences: JSON.stringify(merged) };
+    }
+
     const user = await prisma.user.update({
       where: { id: userId },
       data: {
         ...(data.nickname && { nickname: data.nickname }),
-        ...(data.avatar !== undefined && { avatar: data.avatar }),
+        ...(hasAvatar && { avatar: data.avatar ?? null }),
+        ...preferencesUpdate,
       },
     });
 
@@ -212,6 +273,7 @@ class AuthService {
     nickname: string;
     avatar: string | null;
     familyId: string | null;
+    preferences?: string | null;
     createdAt: Date;
     updatedAt: Date;
   }) {
@@ -222,6 +284,8 @@ class AuthService {
       nickname: user.nickname,
       avatar: user.avatar,
       familyId: user.familyId,
+      // v7.2+：反序列化为对象（旧用户没有该字段 → null）
+      preferences: parsePreferences(user.preferences),
       createdAt: user.createdAt.toISOString(),
       updatedAt: user.updatedAt.toISOString(),
     };

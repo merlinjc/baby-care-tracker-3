@@ -1,5 +1,29 @@
 // Baby Care Tracker - Shared Types
 
+// ============ User Preferences (v7.2+) ============
+/**
+ * 用户个性化偏好。后端以 JSON 字符串持久化在 `User.preferences`，
+ * 服务端 `auth.service.updateProfile` 按顶层 key 做"深合并"（部分更新），
+ * 客户端使用 `auth-store.updatePreferences(patch)` 入口写入。
+ *
+ * 所有键均为可选；未知键允许并保留（服务端不会主动丢弃），
+ * 便于跨版本前后端并行升级。
+ */
+export interface UserPreferences {
+  /** F1：首次使用引导是否完成 */
+  onboardingCompleted?: boolean;
+  /** F1：引导中跳过的步骤 ID，用于"重新观看"逻辑 */
+  onboardingSkippedSteps?: string[];
+  /** F8：当前语言代码（如 'zh-CN' / 'en-US'），默认 'zh-CN' */
+  lang?: string;
+  /** F8：是否曾手动切换过语言（决定是否再尊重浏览器 locale） */
+  langManuallySet?: boolean;
+  /** v7.1 字体档：跨设备种子（运行时仍以本地 font-scale-store 为准） */
+  fontScale?: 'sm' | 'md' | 'lg' | 'xl';
+  /** v7.1 主题模式：跨设备种子（运行时仍以本地 theme-store 为准） */
+  themeMode?: 'light' | 'warm-night' | 'system';
+}
+
 // ============ User Types ============
 export interface User {
   id: string;
@@ -8,6 +32,8 @@ export interface User {
   nickname: string;
   avatar: string | null;
   familyId: string | null;
+  /** v7.2+：用户个性化偏好（可能为 null：旧用户从未写过） */
+  preferences?: UserPreferences | null;
   createdAt: string;
   updatedAt: string;
 }
