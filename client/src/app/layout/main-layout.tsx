@@ -1,5 +1,5 @@
 import { Outlet, NavLink, Navigate } from 'react-router-dom';
-import { useEffect, useRef } from 'react';
+import { lazy, Suspense, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Check, ChevronDown, Clipboard, Compass, Home, User, UserCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -18,6 +18,18 @@ import {
   DropdownMenuItem,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, BabyAvatar } from '@/components/ui/avatar';
+
+/**
+ * OnboardingHost 懒加载包装：
+ * 引导组件只对首次启动有意义（绝大多数用户进来时已完成），所以它的代码不应进入
+ * 入口 chunk。MainLayout 渲染时才动态拉，无 fallback（流程允许首启 200-300ms
+ * 之后再弹）。
+ */
+const OnboardingHostLazy = lazy(() =>
+  import('@/components/onboarding/onboarding-host').then((m) => ({
+    default: m.OnboardingHost,
+  })),
+);
 
 /**
  * 导航项静态结构 — label 不在这里写死，改在渲染时通过 t() 取，
@@ -304,6 +316,11 @@ export function MainLayout() {
           ))}
         </div>
       </nav>
+
+      {/* v7.2 T-S1-F1：首次使用引导（动态 import 避免污染入口 chunk） */}
+      <Suspense fallback={null}>
+        <OnboardingHostLazy />
+      </Suspense>
     </div>
   );
 }
