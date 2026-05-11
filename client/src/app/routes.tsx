@@ -38,6 +38,9 @@ const FamilyPage = lazy(() =>
 const GrowthPage = lazy(() =>
   import('@/pages/growth').then((m) => ({ default: m.GrowthPage })),
 )
+const GrowthCalendarPage = lazy(() =>
+  import('@/pages/growth/calendar').then((m) => ({ default: m.GrowthCalendarPage })),
+)
 const VaccinePage = lazy(() =>
   import('@/pages/vaccine').then((m) => ({ default: m.VaccinePage })),
 )
@@ -89,6 +92,7 @@ export const router = createBrowserRouter([
       { path: '/baby', element: lazyEl(BabyPage) },
       { path: '/family', element: lazyEl(FamilyPage) },
       { path: '/growth', element: lazyEl(GrowthPage) },
+      { path: '/growth/calendar', element: lazyEl(GrowthCalendarPage) },
       { path: '/vaccine', element: lazyEl(VaccinePage) },
       { path: '/milestone', element: lazyEl(MilestonePage) },
       { path: '/ai-assistant', element: lazyEl(AiAssistantPage) },
