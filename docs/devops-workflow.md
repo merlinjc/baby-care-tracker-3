@@ -207,6 +207,22 @@ pnpm dev:client   # 只启动前端
 
 > Vite dev server 已配置 `/api → :3000` 代理（见 `client/vite.config.ts`）。
 
+### 6.1.1 前端 Bundle 体积分析（v7.2+）
+
+```bash
+cd client
+pnpm build            # 常规生产构建（不包含 visualizer）
+pnpm build:analyze    # 等价于 ANALYZE=true pnpm build，额外产出 dist/stats.html
+```
+
+`build:analyze` 仅在 `ANALYZE=true` 环境变量下启用 `rollup-plugin-visualizer`，输出 treemap（含 gzip / brotli 大小）。普通构建保持精简，不引入分析插件。
+
+**v7.2 起的体积纪律**（参见 `web-architecture.md §5.5`）：
+- 应用入口 chunk gzip 应 ≤ **20 KB**（v7.2 实测 15.68 KB）
+- 单个 page chunk gzip 应 ≤ **15 KB**（重图表页可放宽到 25 KB）
+- vendor 组应保持稳定，新增大体积依赖前需评估是否新开 vendor chunk
+- 提 PR 前如有大改动，本地跑一次 `pnpm build` 看体积变化作为 review 依据
+
 ### 6.2 修改 Prisma Schema
 
 ```bash

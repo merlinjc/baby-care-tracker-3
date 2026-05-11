@@ -68,22 +68,24 @@ T-S1-REL-01    Sprint 1 验收与打 tag
 
 ## 3. F9 · 路由级代码分割（0.5d）
 
-### T-S1-F9-01 ⬜ 路由 lazy 化 + vite manualChunks + visualizer + RouteFallback
+### T-S1-F9-01 ✅ 路由 lazy 化 + vite manualChunks + visualizer + RouteFallback
 **类型**：feat
 **预估**：0.5d
+**实际**：0.4d
 **依赖**：—
+**完成日期**：2026-05-11
 **输出**：
-- `client/vite.config.ts`：新增 manualChunks + 可选 visualizer
+- `client/vite.config.ts`：函数式 manualChunks 拆 6 组 vendor + 可选 visualizer
 - `client/package.json`：+ `rollup-plugin-visualizer` devDep + `build:analyze` script
-- `client/src/app/routes.tsx`：14 个 page 全部 `React.lazy`
-- `client/src/app/layout/route-fallback.tsx`：新增统一 fallback
-- `docs/web-roadmap-v7.2-sprint1-design.md` §4.5：填入 baseline / 完成后体积数据
+- `client/src/app/routes.tsx`：14 个 page 全部 `React.lazy` + `lazyEl()` 通用包装
+- `client/src/app/layout/route-fallback.tsx`：200ms 延迟动画点阵 + a11y role/aria
+- `docs/web-roadmap-v7.2-sprint1-design.md` §4.5：已填入基线数据
 
-**验收**：
-- `pnpm build` 0 error
-- `pnpm build:analyze` 产出 `client/dist/stats.html`
-- 切换 5 个路由无白屏，有平滑 fallback
-- 入口 chunk gzip 体积下降 ≥ 30%
+**实际收益**：
+- 应用入口 chunk gzip：289.11 KB → **15.68 KB（↓ 94.6%）**
+- 首屏首页加载 gzip：289.11 KB → **231.21 KB（↓ 20.0%）**
+- chunk 数：1 → 49（长缓存命中率显著提升）
+- build 警告：消除
 
 **PR 标题**：`feat(web): 路由级代码分割 + vendor manualChunks（F9）`
 
@@ -530,7 +532,7 @@ T-S1-REL-01    Sprint 1 验收与打 tag
 
 | ID | 功能 | 标题 | 工期 | 状态 |
 |----|------|------|------|------|
-| T-S1-F9-01 | F9 | 路由代码分割 + manualChunks + visualizer + RouteFallback | 0.5d | ⬜ |
+| T-S1-F9-01 | F9 | 路由代码分割 + manualChunks + visualizer + RouteFallback | 0.5d | ✅ |
 | T-S1-INF-01 | 共享 | User.preferences + PATCH /me 深合并 | 0.5d | ⬜ |
 | T-S1-INF-02 | 共享 | COS 预签名上传链路 + ImageUploader | 1d | ⬜ |
 | T-S1-F8-01 | F8 | i18next 初始化 + zh-CN 骨架 | 0.3d | ⬜ |

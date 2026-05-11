@@ -1044,4 +1044,71 @@ AI 助手页 (`pages/ai-assistant/index.tsx`) 通过：
 - 详情弹窗在已达成态展示"达成日期 + 备注"两栏，主按钮 = 保存修改、次按钮 = 取消打卡（红色 plain 按钮）；未达成态主按钮 = 标记达成。
 - 不要在该页引入"自由添加里程碑"的 UI；如果未来要扩展自定义里程碑，需要在 schema 上加 `kind: 'standard' | 'custom'` 字段，再独立设计入口。
 
+## 17. 路由懒加载约定（v7.2+ F9）
+
+### 17.1 所有 page 必须懒加载
+
+`client/src/app/routes.tsx` 内**所有** page 必须通过 `React.lazy + 动态 import()` 引入，不得直接 `import { XxxPage }` 顶层导入。
+
+```tsx
+// ✅ 正确
+const HomePage = lazy(() =>
+  import('@/pages/home').then((m) => ({ default: m.HomePage })),
+)
+
+// ❌ 错误（破坏代码分割）
+import { HomePage } from '@/pages/home'
+```
+
+布局组件（`MainLayout` / `AuthLayout`）作为首屏必要框架，保持 eager 加载。
+
+### 17.2 命名导出 → default 的适配
+
+现有 page 都是**命名导出**（`export function XxxPage() {}`），`React.lazy` 要求返回 `{ default }`。统一在 `.then(m => ({ default: m.XxxPage }))` 处转换，不在 page 文件本身改导出形式。
+
+新增 page 时**保持命名导出**，确保跨文件 grep 与 IDE 跳转友好。
+
+### 17.3 Suspense 包装
+
+每条路由用工具函数 `lazyEl(El)` 包装，不在 `routes.tsx` 各 element 重复写 `<Suspense fallback={...}>`：
+
+```tsx
+const lazyEl = (El: LazyExoticComponent<ComponentType>) => (
+  <Suspense fallback={<RouteFallback />}>
+    <El />
+  </Suspense>
+)
+
+// 使用
+{ path: '/', element: lazyEl(HomePage) }
+```
+
+fallback 统一用 `client/src/app/layout/route-fallback.tsx`：
+- 占满 60vh 避免布局抖动
+- 200ms 延迟出现，快速切换不闪烁
+- a11y：`role="status"` / `aria-live="polite"` / `aria-label="正在加载"`
+
+### 17.4 manualChunks 维护
+
+`client/vite.config.ts` 的 `manualChunks` 是函数式（Vite 8 / Rolldown 仅支持函数形式）。新增 vendor 依赖时按以下顺序决策：
+
+1. 若属于现有分组（React / Radix / framer-motion / lucide / 工具类），自动归并，**无需改 vite 配置**；
+2. 若是独立的、超过 50KB 的新依赖（如 echarts / pdf-lib / browser-image-compression），单独开 `vendor-{name}` 分组并在 vite.config.ts 加判定；
+3. 小型工具类（< 10KB）一律走默认归并到对应 page chunk，避免 chunk 数膨胀。
+
+### 17.5 体积纪律
+
+参考 `devops-workflow.md §6.1.1`：
+- 应用入口 chunk gzip 应 ≤ **20 KB**
+- 单个 page chunk gzip 应 ≤ **15 KB**（重图表页可放宽到 25 KB）
+- 提 PR 前如有体积敏感改动（新增大依赖 / 大型新页面），本地 `pnpm build` 看体积变化作为 review 依据
+- 大改动可用 `pnpm build:analyze` 输出 `dist/stats.html` 配合 review
+
+### 17.6 不变量
+
+- ❌ 不要在 page 顶层 import 其他 page 文件（破坏代码分割）
+- ❌ 不要把 page 共享的纯函数 / 类型放到 page 文件内导出（应放到 `@/lib` / `@/types`，否则其他 page 引用时会强制下载整个 page chunk）
+- ❌ 不要在 page 文件外把 page 用 `lazy()` 再二次包装（统一在 `routes.tsx` 一处管理）
+- ✅ 路由切换的过渡感由 `<RouteFallback>` 统一负责，不要在每个 page 内部再写一层"页面加载中"
+
 

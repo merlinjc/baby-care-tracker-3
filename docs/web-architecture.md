@@ -258,6 +258,40 @@ DELETE /babies/:id?cursor=2500
 - **既有调用方影响**：`milestoneService.list` 返回结构不变，`discover` / `report` / `share-canvas` 等读侧无需调整；语义上"已达成里程碑数"始终是"截至今天累计打卡数"，跟报告周期无强绑定（报告页的 `本期里程碑 N 项` 仍按 `achievedDate` 过滤，因此打卡日 = 当天即落入"本期"）。
 - **数据迁移**：dev/prod 库历史可能存在 `(babyId, name)` 重复行；提供一次性脚本 `server/prisma/scripts/dedupe-milestones.ts` 先做去重（保留 `createdAt` 最早的一条），再 `prisma db push` 让 unique 索引生效。
 
+### 5.5 路由级代码分割（v7.2 F9）
+
+为消除 v7.1 之前的"单 chunk 930KB"问题，v7.2 引入路由级 + vendor 级双重代码分割：
+
+```
+client/src/app/routes.tsx
+  ├─ 14 个 page 全部 React.lazy + 动态 import()
+  ├─ 命名导出 → default：.then(m => ({ default: m.XxxPage }))
+  └─ lazyEl(El) 通用 Suspense 包装，fallback = <RouteFallback>
+
+client/src/app/layout/route-fallback.tsx
+  ├─ 200ms 延迟出现，快速切换近乎无感
+  ├─ role="status" / aria-live / aria-label，a11y 完备
+  └─ surface-0 背景与 MainLayout 一致，无颜色撕裂
+
+client/vite.config.ts > build.rollupOptions.output.manualChunks
+  函数式（Vite 8 / Rolldown 仅支持函数形式），按依赖目录归组：
+  ├─ vendor-react   (react / react-dom / react-router-dom / scheduler)
+  ├─ vendor-query   (@tanstack/react-query)
+  ├─ vendor-radix   (@radix-ui/*，13 个子包)
+  ├─ vendor-motion  (framer-motion)
+  ├─ vendor-icons   (lucide-react)
+  └─ vendor-utils   (axios / clsx / tailwind-merge / cva / zustand)
+```
+
+**Bundle 分析**：`pnpm build:analyze` 通过 `ANALYZE=true` 环境变量启用 `rollup-plugin-visualizer`，产出 `client/dist/stats.html`（treemap，含 gzip + brotli）。普通 `pnpm build` 不引入该插件。
+
+**收益（v7.2 F9 实测，2026-05-11）**：
+- 应用入口 chunk gzip：289 KB → **15.68 KB**（↓ 94.6%）
+- 首屏首页加载 gzip（vendor + entry + home）：289 KB → **231 KB**（↓ 20.0%）
+- chunk 数：1 → **49**（长缓存命中率显著提升，更新业务代码不会让用户重新下载 React / Radix / framer-motion）
+- 切换 page 增量：仅 2-11 KB gzip（如打开 settings 仅多 2.37 KB，milestone 8.62 KB）
+- `>500KB chunks` build 警告：消除
+
 ---
 
 ## 6. 文件依赖图

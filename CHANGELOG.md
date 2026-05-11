@@ -20,19 +20,31 @@
 ## [v7.2.0] Saplings — 计划中（开发分支：`feature/v7.2-roadmap`）
 
 > Roadmap：[`docs/web-roadmap-v7.2.md`](./docs/web-roadmap-v7.2.md)（v1.0，2026-05-11）
+> Sprint 1 设计：[`docs/web-roadmap-v7.2-sprint1-design.md`](./docs/web-roadmap-v7.2-sprint1-design.md)
+> Sprint 1 任务：[`docs/web-roadmap-v7.2-sprint1-tasks.md`](./docs/web-roadmap-v7.2-sprint1-tasks.md)
 > 主题：**内容沉淀 + 个性化 + 可访问性 + 工程基础**
 > 排期：3 个 sprint（约 6 周），目标 v7.2.0 GA。
+
+### Added — Sprint 1 进行中
+
+- **F9 路由级代码分割**（T-S1-F9-01，2026-05-11 完成）
+  - `client/src/app/routes.tsx`：14 个 page 全部 `React.lazy` + 动态 `import()`；命名导出通过 `.then(m => ({ default: m.XxxPage }))` 适配
+  - `client/src/app/layout/route-fallback.tsx`：200ms 延迟动画点阵 + `role="status" / aria-live` 完备
+  - `client/vite.config.ts`：函数式 `manualChunks` 拆 6 组 vendor（react / query / radix / motion / icons / utils）；`ANALYZE=true` 触发 `rollup-plugin-visualizer` 产出 `dist/stats.html`
+  - `client/package.json`：+ `rollup-plugin-visualizer` devDep；新增 `build:analyze` script
+  - **收益**：应用入口 chunk gzip 289 KB → **15.68 KB（↓ 94.6%）**；首屏首页加载 gzip 289 KB → **231 KB（↓ 20.0%）**；chunk 数 1 → 49；消除 `>500KB chunks` build 警告
+  - 文档：`web-architecture.md §5.5` / `web-coding-conventions.md §17` / `devops-workflow.md §6.1.1`
 
 ### Planned（按 Sprint）
 
 #### Sprint 1（2026-05-11 → 2026-05-22）— 工程基础 + 个性化基础
-- **F9** 路由级代码分割（`React.lazy` + Vite manualChunks + bundle 阈值 CI 卡控）
-- **F8** i18n 框架预埋（`react-i18next`，5 个高频页面接入，仅 zh-CN 完整）
-- **F12** 用户头像设置（COS 预签名上传 + 默认 SVG 头像 + Baby 头像复用）
-- **F2** 黄疸记录持久化（新增 `JaundiceRecord` 表 + 4 端点 + localStorage → 云端迁移脚本）
-- **F3** 导出独立页 `/export`（按宝宝/范围/类型/格式组合导出 + 历史下载列表）
-- **F6** 多宝快捷切换持久化 + URL 参数（`?babyId=` 三层数据源优先级）
-- **F1** 首次使用引导 / Onboarding（4 步 Stepper + `User.preferences.onboardingCompleted`）
+- ✅ **F9** 路由级代码分割
+- ⬜ **F8** i18n 框架预埋（`react-i18next`，5 个高频页面接入，仅 zh-CN 完整）
+- ⬜ **F12** 用户头像设置（COS 预签名上传 + 默认 SVG 头像 + Baby 头像复用）
+- ⬜ **F2** 黄疸记录持久化（新增 `JaundiceRecord` 表 + 4 端点 + localStorage → 云端迁移脚本）
+- ⬜ **F3** 导出独立页 `/export`（按宝宝/范围/类型/格式组合导出 + 历史下载列表）
+- ⬜ **F6** 多宝快捷切换持久化 + URL 参数（`?babyId=` 三层数据源优先级）
+- ⬜ **F1** 首次使用引导 / Onboarding（4 步 Stepper + `User.preferences.onboardingCompleted`）
 
 #### Sprint 2（2026-05-25 → 2026-06-05）— 内容沉淀核心
 - **F11** 宝宝每日打卡照片 + 每日 AI 总结 + 成长日历（核心亮点）
