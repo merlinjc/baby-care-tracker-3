@@ -102,6 +102,11 @@ export default defineConfig({
             return 'vendor-utils'
           }
 
+          // PDF 生成（仅 /growth/calendar / /report 路由用，按需加载）
+          if (id.includes('pdf-lib') || id.includes('@pdf-lib/')) {
+            return 'vendor-pdf'
+          }
+
           return undefined
         },
       },

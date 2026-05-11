@@ -22,6 +22,7 @@ import { LargeTitleHeader } from '@/components/ui/large-title-header'
 import { Card } from '@/components/ui/card'
 import { GrowthCalendar } from '@/components/growth-calendar/growth-calendar'
 import { CalendarMonthSwitcher } from '@/components/growth-calendar/calendar-month-switcher'
+import { CalendarExportMenu } from '@/components/growth-calendar/calendar-export-menu'
 import { DailyCheckinDetail } from '@/components/daily-checkin/daily-checkin-detail'
 import { useDailyCheckins } from '@/hooks/use-daily-checkins'
 import { relationToCareRole } from '@/lib/care-role'
@@ -175,6 +176,16 @@ export function GrowthCalendarPage() {
           count: monthCount,
         })}
         backTo="/growth"
+        rightAction={
+          monthCount > 0 ? (
+            <CalendarExportMenu
+              baby={currentBaby}
+              year={year}
+              month={month}
+              checkins={data?.items ?? []}
+            />
+          ) : undefined
+        }
       />
 
       <Card variant="plain" padding="md" className="space-y-3">
