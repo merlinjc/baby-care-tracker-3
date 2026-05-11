@@ -1181,3 +1181,86 @@ await updatePreferences({ ...cur, onboardingCompleted: true })
 - ❌ 不要在 service 里直接 `prisma.user.update({ preferences: JSON.stringify(...) })` 绕过深合并 —— 会把其他键全冲掉
 - ❌ 不要为单个偏好键新增独立的 PATCH 端点（如 `/auth/onboarding`）。请直接调 `updatePreferences({ onboardingCompleted: true })`
 - ✅ 大型 / 嵌套结构的偏好需要持久化时，再讨论"是不是应该建独立表"
+
+## 19. 文件上传约定（v7.2+ T-S1-INF-02）
+
+### 19.1 统一走 `<ImageUploader>` + `uploadService.upload`
+
+所有图片类上传必须走 `uploadService.upload(file, kind, ctx)`：
+
+```typescript
+// ✅ 正确：业务层用通用组件
+<ImageUploader kind="avatar" onChange={(url) => updatePreferences({ avatar: url })}>
+  {({ openPicker, isUploading }) => (
+    <button onClick={openPicker}>
+      <UserAvatar user={user} />
+      {isUploading && <ProgressOverlay />}
+    </button>
+  )}
+</ImageUploader>
+
+// ❌ 禁止：自己写 fetch / FormData 直传后端
+const fd = new FormData()
+fd.append('file', file)
+await api.post('/some/upload', fd)
+```
+
+`uploadService.upload` 已包含：
+1. 自动压缩（avatar 长边 512px / daily-checkin 长边 1080px / JPEG 0.85）
+2. EXIF GPS 元数据剥离（避免泄露宝宝家庭地址）
+3. presign + 直传 COS（不经 Express，零内存压力）
+4. 上传进度回调（onProgress: 0-1）
+
+### 19.2 Kind 与上下文契约
+
+| kind | 必填 ctx | 用途 |
+|------|---------|------|
+| `avatar` | — | 用户头像（写入 User.avatar） |
+| `baby-avatar` | familyId, babyId | 宝宝头像（写入 Baby.avatar） |
+| `daily-checkin` | familyId, babyId, date(YYYY-MM-DD) | 每日打卡照片 |
+
+**新增 kind 流程**：
+1. `shared/types/index.ts#UploadKind` 加新值
+2. `server/src/services/upload.service.ts#REQUIRED_CONTEXT` 加必填字段
+3. `server/src/services/upload.service.ts#buildKey` 加 case 分支
+4. `client/src/services/upload.ts#MAX_DIMENSION_BY_KIND` 加压缩长边
+5. 单元测试覆盖新 kind 的 ctx 校验与 key 拼接
+
+### 19.3 落库职责分离
+
+upload.service **只签 URL，不落库**。业务接口拿到 publicUrl 后自行落库：
+
+```typescript
+// ✅ 正确：组件层组合 upload + 业务 API
+const handleAvatarChange = async (publicUrl: string) => {
+  await authService.updateProfile({ avatar: publicUrl })
+  // React Query invalidate
+}
+
+// ❌ 错误：在 upload.service 里直接落库
+//   会让 upload 与具体业务耦合，无法支撑 daily-checkin 等非 user 场景
+```
+
+### 19.4 失败降级与用户感知
+
+- **后端缺 COS 配置 (503 `UPLOAD_NOT_CONFIGURED`)**：`<ImageUploader>` 内部 toast「图片上传服务未配置，请联系管理员」，**保留原 value**，业务主流程不阻塞
+- **格式不支持 (400 `UPLOAD_INVALID_EXT`)**：toast「不支持的图片格式，请使用 JPG / PNG / WebP」
+- **限流 (429 `RATE_LIMITED`)**：toast「上传过于频繁，请稍后再试」
+- **网络错误 / COS 5xx**：toast 显示原始错误前缀「上传失败：xxx」
+- **用户主动取消** (`UPLOAD_ABORTED`)：静默不 toast
+
+业务侧调用方**不需要 try/catch**：组件已经处理了所有错误展示。
+
+### 19.5 安全 / 合规
+
+- ❌ 禁止把上传文件原始 File 通过 `URL.createObjectURL` 长期持有，会内存泄漏；展示用 publicUrl 即可
+- ❌ 禁止扩展白名单到 SVG / GIF（XSS 风险 / 体积过大）
+- ❌ 禁止把 EXIF 保留开关 (`preserveExif: true`) 暴露给业务层 —— 隐私优先于"完美保真"
+- ✅ 上传敏感场景（如未来私密相册）需要服务端配私有桶 + 签 GET URL，**不能复用当前公有读模式**
+- ✅ 大文件上传需求（>10MB 视频）应单独评估，当前 `uploadService` 仅适配图片场景
+
+### 19.6 manualChunks 提醒
+
+`browser-image-compression` 包体积约 836KB（含 sourcemap，gzip 后 ~50-80KB）。F12 / F11 接入后如发现首屏体积明显增加，应将其加入 `vite.config.ts#manualChunks` 单独成 chunk（参考 `vendor-motion`）。
+
+

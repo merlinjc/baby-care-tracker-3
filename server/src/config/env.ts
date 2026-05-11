@@ -20,6 +20,21 @@ const envSchema = z.object({
   // 微信开放平台「网站应用」OAuth2 配置；缺失时 /api/auth/wechat 直接返回 WECHAT_NOT_CONFIGURED
   WECHAT_WEB_APP_ID: z.string().optional(),
   WECHAT_WEB_APP_SECRET: z.string().optional(),
+  // 腾讯云 COS 对象存储（v7.2 T-S1-INF-02）：用于头像 / 每日打卡照片上传。
+  // 任一字段缺失时 /api/uploads/presign 返回 503 UPLOAD_NOT_CONFIGURED，
+  // 前端 ImageUploader 优雅降级（默认头像 / 提示用户联系管理员），不阻塞主流程。
+  COS_SECRET_ID: z.string().optional(),
+  COS_SECRET_KEY: z.string().optional(),
+  COS_BUCKET: z.string().optional(),
+  COS_REGION: z.string().optional(),
+  /**
+   * 公开访问基础 URL（可选）。
+   * - 不填 → 自动用 https://{bucket}.cos.{region}.myqcloud.com（默认 COS 域名）
+   * - 配 CDN 加速时填 https://your-cdn.example.com，落库 publicUrl 自动用 CDN 域名
+   */
+  COS_PUBLIC_BASE_URL: z.string().url().optional(),
+  /** presign 有效期（秒），默认 300（5 分钟），范围 60-3600 */
+  COS_PRESIGN_EXPIRES: z.coerce.number().int().min(60).max(3600).default(300),
 });
 
 const parsed = envSchema.safeParse(process.env);

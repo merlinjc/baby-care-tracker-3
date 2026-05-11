@@ -144,6 +144,63 @@ baby-care-tracker-web/
 | `AI_DAILY_QUOTA` | 否 | 默认 `100` |
 | `AI_FETCH_TIMEOUT_MS` | 否 | 默认 `30000`（ms） |
 | `PATROL_ENABLED` | 否 | 默认 `false` |
+| `COS_SECRET_ID` | 否 | 启用图片上传必填；缺失时 `/api/uploads/presign` 返回 503，前端优雅降级 |
+| `COS_SECRET_KEY` | 否 | 同上 |
+| `COS_BUCKET` | 否 | 桶名，形如 `baby-care-1234567890`（含 APPID 后缀） |
+| `COS_REGION` | 否 | 形如 `ap-shanghai` |
+| `COS_PUBLIC_BASE_URL` | 否 | 可选 CDN 域名；不填用默认 `https://{bucket}.cos.{region}.myqcloud.com` |
+| `COS_PRESIGN_EXPIRES` | 否 | 预签名有效期（秒），默认 `300`（5 分钟），范围 60-3600 |
+
+---
+
+### 4.4 腾讯云 COS 配置流程（v7.2+ 头像 / 打卡照片）
+
+**何时需要**：启用 F12 用户头像、Sprint 2 F11 每日打卡照片等图片上传功能。
+**何时跳过**：仅做核心记录功能、不需要图片上传时，可暂不配置；前端会优雅降级为默认头像。
+
+**步骤**：
+
+1. **建桶**：[腾讯云 COS 控制台](https://console.cloud.tencent.com/cos/bucket) → 创建存储桶
+   - 区域：与服务器同区（推荐 `ap-shanghai`，与 Lighthouse 一致）
+   - 访问权限：**公有读私有写**（公网通过 publicUrl 直接读图，写入由我方服务端预签名控制）
+   - 命名：建议 `baby-care-{env}-{appid}`，避免与其他项目冲突
+
+2. **配置 CORS**：桶概览 → 跨域访问 CORS 设置 → 添加规则
+   ```
+   来源 Origin: https://www.neo3.cn,http://localhost:5173
+   方法 Methods: PUT,GET,HEAD
+   Headers: *
+   Max-Age: 3600
+   ```
+   不配置 CORS 会导致前端 PUT 直传被浏览器拦截。
+
+3. **创建 API 密钥**：[访问管理控制台](https://console.cloud.tencent.com/cam/capi) → 新建子账号 + AccessKey
+   - 权限策略：建议自定义策略仅授予 `cos:PutObject` / `cos:GetObject` / `cos:HeadObject` 对该桶的权限，最小权限原则
+   - 不要使用主账号密钥（泄露风险大）
+
+4. **写入服务器 `docker/.env`**：
+   ```bash
+   COS_SECRET_ID=YOUR_TENCENT_CLOUD_SECRET_ID_HERE
+   COS_SECRET_KEY=YOUR_TENCENT_CLOUD_SECRET_KEY_HERE
+   COS_BUCKET=baby-care-prod-1234567890
+   COS_REGION=ap-shanghai
+   # COS_PUBLIC_BASE_URL=https://cdn.neo3.cn   # 可选 CDN 加速
+   ```
+
+5. **重启服务**：`pnpm remote restart` 或 deploy.sh 触发的 docker compose up
+
+6. **验证**：
+   ```bash
+   # 不带凭证应得 503
+   curl -X POST https://www.neo3.cn/api/uploads/presign \
+     -H 'Content-Type: application/json' \
+     -d '{"kind":"avatar","ext":"jpg"}'
+   # 期望：401 UNAUTHORIZED（说明路由通了）
+
+   # 配完凭证后，带 token 应得 200 + uploadUrl
+   ```
+
+**降级行为**：缺任一 `COS_*` 字段 → `/api/uploads/presign` 返回 503 `UPLOAD_NOT_CONFIGURED` → 前端 ImageUploader 静默 toast 提示，不阻塞主流程。
 
 ---
 

@@ -1832,6 +1832,95 @@ interface ExportQuery {
 
 ---
 
+## 11. 文件上传接口（v7.2+）
+
+### 11.1 POST /api/uploads/presign
+
+申请腾讯云 COS 预签名 PUT URL，前端用该 URL 直传文件，后端不接收文件本体。
+
+**请求体**：
+
+```typescript
+interface PresignRequest {
+  /** 上传分类，决定 key 前缀与必填上下文字段 */
+  kind: 'avatar' | 'baby-avatar' | 'daily-checkin';
+  /** 文件扩展名（含/不含点都可），白名单：jpg / jpeg / png / webp */
+  ext: string;
+  /** baby-avatar / daily-checkin 必填 */
+  babyId?: string;
+  /** baby-avatar / daily-checkin 必填 */
+  familyId?: string;
+  /** daily-checkin 必填，YYYY-MM-DD 格式 */
+  date?: string;
+}
+```
+
+**成功响应** `200`：
+
+```typescript
+interface PresignResult {
+  /** 预签名 PUT URL，默认 5 分钟内过期（受 COS_PRESIGN_EXPIRES 控制） */
+  uploadUrl: string;
+  /** 上传成功后用于展示与落库的公网 URL */
+  publicUrl: string;
+  /** 桶内对象 key，用于后续清理 / 校验 */
+  key: string;
+  /** uploadUrl 过期时间 ISO 字符串 */
+  expiresAt: string;
+}
+```
+
+**Key 拼接规则**：
+
+| kind | key 模板 | 必填 ctx |
+|------|---------|---------|
+| `avatar` | `avatars/{userId}/{cuid}.{ext}` | — |
+| `baby-avatar` | `babies/{familyId}/{babyId}/{cuid}.{ext}` | familyId, babyId |
+| `daily-checkin` | `checkins/{familyId}/{babyId}/{date}-{cuid}.{ext}` | familyId, babyId, date |
+
+`{cuid}` 为 32 字符随机十六进制串，确保 URL 不可枚举。
+
+**前端流程**：
+
+```typescript
+// 1. 选图 + 压缩（client/services/upload.ts 自动处理）
+// 2. 申请 presign
+const presign = await api.post('/uploads/presign', {
+  kind: 'avatar',
+  ext: 'jpg',
+})
+
+// 3. PUT 直传 COS（不带 Authorization；COS 用预签名 URL 鉴权）
+await fetch(presign.data.uploadUrl, {
+  method: 'PUT',
+  body: blob,
+  headers: { 'Content-Type': 'image/jpeg' },
+})
+
+// 4. 业务接口落库 publicUrl
+await api.patch('/auth/profile', { avatar: presign.data.publicUrl })
+```
+
+**ext 白名单**：仅允许 `jpg` / `jpeg` / `png` / `webp`。`jpeg` 会被服务端归一化为 `jpg`。
+
+**限流**：20 次 / 分钟 / 用户（避免 presign 滥刷）。
+
+**错误响应**：
+
+| 状态码 | 错误码 | 触发条件 |
+|-------|--------|---------|
+| 401 | `UNAUTHORIZED` | 未认证 |
+| 400 | `UPLOAD_INVALID_EXT` | ext 不在白名单 |
+| 400 | `UPLOAD_MISSING_CONTEXT` | kind 对应的 ctx 字段缺失（如 baby-avatar 缺 babyId） |
+| 400 | `INVALID_PARAMS` | date 格式不合法 / 未知 kind |
+| 422 | `VALIDATION_ERROR` | zod schema 校验失败 |
+| 429 | `RATE_LIMITED` | 预签名次数超限 |
+| 503 | `UPLOAD_NOT_CONFIGURED` | 后端缺 `COS_SECRET_ID/SECRET_KEY/BUCKET/REGION` 任一字段 |
+
+**降级策略**：缺 COS 配置时返回 503，前端 `<ImageUploader>` toast 提示「图片上传未配置，请联系管理员」并保留原 value，主流程不阻塞。
+
+---
+
 ## 11. 数据结构定义
 
 以下 TypeScript 接口与 `shared/types/index.ts` 对齐，补充了 API 层特有的请求/响应类型。

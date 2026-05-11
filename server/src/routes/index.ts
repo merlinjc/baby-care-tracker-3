@@ -6,6 +6,7 @@ import babyRoutes from './babies';
 import vaccineRoutes from './vaccines';
 import aiRoutes from './ai';
 import exportRoutes from './export';
+import uploadRoutes from './uploads';
 
 const router = Router();
 
@@ -16,5 +17,6 @@ router.use('/babies', babyRoutes);
 router.use('/babies', vaccineRoutes); // vaccine/milestone/trend routes under /babies/:id/...
 router.use('/ai', aiRoutes);
 router.use('/export', exportRoutes);
+router.use('/uploads', uploadRoutes);
 
 export default router;

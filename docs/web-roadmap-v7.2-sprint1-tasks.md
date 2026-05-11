@@ -122,36 +122,50 @@ T-S1-REL-01    Sprint 1 验收与打 tag
 
 ---
 
-### T-S1-INF-02 ⬜ COS 预签名上传链路（后端 + 前端通用组件）
+### T-S1-INF-02 ✅ COS 预签名上传链路（后端 + 前端通用组件）
 **类型**：feat
 **预估**：1d
-**依赖**：—（DevOps 提前 0.5d 准备好 COS 桶 + 4 个环境变量）
+**实际**：0.6d
+**依赖**：—（DevOps 配桶可与开发并行）
+**完成日期**：2026-05-11
 **输出**：
 
 后端：
-- `server/src/services/upload.service.ts`：`createPresignedUpload(userId, kind, ext, ctx)`
-- `server/src/routes/uploads.ts`：`POST /api/uploads/presign`
-- `server/src/schemas/upload.schema.ts`：Zod
-- `server/src/middleware/rate-limit-persistent.ts`：+ presign 限流器（10/min/user）
-- `server/src/routes/index.ts`：挂载
-- `server/src/config/index.ts`：+ cos 配置块
+- `server/src/services/upload.service.ts`：`createPresignedUpload(userId, kind, ext, ctx)` + 内部纯函数 helper（normalizeExt / validateContext / buildKey / buildPublicUrl）
+- `server/src/routes/uploads.ts`：`POST /api/uploads/presign`（authenticate + presignRateLimit + zod validate）
+- `server/src/schemas/upload.schema.ts`：Zod schema 含 ext 格式 + date YYYY-MM-DD 校验
+- `server/src/middleware/rate-limit-persistent.ts`：新增 `presignRateLimit`（20 次/分钟/用户）
+- `server/src/routes/index.ts`：挂载 `/uploads`
+- `server/src/config/env.ts`：新增 `COS_SECRET_ID/KEY/BUCKET/REGION/PUBLIC_BASE_URL/PRESIGN_EXPIRES`
+- `server/src/types/errors.ts`：新增 `UPLOAD_NOT_CONFIGURED / UPLOAD_INVALID_EXT / UPLOAD_MISSING_CONTEXT` 错误码
+- `server/.env.example` + `docker/.env.example`：补 COS 配置段
 - `server/package.json`：+ `cos-nodejs-sdk-v5`
-- env 文档：`.env.example` 补 4 个 `COS_*`
-- 单元测试：key 拼接、ext 白名单、ctx 校验、缺配置 503
+- `tests/unit/upload-service.test.ts`：22 个用例覆盖 isConfigured / normalizeExt 白名单 / validateContext / buildKey / buildPublicUrl / createPresignedUpload mock COS
 
 前端：
-- `client/src/services/upload.ts`：`upload(file, kind, ctx)`
-- `client/src/components/ui/image-uploader.tsx`：通用单图上传 + 压缩 + EXIF 剥离
+- `client/src/services/upload.ts`：`uploadService.upload(file, kind, ctx, options)`，含 browser-image-compression 压缩 + EXIF 剥离 + XHR 直传 COS（含 onProgress）
+- `client/src/components/ui/image-uploader.tsx`：通用 render-prop 单图上传组件 + 默认按钮 fallback
 - `client/package.json`：+ `browser-image-compression`
-- 类型：`shared/types/upload.ts` + `UploadKind` / `PresignResult`
+- 类型：`shared/types/index.ts` 新增 `UploadKind / UploadContext / PresignResult / PresignRequest`
+- `server/src/types/index.ts` + `client/src/types/index.ts` re-export
 
-**验收**：
-- 后端单元测试通过
-- 前端用 ImageUploader 完成「选图 → 压缩 → presign → PUT COS → 返回 URL」全链路
-- EXIF GPS 被剥离（验证用带 GPS 的样本）
-- 缺 COS 配置时返回 503 `UPLOAD_NOT_CONFIGURED`，前端 toast 友好降级
+**关键设计决策**：
+- **直传模式**：前端 → COS（PUT），后端不接收文件 → 零内存压力
+- **缺配置降级**：任一 COS_* 字段缺失返回 503 `UPLOAD_NOT_CONFIGURED`，前端 toast 提示且保留原 value 不阻塞主流程
+- **EXIF GPS 剥离**：客户端压缩前 `preserveExif: false`，避免照片元数据泄露宝宝家庭地址
+- **Key 不可枚举**：randomUUID 32 字符 hex 后缀
+- **ext 白名单**：jpg / jpeg / png / webp，jpeg 归一化为 jpg
+- **限流**：20 次/分钟/用户
 
-**PR 标题**：`feat(uploads): COS 预签名上传链路 + ImageUploader 通用组件（INF）`
+**测试结果**：
+- 后端单元 22/22 通过；server 全套 107/107（baseline 85 + INF-02 22）
+- 前端 build 通过；现有 chunk 体积无变化（F12 接入前 service / component 都未被使用）
+
+**为后续铺路**：
+- F12 用户/Baby 头像直接复用 `<ImageUploader kind="avatar|baby-avatar">`
+- Sprint 2 F11 每日打卡照片复用 `<ImageUploader kind="daily-checkin">`，无需再造轮子
+
+**PR 标题**：`feat(uploads): COS 预签名上传链路 + ImageUploader 通用组件（T-S1-INF-02）`
 
 ---
 
@@ -540,7 +554,7 @@ T-S1-REL-01    Sprint 1 验收与打 tag
 |----|------|------|------|------|
 | T-S1-F9-01 | F9 | 路由代码分割 + manualChunks + visualizer + RouteFallback | 0.5d | ✅ |
 | T-S1-INF-01 | 共享 | User.preferences + PATCH /profile 深合并 | 0.5d | ✅ |
-| T-S1-INF-02 | 共享 | COS 预签名上传链路 + ImageUploader | 1d | ⬜ |
+| T-S1-INF-02 | 共享 | COS 预签名上传链路 + ImageUploader | 1d | ✅ |
 | T-S1-F8-01 | F8 | i18next 初始化 + zh-CN 骨架 | 0.3d | ⬜ |
 | T-S1-F8-02 | F8 | main-layout 抽离 | 0.3d | ⬜ |
 | T-S1-F8-03 | F8 | home + record 抽离 | 0.4d | ⬜ |

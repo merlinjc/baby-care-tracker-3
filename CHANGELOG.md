@@ -27,6 +27,31 @@
 
 ### Added — Sprint 1 进行中
 
+- **T-S1-INF-02 COS 预签名上传链路 + ImageUploader 通用组件**（2026-05-11 完成）
+  - **后端**：
+    - `server/src/services/upload.service.ts` 新增，`createPresignedUpload(userId, kind, ext, ctx)` 签 PUT URL；纯函数 helper（normalizeExt / validateContext / buildKey / buildPublicUrl）便于单测
+    - `server/src/routes/uploads.ts`：`POST /api/uploads/presign`（authenticate + presignRateLimit + zod validate）
+    - `server/src/schemas/upload.schema.ts`：Zod schema，含 ext 格式 + date YYYY-MM-DD 校验
+    - `server/src/middleware/rate-limit-persistent.ts`：新增 `presignRateLimit`（20 次/分钟/用户）
+    - `server/src/config/env.ts`：新增 `COS_SECRET_ID/KEY/BUCKET/REGION/PUBLIC_BASE_URL/PRESIGN_EXPIRES`
+    - `server/src/types/errors.ts`：新增 `UPLOAD_NOT_CONFIGURED / UPLOAD_INVALID_EXT / UPLOAD_MISSING_CONTEXT` 错误码
+    - `server/.env.example` + `docker/.env.example`：补 COS 配置段
+    - 依赖：+ `cos-nodejs-sdk-v5`
+    - 测试：`tests/unit/upload-service.test.ts` 22 个用例覆盖配置检查 / ext 白名单 / ctx 校验 / key 拼接 / publicUrl 构造（含 CDN 加速分支）/ mock COS 端到端组装
+  - **前端**：
+    - `client/src/services/upload.ts`：`upload(file, kind, ctx, options)` 完整链路（压缩 → EXIF 剥 → presign → XHR 直传 COS，含 onProgress）
+    - `client/src/components/ui/image-uploader.tsx`：通用 render-prop 单图上传组件，缺配置 / 格式错 / 限流 / 网络错均自动 toast 降级
+    - 依赖：+ `browser-image-compression`
+  - **共享类型**：`shared/types/index.ts` 新增 `UploadKind / UploadContext / PresignResult / PresignRequest`
+  - **关键设计**：
+    - 直传模式：前端 → COS（PUT），后端不接收文件 → 零内存压力
+    - 缺 COS 配置时返回 503，前端静默降级（保留原 value，业务主流程不阻塞）
+    - EXIF GPS 自动剥离（隐私优先）
+    - Key 32 字符 hex 后缀防枚举
+    - ext 白名单 jpg/jpeg/png/webp，jpeg 归一化为 jpg
+  - **测试结果**：server 全套 **107/107 通过**（baseline 85 + 新增 22）；client build 通过
+  - 文档：`web-api-spec.md §11.1` / `web-architecture.md §5.7` / `web-coding-conventions.md §19` / `web-component-library.md v7.2 增量` / `devops-workflow.md §4.4 COS 配置流程`
+
 - **T-S1-INF-01 User.preferences 字段 + PATCH /profile 深合并**（2026-05-11 完成）
   - `prisma/schema.prisma` 新增 `User.preferences  String?`（SQLite TEXT 存 JSON）
   - `shared/types/index.ts` 新增 `UserPreferences` 接口（onboardingCompleted / onboardingSkippedSteps / lang / langManuallySet / fontScale / themeMode），`User.preferences` 类型化为 `UserPreferences | null`

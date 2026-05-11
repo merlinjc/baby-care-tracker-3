@@ -331,6 +331,82 @@ User.preferences  TEXT (SQLite) / TEXT (MySQL)   ← JSON 字符串
   - 用户切换后写一次 preferences（best-effort，失败不阻塞 UI）
 - 这是有意为之的"双写不一致容忍"设计：跨设备最终一致即可，运行时优先本地以保证 0 延迟
 
+### 5.7 文件上传链路（v7.2 T-S1-INF-02）
+
+为支持头像 / 宝宝头像 / 每日打卡照片等图片上传，v7.2 引入「**前端直传 COS + 后端仅签发预签名 URL**」架构：
+
+```
+┌─ Browser ──────────────────────────────────────────────────────┐
+│                                                                 │
+│  ImageUploader (component)                                      │
+│   ↓ 1. 选图                                                      │
+│  uploadService (services/upload.ts)                             │
+│   ↓ 2. browser-image-compression                                │
+│      - avatar: 长边 512px / JPEG 0.85                            │
+│      - daily-checkin: 长边 1080px / JPEG 0.85                    │
+│      - preserveExif: false（剥 GPS 防泄露）                       │
+│   ↓ 3. POST /api/uploads/presign                                │
+└──┬──────────────────────────────────────────────────────────────┘
+   │ Bearer JWT + presign 限流（20 次/分钟/用户）
+   ▼
+┌─ Express :3000 ────────────────────────────────────────────────┐
+│                                                                 │
+│  routes/uploads.ts                                              │
+│   ↓ authenticate + presignRateLimit + zod validate              │
+│  upload.service.ts                                              │
+│   ↓ 1. isConfigured() → 缺 COS_* 任一 → 503 UPLOAD_NOT_CONFIGURED│
+│   ↓ 2. normalizeExt() → 白名单 jpg/jpeg/png/webp                 │
+│   ↓ 3. validateContext() → kind 必填字段 + date 格式             │
+│   ↓ 4. buildKey() → avatars/{userId}/{cuid}.{ext} 等             │
+│   ↓ 5. cos.getObjectUrl({ Method:'PUT', Sign:true, Expires })    │
+│   ↓ 6. buildPublicUrl() → CDN 或默认 COS 域名                    │
+│  返回 { uploadUrl, publicUrl, key, expiresAt }                   │
+└──┬──────────────────────────────────────────────────────────────┘
+   │
+   ▼ 4. 客户端直传（不经 Express）
+┌─ Tencent Cloud COS ────────────────────────────────────────────┐
+│                                                                 │
+│  PUT {uploadUrl}  Body: blob  Header: Content-Type              │
+│  → 200 OK                                                        │
+└─────────────────────────────────────────────────────────────────┘
+   │
+   ▼ 5. 业务接口落库 publicUrl
+   PATCH /auth/profile { avatar: publicUrl }
+   POST  /babies/:id/checkins { photoUrl: publicUrl, ... }
+```
+
+**关键设计要点**：
+
+| 设计 | 选择 | 理由 |
+|------|------|------|
+| 直传模式 | 前端 → COS（PUT），后端不接收文件 | 零内存压力，单服务实例可处理无限大文件；后端只承担鉴权 + 签名 |
+| 预签名有效期 | 默认 5 分钟（COS_PRESIGN_EXPIRES） | 平衡用户从选图到上传完成的时间窗 vs 防止签名泄露被滥用 |
+| 鉴权方式 | 业务 API 走 JWT；PUT COS 走预签名 URL | COS 不识别我方 JWT；XHR 不携带 axios 拦截器的 Authorization 头 |
+| key 不可枚举 | randomUUID 32 字符 hex 后缀 | 即使桶 ACL 设为公开读，也无法通过遍历获取他人文件 |
+| EXIF GPS 剥离 | 客户端压缩前 `preserveExif: false` | 避免照片元数据泄露宝宝家庭地址 |
+| 缺配置降级 | 503 UPLOAD_NOT_CONFIGURED + 前端 toast | 业务主流程不阻塞，给运维时间补配置 |
+| ext 白名单 | jpg / jpeg / png / webp | 阻止上传可执行文件；jpeg 归一化为 jpg 让 key 美观 |
+| 限流 | 20 次/分钟/用户 | 覆盖正常使用（反复试头像 / 多张图选择），阻止恶意刷签 |
+
+**桶 ACL 与公开访问**：
+- 桶建议设为「公有读私有写」，由我方服务端通过预签名 PUT 控制写入
+- 公网读取通过 COS 默认域名或自定义 CDN（COS_PUBLIC_BASE_URL）
+- 后续如需精细化访问控制（如打卡照片仅家庭成员可见），改为私有读 + 后端签 GET URL，**当前 v7.2 暂不实现**
+
+**与 prisma 落库的解耦**：
+- upload.service 只负责签 URL，**不写库**
+- 业务接口（`/auth/profile`、`/babies/:id/checkins` 等）拿到 `publicUrl` 后自行落库
+- 已被覆盖的旧文件（如用户换头像后的老 URL）依靠 patrol 任务异步清理（v7.2 Sprint 2 F11 时落地 `checkinPhotoCleanup`）
+
+**前端组件**：
+- `client/src/components/ui/image-uploader.tsx` 提供 render-prop API，业务侧只负责 children 视觉
+- 默认 children 为带 Camera 图标的圆形按钮，便于快速使用
+- 上传过程暴露 `progress: number (0-1)`，业务侧可绘制进度环
+
+**复用方**：
+- v7.2 Sprint 1 F12：用户头像 + Baby 头像
+- v7.2 Sprint 2 F11：每日打卡照片
+
 ---
 
 ## 6. 文件依赖图

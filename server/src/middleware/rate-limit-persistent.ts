@@ -92,3 +92,16 @@ export const persistentAIRateLimit = persistentRateLimit({
   scope: 'ai',
   keyGenerator: (req) => req.userId || req.ip || 'unknown',
 });
+
+/**
+ * 上传预签名限流（v7.2 T-S1-INF-02）：
+ * - 单用户 1 分钟内最多 20 次 presign（够覆盖头像选图反复试 / 单次拖入多张照片）
+ * - 同时防止恶意刷 COS 签名 URL
+ * - 命中后 429 RateLimitError，前端 toast 友好提示
+ */
+export const presignRateLimit = persistentRateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  scope: 'upload_presign',
+  keyGenerator: (req) => req.userId || req.ip || 'unknown',
+});

@@ -333,6 +333,57 @@ export interface WeeklyTrendData {
   ageMonths: number;
 }
 
+// ============ Upload Types (v7.2+ T-S1-INF-02) ============
+/**
+ * 文件上传分类，决定 COS 桶内的 key 前缀与上下文必填字段。
+ *
+ * - `avatar`：用户头像，key = `avatars/{userId}/{cuid}.{ext}`
+ * - `baby-avatar`：宝宝头像，key = `babies/{familyId}/{babyId}/{cuid}.{ext}`
+ *   需要 ctx.familyId + ctx.babyId
+ * - `daily-checkin`：每日打卡照片（v7.2 Sprint 2 F11 用），
+ *   key = `checkins/{familyId}/{babyId}/{date}-{cuid}.{ext}`
+ *   需要 ctx.familyId + ctx.babyId + ctx.date (YYYY-MM-DD)
+ */
+export type UploadKind = 'avatar' | 'baby-avatar' | 'daily-checkin';
+
+/** 预签名上传所需的上下文（按 kind 不同字段必填） */
+export interface UploadContext {
+  familyId?: string;
+  babyId?: string;
+  /** 日期（YYYY-MM-DD），仅 daily-checkin 需要 */
+  date?: string;
+}
+
+/**
+ * POST /api/uploads/presign 的成功响应。
+ *
+ * 前端拿到后：
+ * 1. fetch(uploadUrl, { method: 'PUT', body: blob, headers: { 'Content-Type': blob.type } })
+ * 2. 上传成功后用 `publicUrl` 落库（写入 `User.avatar` / `Baby.avatar` / `DailyCheckin.photoUrl`）
+ *
+ * `key` 用于后续清理（如 patrol 任务删除已被覆盖的旧文件）。
+ */
+export interface PresignResult {
+  /** 预签名 PUT URL，默认 5 分钟内过期（COS_PRESIGN_EXPIRES） */
+  uploadUrl: string;
+  /** 上传成功后用于展示与落库的公网 URL */
+  publicUrl: string;
+  /** 桶内对象 key，用于后续清理 / 校验 */
+  key: string;
+  /** URL 过期时间 ISO 字符串（uploadUrl 的过期时间） */
+  expiresAt: string;
+}
+
+export interface PresignRequest {
+  kind: UploadKind;
+  /** 文件扩展名（不带点），白名单：jpg / jpeg / png / webp */
+  ext: string;
+  /** 上下文，按 kind 校验必填字段 */
+  babyId?: string;
+  familyId?: string;
+  date?: string;
+}
+
 // ============ Care Role (育儿角色，用于 AI 个性化) ============
 /**
  * 家庭成员在育儿中的角色，用于 AI 洞察 / 对话的人设分支。

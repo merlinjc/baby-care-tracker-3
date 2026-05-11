@@ -19,6 +19,8 @@ export type {
   CareRole,
   // v7.2+ 用户个性化偏好
   UserPreferences,
+  // v7.2+ 文件上传
+  UploadKind, UploadContext, PresignResult, PresignRequest,
 } from '@baby-care-tracker/shared'
 
 export { Permission } from '@baby-care-tracker/shared'

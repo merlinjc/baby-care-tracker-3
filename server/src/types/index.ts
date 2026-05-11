@@ -38,6 +38,11 @@ export type {
   AIQuotaStatus,
   ChatStreamEvent,
   CareRole,
+  // v7.2+ 文件上传
+  UploadKind,
+  UploadContext,
+  PresignResult,
+  PresignRequest,
 } from '@shared/types/index';
 
 export {

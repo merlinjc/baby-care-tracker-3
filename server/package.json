@@ -16,8 +16,6 @@
     "db:generate": "prisma generate",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test": "vitest run",
-    "test:watch": "vitest",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "test:setup": "DATABASE_URL=\"file:./test.db\" prisma db push --skip-generate --force-reset"
   },
@@ -28,6 +26,7 @@
     "@prisma/client": "^6.7.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
+    "cos-nodejs-sdk-v5": "^2.15.4",
     "dotenv": "^17.4.2",
     "express": "^4.21.2",
     "helmet": "^8.1.0",

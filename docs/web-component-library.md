@@ -7,7 +7,67 @@
 
 ---
 
-## 🆕 v7.1 增量（2026-05-09）
+## 🆕 v7.2 增量（2026-05-11）
+
+Sprint 1 工程基础 + 内容沉淀第一波：
+
+### v7.2 新增 UI 通用组件
+
+| 组件 | 文件 | 用途 / 关键特性 |
+|------|------|----------------|
+| `RouteFallback` | `app/layout/route-fallback.tsx` | F9 路由级懒加载占位骨架；200ms 延迟显示动画点阵；`role="status" / aria-live`；占满 60vh 防布局抖动 |
+| `ImageUploader` | `components/ui/image-uploader.tsx` | INF-02 通用单图上传；render-prop API（业务侧自定义视觉）；自动压缩 + EXIF 剥离 + presign + PUT COS；`onProgress` 回调；缺配置 503 静默 toast 降级 |
+
+#### `<ImageUploader>` 用法
+
+**Props**：
+
+```typescript
+interface ImageUploaderProps {
+  kind: 'avatar' | 'baby-avatar' | 'daily-checkin'
+  ctx?: { babyId?: string; familyId?: string; date?: string }  // 按 kind 必填
+  onChange: (publicUrl: string) => void | Promise<void>
+  value?: string | null
+  accept?: string                   // 默认 'image/jpeg,image/png,image/webp'
+  disabled?: boolean
+  maxDimension?: number             // 覆盖 kind 默认压缩长边
+  children?: (props: ImageUploaderRenderProps) => ReactNode
+  className?: string
+}
+
+interface ImageUploaderRenderProps {
+  isUploading: boolean
+  progress: number       // 0-1
+  openPicker: () => void
+  disabled: boolean
+}
+```
+
+**示例 1：用户头像（F12）**
+```tsx
+<ImageUploader kind="avatar" onChange={(url) => updateProfile({ avatar: url })}>
+  {({ openPicker, isUploading, progress }) => (
+    <button onClick={openPicker} className="relative">
+      <UserAvatar user={user} size="xl" />
+      {isUploading && (
+        <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center">
+          <span className="text-white text-xs">{Math.round(progress * 100)}%</span>
+        </div>
+      )}
+    </button>
+  )}
+</ImageUploader>
+```
+
+**示例 2：默认按钮（无 children）**
+```tsx
+<ImageUploader kind="avatar" onChange={save} />
+// 渲染圆形 Camera 图标按钮 + 加载态
+```
+
+**降级行为**：缺 COS 配置（503）/ 格式不支持（400）/ 限流（429）/ 网络错误均自动 toast，业务侧不需要 try/catch。
+
+
 
 Profile 页紧凑布局修复 + RadioGroupCard 能力增强：
 
