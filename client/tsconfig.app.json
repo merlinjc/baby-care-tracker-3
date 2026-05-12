@@ -16,8 +16,7 @@
     "jsx": "react-jsx",
 
     /* TS 6.0+ baseUrl 被标记 deprecated，但项目仍用它做 paths 解析；
-       明确加 ignoreDeprecations 让 TS 6.x 静默该警告，等迁移到 TS 7 时再下掉 baseUrl */
-    "ignoreDeprecations": "6.0",
+       等迁移到 TS 7 时再下掉 baseUrl */
 
     /* Path aliases */
     "baseUrl": ".",
