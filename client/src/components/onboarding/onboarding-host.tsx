@@ -84,7 +84,7 @@ export function OnboardingHost() {
         babyId: firstBabyId,
         page: 1,
         pageSize: 1,
-      } as any)
+      })
       return res?.total ?? (res?.items?.length ?? 0)
     },
     enabled: Boolean(isAuthenticated && firstBabyId),

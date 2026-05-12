@@ -693,7 +693,7 @@ function downloadBlob(blob: Blob, filename: string): void {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-function formatExportError(err: unknown, t: (k: string, opt?: any) => string): string {
+function formatExportError(err: unknown, t: (k: string, opt?: unknown) => string): string {
   if (err instanceof ApiError) {
     if (err.code === 'RATE_LIMITED') return t('errors.rate_limited')
     if (err.status === 401) return t('errors.unauthorized')

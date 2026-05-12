@@ -74,7 +74,6 @@ export function ImageUploader({
   kind,
   ctx,
   onChange,
-  value: _value,
   accept = DEFAULT_ACCEPT,
   disabled = false,
   maxDimension,
@@ -158,6 +157,7 @@ export function ImageUploader({
         aria-hidden="true"
         tabIndex={-1}
       />
+      {/* eslint-disable-next-line react-hooks/refs -- openPicker 仅在点击事件中调用，不会在 render 期间访问 ref */}
       {children ? children(renderProps) : <DefaultUploaderButton {...renderProps} />}
     </div>
   )

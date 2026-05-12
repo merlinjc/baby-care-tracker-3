@@ -136,7 +136,7 @@ export function ReportShareDialog({
     setWorking(true)
     try {
       // 拉日历照片（如勾选）
-      let calendarPages: Blob[] = []
+      const calendarPages: Blob[] = []
       if (includeCalendar && calendarCount && calendarCount > 0) {
         setProgress(t('share_dialog.rendering_calendar', { current: 0, total: 1 }))
         const list = await dailyCheckinService.list(baby.id, {

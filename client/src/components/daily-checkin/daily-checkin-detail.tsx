@@ -36,7 +36,7 @@ import {
 } from '@/hooks/use-daily-checkins'
 import { AiSummaryPanel } from '@/components/daily-checkin/ai-summary-panel'
 import { PhotoUploader } from '@/components/daily-checkin/photo-uploader'
-import type { CareRole, DailyCheckin } from '@/types'
+import type { CareRole } from '@/types'
 
 export interface DailyCheckinDetailProps {
   open: boolean
@@ -120,12 +120,9 @@ export function DailyCheckinDetail({
   }, [confirm, remove, date, onClose, t])
 
   // 替换照片成功 → 不自动重生 AI 小记（避免覆盖用户编辑过的）
-  const handleReplaced = useCallback(
-    (_c: DailyCheckin) => {
-      toast.success('照片已替换')
-    },
-    [],
-  )
+  const handleReplaced = useCallback(() => {
+    toast.success('照片已替换')
+  }, [])
 
   return (
     <Dialog

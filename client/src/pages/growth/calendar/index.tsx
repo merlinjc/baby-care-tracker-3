@@ -33,7 +33,7 @@ import {
   isValidYmd,
 } from '@/lib/daily-checkin-date'
 import type { CalendarCellState } from '@/components/growth-calendar/calendar-cell'
-import type { CareRole, DailyCheckin } from '@/types'
+import type { CareRole } from '@/types'
 
 /** 解析 ?year & ?month；非法时回退：优先用 ?date 所在月，否则当前月 */
 function parseYearMonth(
@@ -106,6 +106,7 @@ export function GrowthCalendarPage() {
   const todayM = Number(today.slice(5, 7))
   const nextDisabled = year > todayY || (year === todayY && month >= todayM)
   // 不允许翻到出生月之前
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- birthYmd 仅在 birthDate 变更时重算，memoization 正确
   const birthYmd = useMemo(() => {
     if (!currentBaby?.birthDate) return null
     const d = new Date(currentBaby.birthDate)
@@ -129,7 +130,7 @@ export function GrowthCalendarPage() {
 
   // FE-04：cell 点击 → 设置 ?date=YYYY-MM-DD 打开详情抽屉
   const handleCellClick = useCallback(
-    (ymd: string, state: CalendarCellState, _c?: DailyCheckin) => {
+    (ymd: string, state: CalendarCellState) => {
       if (state === 'checked' || state === 'supplement') {
         setSearch(
           (prev) => {
