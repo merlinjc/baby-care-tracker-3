@@ -18,6 +18,7 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import {
   AlertCircle,
   Calendar,
@@ -693,7 +694,7 @@ function downloadBlob(blob: Blob, filename: string): void {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-function formatExportError(err: unknown, t: (k: string, opt?: unknown) => string): string {
+function formatExportError(err: unknown, t: TFunction): string {
   if (err instanceof ApiError) {
     if (err.code === 'RATE_LIMITED') return t('errors.rate_limited')
     if (err.status === 401) return t('errors.unauthorized')
