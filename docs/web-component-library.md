@@ -7,7 +7,121 @@
 
 ---
 
-## 🆕 v7.1 增量（2026-05-09）
+## 🆕 v7.2 增量（2026-05-11）
+
+Sprint 1 工程基础 + 内容沉淀第一波：
+
+### v7.2 新增 UI 通用组件
+
+| 组件 | 文件 | 用途 / 关键特性 |
+|------|------|----------------|
+| `RouteFallback` | `app/layout/route-fallback.tsx` | F9 路由级懒加载占位骨架；200ms 延迟显示动画点阵；`role="status" / aria-live`；占满 60vh 防布局抖动 |
+| `ImageUploader` | `components/ui/image-uploader.tsx` | INF-02 通用单图上传；render-prop API（业务侧自定义视觉）；客户端压缩到 ≤1MB + EXIF 剥离；走**服务端代理**（POST `/api/uploads`）而非直传 COS；`onChange(key)` 回传 **桶内 key**（不是 URL）；`onProgress` 回调；缺配置 503 静默 toast 降级 |
+| `AvatarUploader` | `components/avatar-uploader.tsx` | F12-2/3 头像上传薄封装；圆形头像 + 右下相机角标 + 上传中遮罩；`children` 透传由调用方传入 `<UserAvatar>` / `<BabyAvatar>` 决定头像渲染；`kind: 'avatar' \| 'baby-avatar'`；`badgeSize` 跟随头像 size |
+| `LanguageSwitcher` | `components/language-switcher.tsx` | F8-05 语言选择器占位；v7.2 仅 zh-CN 时 `disabled=true`，以 DropdownMenu 呈现"简体中文 + 即将推出"；挂在 Settings → 资料 tab；v7.3+ 把 disabled 改 false 并在 onChange 接 `i18n.changeLanguage` + `updatePreferences({ lang })` 即启用 |
+
+### v7.2 新增 hooks（client/src/hooks/）
+
+| Hook | 文件 | 用途 |
+|------|------|-----|
+| `useActiveBaby` | `hooks/use-active-baby.ts` | F6-1/2 多宝快捷切换；URL `?babyId=` ↔ zustand baby-store ↔ babies[0] 三级优先级；`switchBaby(id)` 同时改 store + URL（replaceState 不污染 history）+ invalidate React Query；纯函数 `resolveActiveBabyId(urlBabyId, babies, currentBabyId)` 抽出供后续单测使用。**用法**：在 `MainLayout` 顶部挂一次，子页面只读 `useBabyStore(s => s.currentBaby)` 即可 |
+| `useJaundiceRecords` / `useCreateJaundice` / `useUpdateJaundice` / `useDeleteJaundice` | `hooks/use-jaundice.ts` | F2-3 黄疸记录 React Query 包装；query key `['jaundice', babyId]`，mutate 后 invalidate；service 层做 client↔server 字段映射 |
+
+### v7.2 新增 service（client/src/services/）
+
+| Service | 文件 | 说明 |
+|---------|------|-----|
+| `jaundiceService` | `services/jaundice.ts` | F2-3 黄疸 CRUD；内部 `toServerCreate` / `toServerUpdate` / `toClient` 双向字段映射（date↔recordDate / ageDays↔dayAge / scleraYellow↔scleralIcterus / jaundiceType↔category / actions↔treatments），UI 不感知差异 |
+
+### v7.2 新增 lib（client/src/lib/）
+
+| 模块 | 文件 | 说明 |
+|------|------|-----|
+| `migrations/jaundice-to-cloud` | `lib/migrations/jaundice-to-cloud.ts` | F2-5 老用户 localStorage → 云端迁移；幂等（标记 key `baby_care_jaundice_migrated === 'v1'`）；失败保留本地下次重试；MainLayout 用动态 import 触发，不污染入口 chunk；migrated > 0 时 toast |
+| `export-history` | `lib/export-history.ts` | F3-2 导出历史 localStorage（FIFO 上限 10 条）；`listExportHistory / addExportHistory / clearExportHistory / removeExportHistory`；只存元数据 + 文件名，重新下载用相同 params 重发请求 |
+| `onboarding-steps` | `lib/onboarding-steps.ts` | F1-1 新手引导 4 步定义 + `findFirstPendingStep / allStepsResolved` 纯函数；`isAlreadySatisfied` 让老用户自动跳过已达成步骤 |
+
+### v7.2 新增页面（client/src/pages/）
+
+| 页面 | 路径 | 说明 |
+|------|------|-----|
+| `ExportPage` | `/export` | F3 数据导出独立页；4 卡片矩阵 + 主按钮 + 历史列表；旧 `/settings?tab=export` deep link 自动 replace 重定向到 `/export` |
+
+### v7.2 新增业务组件（client/src/components/）
+
+| 组件 | 文件 | 用途 |
+|------|------|-----|
+| `OnboardingOverlay` | `components/onboarding/onboarding-overlay.tsx` | F1-1/3 引导浮层；基于 Radix Dialog；三段式 UI（indicator + icon + title/desc + 按钮组）；SpotlightCutout 用 `box-shadow: 0 0 0 9999px <mask>` 裁切目标区域；`MutationObserver + scrollIntoView` 找到 `[data-onboarding-target="..."]` 元素；3s 找不到自动降级居中卡 |
+| `OnboardingHost` | `components/onboarding/onboarding-host.tsx` | F1-2 触发与状态管理；唯一数据源 `user.preferences.onboardingCompleted / onboardingSkippedSteps`；`?onboarding=1` 强制触发；StrictMode 双触发用 `useRef` 防御；MainLayout 动态 import 不污染入口 chunk |
+
+#### `<ImageUploader>` 用法
+
+> **架构说明（v7.2 方案 B）**：上传与下载均由服务端代理，桶私有。组件 `onChange` 回传的是 **桶内 key**（如 `avatars/u1/abc.jpg`），业务层直接把 key 写入 DB；展示时用 `buildImageUrl(key)` 拼成 `/api/uploads/{key}` 走我方下载代理。详见 `docs/web-api-spec.md §11`。
+
+**Props**：
+
+```typescript
+interface ImageUploaderProps {
+  kind: 'avatar' | 'baby-avatar' | 'daily-checkin'
+  ctx?: { babyId?: string; familyId?: string; date?: string }  // 按 kind 必填
+  /** 上传成功后回传 **桶内 key**（不是 URL！） */
+  onChange: (key: string) => void | Promise<void>
+  value?: string | null
+  accept?: string                   // 默认 'image/jpeg,image/png,image/webp'
+  disabled?: boolean
+  maxDimension?: number             // 覆盖 kind 默认压缩长边
+  children?: (props: ImageUploaderRenderProps) => ReactNode
+  className?: string
+}
+
+interface ImageUploaderRenderProps {
+  isUploading: boolean
+  progress: number       // 0-1（仅 multipart POST 阶段；压缩阶段为 0）
+  openPicker: () => void
+  disabled: boolean
+}
+```
+
+**示例 1：用户头像（F12）**
+```tsx
+import { ImageUploader } from '@/components/ui/image-uploader'
+import { buildImageUrl } from '@/services/upload'
+
+<ImageUploader
+  kind="avatar"
+  onChange={async (key) => {
+    // key 是桶内对象 key，例如 "avatars/u1/abc123.jpg"
+    await authService.updateProfile({ avatar: key })
+  }}
+>
+  {({ openPicker, isUploading, progress }) => (
+    <button onClick={openPicker} className="relative">
+      {/* 展示时用 buildImageUrl 拼成代理 URL */}
+      <UserAvatar user={{ ...user, avatar: buildImageUrl(user.avatar) }} size="xl" />
+      {isUploading && (
+        <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center">
+          <span className="text-white text-xs">{Math.round(progress * 100)}%</span>
+        </div>
+      )}
+    </button>
+  )}
+</ImageUploader>
+```
+
+**示例 2：默认按钮（无 children）**
+```tsx
+<ImageUploader kind="avatar" onChange={(key) => updateProfile({ avatar: key })} />
+// 渲染圆形 Camera 图标按钮 + 加载态
+```
+
+**`buildImageUrl(key)` 兼容老数据**：
+- `null / undefined` → 返回 `undefined`（业务侧用默认头像）
+- `http(s)://...` 开头 → 原样返回（兼容 v7.1 及以前直接存绝对 URL 的少量历史数据）
+- 其他（桶内 key）→ 返回 `/api/uploads/{key}`，需要登录态才能加载
+
+**降级行为**：缺 COS 配置（503 `UPLOAD_NOT_CONFIGURED`）/ 格式不支持（400 `UPLOAD_INVALID_EXT`）/ 文件过大（400 `UPLOAD_TOO_LARGE`）/ 限流（429 `RATE_LIMITED`）/ 网络错误 / 用户取消 均自动 toast，业务侧不需要 try/catch。
+
+
 
 Profile 页紧凑布局修复 + RadioGroupCard 能力增强：
 
@@ -1095,6 +1209,67 @@ import { Timeline } from '@/components/timeline'
 - 移动端 Dialog 自动渲染为底部 sheet（带拖拽条），桌面端居中 modal 560px，UX 与原 drawer 一致；自带 X 关闭、ESC、背景点击关闭、焦点陷阱、return-focus，不再需要手写 IconButton + onClick={() => setShowRecommend(false)}。
 - 与 milestone v8.1 的迁移动机一致：彻底消除业务层"高于 z-50 的自制弹窗"，避免未来在该抽屉里加 `useConfirm()` 时再踩同样的层级冲突。
 
+## 2A. 每日打卡 + 成长日历（v7.2 T-S2-F11）
+
+| 组件 | 文件 | 说明 |
+|---|---|---|
+| `PhotoUploader` | `components/daily-checkin/photo-uploader.tsx` | render-prop；包装 ImageUploader(kind=daily-checkin)；上传成功 → createCheckin → asyncGenerateAiSummary；重复打卡(409)/窗口过期(400)/AI 配额耗尽 友好 toast |
+| `DailyCheckinCard` | `components/daily-checkin/daily-checkin-card.tsx` | 首页今日打卡卡片三态（未打卡 CTA / 处理中 spinner / 已打卡缩略图 + AI 小记前 2 行 + 跳日历）；viewer 隐藏 CTA |
+| `AiSummaryPanel` | `components/daily-checkin/ai-summary-panel.tsx` | AI 小记容器：展示 / 编辑（textarea 1000 字）/ 重新生成（confirm 提示扣配额）/ 空态生成；"已人工修改" pill 来自 `aiSummaryAt === null` |
+| `DailyCheckinDetail` | `components/daily-checkin/daily-checkin-detail.tsx` | Dialog (size=lg)：照片全图 + AiSummaryPanel + caption 编辑 + 替换照片(`autoGenerateAi=false`) + 删除；空态时显式 PhotoUploader CTA；权限 `canEdit && (isAdmin || createdBy === userId)` |
+| `GrowthCalendar` | `components/growth-calendar/growth-calendar.tsx` | 月视图主组件；`grid-cols-7`；cell 状态：future / supplement / expired / checked / out-of-month；自动判断 7d 窗口 + 出生日界 |
+| `CalendarCell` | `components/growth-calendar/calendar-cell.tsx` | 单元格：未来灰显 / 可补打卡（hover 显 + 号）/ 超窗口灰显 + tooltip / 已打卡（圆角照片背景 + 角标数字 + hover AI 小记首行）；全 button + aria-label |
+| `CalendarMonthSwitcher` | `components/growth-calendar/calendar-month-switcher.tsx` | ◀▶ + `年 月` 标题；`prevDisabled`（≤ 出生月）/ `nextDisabled`（≥ 当前月） |
+| `CalendarExportMenu` | `components/growth-calendar/calendar-export-menu.tsx` | DropdownMenu：导出图片 / 导出 PDF / 系统分享（按 navigator.share 可见性）；calendar-canvas / pdf-export 全部动态 import |
+
+### Daily Check-in 路由
+
+| 路由 | 组件 | 行为 |
+|---|---|---|
+| `/growth/calendar` | `pages/growth/calendar` `GrowthCalendarPage` | 月视图独立页；URL 参数 `?year=&month=&date=&babyId=`；?date 自动开 `<DailyCheckinDetail>` |
+
+### 2A.1 关键 Render-prop 与回调
+
+`PhotoUploader` children 形状：
+```ts
+{
+  openPicker(): void
+  isWorking: boolean       // 上传 + create 中
+  isGeneratingAi: boolean  // AI 小记生成中
+  progress: number         // 0-1
+  disabled: boolean
+}
+```
+
+`PhotoUploader` 回调：
+- `onCreated(checkin)` — DB 创建成功（aiSummary=null）
+- `onAiGenerated(checkin)` — AI 小记到位
+- `autoGenerateAi`（默认 true）— 详情抽屉里的"替换照片"用 false 避免覆盖已编辑过的小记
+
+---
+
+## 2B. WHO 百分位增强（v7.2 T-S2-F10）
+
+| 组件 / lib | 文件 | 说明 |
+|---|---|---|
+| `lib/who-standards` 扩展 | `lib/who-standards.ts` | 0-24 月 → **0-60 月**；24-60 月按 3 月粒度；nearestMonth 更新 |
+| `lib/who-percentile`（新） | `lib/who-percentile.ts` | `getPercentile / getPercentileLabel / isOutOfRange / getReferenceLinePoints / getReferenceAtAge`；分段线性插值算法（不引入 LMS） |
+| Growth 列表行 Badge | `pages/growth/index.tsx` | 行尾 `P50` / `<P3 ⚠`；异常行整行红底高亮 + 「向 AI 咨询」按钮（autoPrompt 跳 `/ai-assistant`） |
+| 数据点 hover | 同上 SVG | title 包含 `{value}{unit} · P75（中上水平）` |
+
+---
+
+## 2C. 报告分享 Dialog（v7.2 T-S2-F4）
+
+| 组件 / lib | 文件 | 说明 |
+|---|---|---|
+| `ReportShareDialog` | `components/report/report-share-dialog.tsx` | Dialog (size=md)：预览 + '附带成长日历' Checkbox + 三个 action（保存图片 / 导出 PDF / 系统分享）；calendar-canvas / pdf-export 全部动态 import |
+| `lib/calendar-canvas` | `lib/calendar-canvas.ts` | `renderCalendarImage({ baby, year, month, checkins })` → 1240×1754 jpeg Blob；2DPR；A4 比 |
+| `lib/pdf-export` | `lib/pdf-export.ts` | `renderPagesToPdf(pages[])` / `renderReportWithCalendarPdf({reportImage, calendarImages, metadata})` / `downloadBlob`；pdf-lib A4 contain |
+| `vendor-pdf` chunk | `vite.config.ts` manualChunks | pdf-lib 独立 chunk（gzip ~175 KB），仅在 calendar / report 路由动态加载 |
+
+---
+
 ## 3. 家庭协作组件（client/src/components/family/）
 
 | 组件 | 文件 | 说明 |
@@ -1154,6 +1329,10 @@ interface RecordDialogProps {
 | `useDialog<T>()` | `use-dialog.ts` | 弹窗开关；`openDialog(payload?)` 可携带 payload（编辑模式下的 CareRecord），`closeDialog` 自动清空 |
 | `useConfirm()` | `components/ui/confirm-dialog.tsx` | 全局 Promise 式确认弹窗；`confirm(options): Promise<boolean>` |
 | `useReportData(babyId, period, birthDate?)` | `use-report-data.ts` | 成长报告数据聚合（v5.0.0+）：基于 `GET /records?startDate&endDate`、疫苗 / 里程碑列表、`/trend/weekly`（仅周报）并行拉取并在前端聚合为 `{ metrics, daily, milestones, vaccines, growth, weeklyTrend }`；时间窗：`period='week'` = 本周一→今天，`period='month'` = 本月 1 号→今天，均受 `baby.birthDate` 限制 |
+| `useDailyCheckins({babyId, year, month})` | `use-daily-checkins.ts` | 按月查询打卡（v7.2 T-S2-F11）；queryKey 含 year/month 便于切月；60s staleTime |
+| `useDailyCheckin(babyId, date)` | `use-daily-checkins.ts` | 单日打卡（包含 404 → null 处理） |
+| `useCreateCheckin / useUpdateCheckin / useDeleteCheckin` | `use-daily-checkins.ts` | mutations；成功后 invalidate `['daily-checkins', babyId]` |
+| `useGenerateAiSummary(babyId)` | `use-daily-checkins.ts` | AI 小记 mutation；扣配额 + 失败回滚由 service 自身处理 |
 
 ## 5. 新增 Lib（client/src/lib/）
 
@@ -1168,6 +1347,10 @@ interface RecordDialogProps {
 | `detectAll` / `markEggShown` / `EggResult` | `easter-egg.ts` | 彩蛋检测引擎 |
 | `renderShareImage` / `downloadShareImage` / `shareImage` | `share-canvas.ts` | 分享图 V1（今日小结） + 成长报告分享（v5.0.0+ `renderReportImage`） |
 | `renderReportImage(opts)` | `share-canvas.ts` | v5.0.0+：渲染成长报告分享图（周报 / 月报）。入参 `{ baby, data: ReportData, aiSummary? }`；返回 `Promise<Blob>` JPEG。布局：封面（渐变 + 大号 W/M）→ 4 宫格关键指标 → 成就摘要行 → 可选 AI 总结段 → Footer；总高度按 AI 总结行数动态计算（`wrapText` 按字符断行）。DPR 限制为 2，质量 0.85。|
+| `daily-checkin-date.ts`（v7.2 T-S2-F11） | `lib/daily-checkin-date.ts` | 本地时区纯函数：`todayLocalYmd / isPast / isFuture / isWithinCheckinWindow(7d) / getMonthGrid / getMonthRange` 等；server vitest 28 用例覆盖跨月跨年/闰月/边界 |
+| `who-percentile.ts`（v7.2 T-S2-F10） | `lib/who-percentile.ts` | `getPercentile / getPercentileLabel / isOutOfRange / getReferenceLinePoints / getReferenceAtAge`；分段线性插值算法；server vitest 28 用例覆盖 |
+| `calendar-canvas.ts`（v7.2 T-S2-F11） | `lib/calendar-canvas.ts` | `renderCalendarImage({baby, year, month, checkins})` → A4 比 1240×1754 jpeg；2DPR；圆角缩略图 + 数字角标 + AI 小记首行渐变；onProgress 回调 |
+| `pdf-export.ts`（v7.2 T-S2-F11 / F4） | `lib/pdf-export.ts` | `renderPagesToPdf / renderReportWithCalendarPdf / downloadBlob`；pdf-lib A4 contain；总输入 8MB 软上限警告 |
 | `getRecordSummary(record)` / `getRecordDetails(record)` / `getRecordTypeLabel(type)` | `record.ts` | 记录展示工具：`getRecordSummary` 返回单行摘要文本；`getRecordDetails` 返回结构化的 `{ key, value }[]`，记录页卡片用其渲染详情标签组（地点 / 部位 / 性状 / 颜色 / 体温分级等） |
 
 ## 6. 新增 Service 方法
@@ -1319,6 +1502,30 @@ model AIQuota {
   @@unique([userId, date])
   @@index([userId, date])
   @@index([date])
+}
+
+// v7.2 T-S2-F11
+model DailyCheckin {
+  id          String    @id @default(cuid())
+  babyId      String
+  familyId    String
+  checkinDate String    // YYYY-MM-DD（本地时区，前端写本地时区字符串，后端不做换算）
+  photoKey    String    // COS 桶内 key（INF-02 方案 B），不是 URL
+  photoWidth  Int?
+  photoHeight Int?
+  caption     String?
+  aiSummary   String?
+  aiSummaryAt DateTime? // null = 用户已编辑 / 未生成
+  createdBy   String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  baby    Baby @relation(fields: [babyId], references: [id], onDelete: Cascade)
+  creator User @relation(fields: [createdBy], references: [id])
+
+  @@unique([babyId, checkinDate])      // 一天一张
+  @@index([babyId, familyId, checkinDate])
+  @@index([familyId])
 }
 ```
 

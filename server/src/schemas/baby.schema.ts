@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { avatarRefSchema } from './common.schema';
 
 // 接受 date-only (2024-06-15) 或 datetime (2024-06-15T00:00:00Z) 两种格式
 // 同时校验：可解析、不晚于当前日期（同一日合法）、不早于 1900-01-01（防误录与历史数据异常）
@@ -31,14 +32,16 @@ export const createBabySchema = z.object({
   name: z.string().min(1, '姓名不能为空').max(20, '姓名最多20字符'),
   gender: z.enum(['male', 'female'], { message: '性别无效' }),
   birthDate: dateStringSchema,
-  avatar: z.string().url('头像URL格式无效').optional(),
+  /** v7.2 INF-02 方案 B：接受 COS 对象 key（babies/...）或历史 http(s) URL */
+  avatar: avatarRefSchema.optional(),
 });
 
 export const updateBabySchema = z.object({
   name: z.string().min(1, '姓名不能为空').max(20, '姓名最多20字符').optional(),
   gender: z.enum(['male', 'female'], { message: '性别无效' }).optional(),
   birthDate: dateStringSchema.optional(),
-  avatar: z.string().url('头像URL格式无效').optional(),
+  /** v7.2 INF-02 方案 B：接受 COS 对象 key（babies/...）或历史 http(s) URL */
+  avatar: avatarRefSchema.optional(),
 });
 
 export const deleteBabySchema = z.object({

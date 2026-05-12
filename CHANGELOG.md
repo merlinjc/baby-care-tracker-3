@@ -17,6 +17,200 @@
 
 ---
 
+## [v7.2.0] Saplings — 计划中（开发分支：`feature/v7.2-roadmap`）
+
+> Roadmap：[`docs/web-roadmap-v7.2.md`](./docs/web-roadmap-v7.2.md)（v1.0，2026-05-11）
+> Sprint 1 设计：[`docs/web-roadmap-v7.2-sprint1-design.md`](./docs/web-roadmap-v7.2-sprint1-design.md)
+> Sprint 1 任务：[`docs/web-roadmap-v7.2-sprint1-tasks.md`](./docs/web-roadmap-v7.2-sprint1-tasks.md)
+> 主题：**内容沉淀 + 个性化 + 可访问性 + 工程基础**
+> 排期：3 个 sprint（约 6 周），目标 v7.2.0 GA。
+
+### Added — Sprint 2（v7.2.0-rc.2，2026-05-11 一次性交付）
+
+> Sprint 2 设计：[`docs/web-roadmap-v7.2-sprint2-design.md`](./docs/web-roadmap-v7.2-sprint2-design.md)
+> Sprint 2 任务：[`docs/web-roadmap-v7.2-sprint2-tasks.md`](./docs/web-roadmap-v7.2-sprint2-tasks.md)
+> 22 个 task 全部完成；server vitest **234 → 262** 全过；client 入口 chunk gzip **21.47 KB**（≤ 22 KB 目标）
+
+- **F11 每日打卡 + AI 小记 + 成长日历（Sprint 2 主线）**
+  - **后端**（4 task）
+    - `DailyCheckin` schema：`@@unique([babyId, checkinDate])` + `photoKey`（INF-02 方案 B，非 URL）
+    - `daily-checkin.service`：CRUD + 7d 补打卡窗口校验 + 跨家庭隔离 + editor/admin 权限矩阵
+    - `daily-checkin.service.generateAiSummary`：调 `aiService.chat`（含配额扣减/回滚） + 落 `aiSummary + aiSummaryAt`，温柔感性基调（区别于 dailyInsight）
+    - `routes/checkins.ts`：5 端点 + AI 小记端点（挂 `aiRateLimit`）
+    - `patrol.runDailyCheckinOrphanCleanup`：周日 04:00 + 30d 阈值 + COS list/delete 批处理
+    - 测试：17 service 集成 + 16 schema + 12 AI 集成 + 6 patrol = 51 用例
+  - **前端**（5 task）
+    - `services/daily-checkin.ts` + `hooks/use-daily-checkins.ts`：list 按月 / 单日 / mutation 全套
+    - `PhotoUploader`：包装 ImageUploader(kind=daily-checkin) + create + asyncAi；`autoGenerateAi=false` 用于"替换照片"
+    - `DailyCheckinCard`：首页三态（未打卡 CTA / 处理中 / 已打卡缩略图 + AI 前 2 行）
+    - `AiSummaryPanel`：展示 / 编辑（textarea 1000 字）/ 重新生成（confirm 扣配额提示）/ 空态生成
+    - `DailyCheckinDetail`：单日详情 Dialog (size=lg)：照片全图 + AiSummaryPanel + caption + 替换照片 + 删除
+    - `GrowthCalendar` 月视图：cell 四态（future/supplement/expired/checked）+ 周一首列 + 出生日界 + 7d 窗口
+    - `CalendarMonthSwitcher` ◀▶：prevDisabled (≤ 出生月) / nextDisabled (≥ 当前月)
+    - `CalendarExportMenu`：导出图片 / 导出 PDF / 系统分享，全部动态 import
+    - `pages/growth/calendar` 独立路由：`?year/?month/?date/?babyId`
+    - `lib/calendar-canvas`：A4 比 1240×1754 jpeg，2DPR + 圆角缩略图 + 数字角标 + AI 小记首行渐变
+  - **i18n**：新 NS `daily-checkin`（card / ai_summary / calendar / detail / errors）
+
+- **F10 WHO 百分位线增强**（2 task）
+  - `lib/who-standards`：0-24 月 → 0-60 月（24-60 月按 3 月粒度）
+  - `lib/who-percentile` (NEW)：分段线性插值 + 边界饱和；`getPercentile / getPercentileLabel / isOutOfRange / getReferenceLinePoints / getReferenceAtAge`
+  - `pages/growth`：chartMonths 上限 24 → 60；X 轴标签自适应（≤24 月/3，>24 月/6）
+  - 数据点 hover title `+P75（中上水平）`；异常值数据点放大 + 染红
+  - 历史记录 Badge `P50` / `<P3 ⚠`；异常行红底高亮 + 「向 AI 咨询」按钮（autoPrompt 协议）
+  - 测试：28 用例覆盖 5 档参考点直接命中 / 边界饱和 / 月龄插值 / 月龄超界 / 标签映射 / 单调性
+
+- **F4 报告分享 Dialog + PDF 导出**（2 task）
+  - `pdf-lib ^1.17.1` 接入；`vendor-pdf` chunk 拆分（仅 calendar / report 路由动态加载）
+  - `lib/pdf-export`：`renderPagesToPdf / renderReportWithCalendarPdf / downloadBlob`，A4 contain
+  - `<ReportShareDialog>`：预览（renderReportImage） + 三个 action（PNG / PDF / 系统分享）+ "附带成长日历" Checkbox
+  - PDF 第 1 页报告 + 后续每月一页日历，进度态 toast；元数据 title/author/subject 完整填写
+  - `pages/report` 分享按钮 → 打开 Dialog（替代直接 share）
+
+- **基础设施 / 文档**
+  - `vite.config.ts` manualChunks 增加 `vendor-pdf`
+  - `tests/setup.ts` 增加 `dailyCheckin.deleteMany` 清表
+  - 文档同步：
+    - `web-architecture.md` §5.12 / 5.13 / 5.14（每日打卡 / 百分位 / 报告 PDF）
+    - `web-api-spec.md` §12（每日打卡 6 端点 + 5 个新错误码）
+    - `web-component-library.md` §2A / 2B / 2C（13 个新组件 + 4 hook + 4 lib）
+    - `web-coding-conventions.md` §21 / §22（每日打卡 6 条约定 + PDF/Canvas 4 条约定）
+    - `devops-workflow.md` §4.5（patrol 三任务表 + 30d 阈值说明）
+    - `web-roadmap-v7.2.md` §12.2 字段修正（`photoUrl` → `photoKey`）
+
+### Added — Sprint 1 进行中
+
+- **T-S1-F8-02/03/04/05 i18n 增量接入（5 高频页 + 1 公共 layout + LanguageSwitcher）**（2026-05-11 完成）
+  - **新增 NS 资源**（6 个）：`nav`（F8-02 增补 sidebar 选择 + 复数）/ `home` / `record` / `report` / `ai` / `settings`，全部 zh-CN 完整
+  - **F8-02 main-layout**：4 个 NavLink label + SidebarBabyCard 空态文案 + "{count} 位可选" 复数；品牌名 "Baby Care" 保留英文
+  - **F8-03 home + record**：
+    - home：问候语 5 段（夜深/早午下晚）/ babySubtitle / 无家庭引导 / 3 个 section（今日概览 / AI 洞察 / 今日时间线）+ 刷新 / 查看全部 / empty 文案 / 复数
+    - record：title / 筛选切换 / 日期范围 / 类型 5 段（via labelKey）/ 今天/昨天分组 + N 条复数 / 暂无记录 / 加载更多 / 没有更多 / 由 X 记录 / 编辑/删除 aria / 删除 confirm / viewer 提示 / 请先选择宝宝
+  - **F8-04 report + ai + settings**：
+    - report：title / 周月切换 / 6 个 section 标题 / 分享按钮 3 个状态 + 文件名
+    - ai：title / 返回 / 配额提示 / 3 类错误文案 / 清除 confirm / 欢迎语 / 推荐问题数组（returnObjects） / 输入 placeholder + aria
+    - settings：title / 3 tab / 资料 + 密码 + 导出表单 + 7 个 toast（含 export_success 占位 {{format}}）
+  - **F8-05 LanguageSwitcher 占位**：
+    - `client/src/components/language-switcher.tsx`：Card + DropdownMenu + disabled；v7.2 显示"简体中文 + 即将推出"
+    - 挂在 Settings → 资料 tab 下方
+    - `docs/web-i18n-guide.md`：10 节完整使用指南（新增语言流程 / 占位符 / 复数 / returnObjects / 与 INF-01 联动图 / 性能边界 / FAQ）
+  - **未接入页面**（v7.3+ 渐进迁移）：discover / profile / baby / family / growth / vaccine / milestone / jaundice / auth/*
+  - **验证**：
+    - `pnpm build` ✓
+    - `vendor-i18n` gzip 20.19KB（设计阈值 <50KB ✓）
+    - 5 高频页 + main-layout grep 中文残留 = 0 命中（强制接入范围内）
+    - `localStorage.baby_care_lang = 'en-US'` 后刷新看到 key 直显，fallback 链路验证正常
+  - 文档：`web-component-library.md`（新增 LanguageSwitcher 行）/ `web-i18n-guide.md`（新增）/ `sprint1-tasks.md` F8-02..05 全部标 ✅
+
+- **T-S1-F8-01 i18next 框架预埋 + zh-CN 资源骨架**（2026-05-11 完成）
+  - 新增依赖：`react-i18next ^17` + `i18next ^26` + `i18next-browser-languagedetector ^8`
+  - `client/src/i18n/index.ts`：i18next 初始化 — `fallbackLng='zh-CN'` / `supportedLngs=['zh-CN']` / 检测顺序 `localStorage(baby_care_lang) → navigator` / `react.useSuspense=false`（与 React.lazy 路由兼容） / DEV 缺 key 打印
+  - `client/src/i18n/resources/zh-CN/{common,nav}.json`：公共 NS 起手，含 actions/states/time/errors/units（common）+ tabs/sidebar/page_titles（nav）
+  - `client/src/i18n/README.md`：完整指南（NS 划分 / key 命名 / 占位符 / 复数 / 切换验证 / FAQ）
+  - `client/src/main.tsx`：在 App 之前同步 `import '@/i18n'`（副作用初始化）
+  - `client/vite.config.ts#manualChunks`：i18n 三件套单独成 `vendor-i18n` chunk
+  - **收益**：`vendor-i18n` gzip **15.87 KB**（设计阈值 <50KB ✓）；入口 chunk gzip +1.29 KB（仅 i18n 副作用 import）；后续 F8-02/03/04 业务接入零基建成本
+  - 文档：`web-architecture.md §5.8` / `web-coding-conventions.md §20`（i18n 文案约定 8 节）
+
+- **T-S1-INF-02 COS 服务端代理上传/下载链路 + ImageUploader 通用组件**（2026-05-11 完成）
+  - **架构**：上传走 `POST /api/uploads`（multipart）+ 下载走 `GET /api/uploads/*`（流式 pipe），桶完全私有，COS 凭证仅服务端持有；DB 字段从"绝对 URL"改为"桶内 key"，`buildImageUrl()` 兼容历史 URL 数据
+  - **后端**：
+    - `server/src/services/upload.service.ts`：`putObject(userId, kind, ext, buffer, ctx, contentType?)` + `getObjectStream(key)` + `isValidKey()` 防 path traversal；纯函数 helper（normalizeExt / validateContext / buildKey / parseContentType）便于单测
+    - `server/src/routes/uploads.ts`：`POST /api/uploads`（authenticate + presignRateLimit + multer.single + multerErrorHandler + zod validate） / `GET /api/uploads/*`（authenticate + 流式 pipe + Cache-Control immutable max-age=86400）
+    - `server/src/schemas/upload.schema.ts`：`uploadFieldsSchema`（form fields，含 ext 格式 + date YYYY-MM-DD 校验）
+    - `server/src/middleware/rate-limit-persistent.ts`：`presignRateLimit`（20 次/分钟/用户，仅上传）
+    - `server/src/config/env.ts`：`COS_SECRET_ID/KEY/BUCKET/REGION/MAX_UPLOAD_BYTES`(默认 2MB) / `COS_DOWNLOAD_CACHE_MAX_AGE`(默认 86400s)
+    - `server/src/types/errors.ts`：`UPLOAD_NOT_CONFIGURED / UPLOAD_INVALID_EXT / UPLOAD_MISSING_CONTEXT / UPLOAD_TOO_LARGE`
+    - 依赖：+ `cos-nodejs-sdk-v5` + `multer`（含 `@types/multer`）
+    - 测试：`tests/unit/upload-service.test.ts` 27 个用例覆盖配置检查 / ext 白名单 / ctx 校验 / key 拼接 / isValidKey 防 path traversal / mock COS putObject + getObjectStream
+  - **前端**：
+    - `client/src/services/upload.ts`：`uploadService.upload(file, kind, ctx, options)` 完整链路（browser-image-compression 压缩到 ≤1MB → EXIF GPS 剥离 → axios POST FormData，带 `onUploadProgress`）；`buildImageUrl(keyOrUrl)` 把 key 拼成 `/api/uploads/{key}`，对 `http(s)://` 老数据原样返回
+    - `client/src/components/ui/image-uploader.tsx`：通用 render-prop 单图上传组件；`onChange(key)` 回传 **桶内 key**（不是 URL！）；缺配置 / 格式错 / 文件过大 / 限流 / 网络错均自动 toast 降级
+    - 依赖：+ `browser-image-compression`
+  - **共享类型**：`shared/types/index.ts` 新增 `UploadKind / UploadContext / UploadResult`（取代 `PresignResult / PresignRequest`）
+  - **关键设计**：
+    - 服务端代理双向 → 桶私有 + 客户端无 COS 凭证 + 无需 CORS
+    - 客户端压缩到 ≤1MB（avatar 512px / daily-checkin 1080px），服务端 multer 兜底 2MB
+    - EXIF GPS 自动剥离（隐私优先）
+    - Key 32 字符 hex 后缀防枚举；下载长缓存 immutable
+    - ext 白名单 jpg/jpeg/png/webp，jpeg 归一化为 jpg
+    - 缺 COS 配置时 503，前端静默降级（业务主流程不阻塞）
+  - **测试结果**：server 全套 **112/112 通过**（baseline 85 + INF-01 10 + INF-02 27 - dedupe）；client build 通过
+  - 文档：`web-api-spec.md §11`（重写）/ `web-architecture.md §5.7`（架构图）/ `web-coding-conventions.md §19`（9 节规范）/ `web-component-library.md`（ImageUploader）/ `devops-workflow.md §4.3 §4.4`（私有桶配置 + 验证）
+
+- **T-S1-INF-01 User.preferences 字段 + PATCH /profile 深合并**（2026-05-11 完成）
+  - `prisma/schema.prisma` 新增 `User.preferences  String?`（SQLite TEXT 存 JSON）
+  - `shared/types/index.ts` 新增 `UserPreferences` 接口（onboardingCompleted / onboardingSkippedSteps / lang / langManuallySet / fontScale / themeMode），`User.preferences` 类型化为 `UserPreferences | null`
+  - `server/src/schemas/auth.schema.ts` 新增 `userPreferencesPatchSchema`：已知键严格校验 + `.passthrough()` 未知键透传
+  - `server/src/services/auth.service.ts`：新增 `parsePreferences` / `mergePreferences` 工具；`updateProfile` 走顶层 key 级深合并；`sanitizeUser` 输出反序列化对象；脏 JSON 兜底为 null
+  - `client/src/services/auth.ts`：`updateProfile` 接受 `preferences` 入参；新增 `updatePreferences(patch)` 便捷方法
+  - `client/src/stores/auth-store.ts`：新增 `updatePreferences(patch)` action
+  - `tests/integration/auth-update-profile.test.ts`：10 个用例覆盖深合并 / 部分字段 / 未知键 / 脏数据 / 向后兼容
+  - **测试结果**：server 85/85 通过（baseline 75 + 新增 10）；client build 通过，体积无变化
+  - 文档：`web-api-spec.md §2.5` / `web-architecture.md §5.6` / `web-coding-conventions.md §18`
+
+- **F9 路由级代码分割**（T-S1-F9-01，2026-05-11 完成）
+  - `client/src/app/routes.tsx`：14 个 page 全部 `React.lazy` + 动态 `import()`；命名导出通过 `.then(m => ({ default: m.XxxPage }))` 适配
+  - `client/src/app/layout/route-fallback.tsx`：200ms 延迟动画点阵 + `role="status" / aria-live` 完备
+  - `client/vite.config.ts`：函数式 `manualChunks` 拆 6 组 vendor（react / query / radix / motion / icons / utils）；`ANALYZE=true` 触发 `rollup-plugin-visualizer` 产出 `dist/stats.html`
+  - `client/package.json`：+ `rollup-plugin-visualizer` devDep；新增 `build:analyze` script
+  - **收益**：应用入口 chunk gzip 289 KB → **15.68 KB（↓ 94.6%）**；首屏首页加载 gzip 289 KB → **231 KB（↓ 20.0%）**；chunk 数 1 → 49；消除 `>500KB chunks` build 警告
+  - 文档：`web-architecture.md §5.5` / `web-coding-conventions.md §17` / `devops-workflow.md §6.1.1`
+
+### Planned（按 Sprint）
+
+#### Sprint 1（2026-05-11 → 2026-05-22）— 工程基础 + 个性化基础
+- ✅ **F9** 路由级代码分割
+- ⬜ **F8** i18n 框架预埋（`react-i18next`，5 个高频页面接入，仅 zh-CN 完整）
+- ⬜ **F12** 用户头像设置（COS 预签名上传 + 默认 SVG 头像 + Baby 头像复用）
+- ⬜ **F2** 黄疸记录持久化（新增 `JaundiceRecord` 表 + 4 端点 + localStorage → 云端迁移脚本）
+- ⬜ **F3** 导出独立页 `/export`（按宝宝/范围/类型/格式组合导出 + 历史下载列表）
+- ⬜ **F6** 多宝快捷切换持久化 + URL 参数（`?babyId=` 三层数据源优先级）
+- ⬜ **F1** 首次使用引导 / Onboarding（4 步 Stepper + `User.preferences.onboardingCompleted`）
+
+#### Sprint 2（2026-05-25 → 2026-06-05）— 内容沉淀核心
+- **F11** 宝宝每日打卡照片 + 每日 AI 总结 + 成长日历（核心亮点）
+  - 新增 `DailyCheckin` 表（`(babyId, checkinDate)` 唯一）
+  - COS 预签名上传 + EXIF GPS 剥离 + 1080px 压缩
+  - 异步 AI 小记生成（与 dailyInsight 独立的"小记"基调）
+  - 月/周日历视图 + 长截图 / PDF 导出
+  - patrol 新增 `checkinPhotoCleanup`（每周日 04:00）
+- **F10** 生长曲线对照 WHO 百分位线（P3/P15/P50/P85/P97 LMS Z-score 计算 + 异常值 autoPrompt 跳 AI）
+- **F4** 报告分享卡片 + 下载（接通现有 `renderReportImage` + `pdf-lib` 多页 PDF 含日历）
+
+#### Sprint 3（2026-06-08 → 2026-06-19）— 高级体验 + 收尾
+- **F5** AI 助手对话历史持久化 + 多会话（新增 `Conversation` / `ConversationMessage` 表 + 6 端点 + autoPrompt 自动新建会话）
+- **F7** a11y 全量 audit（`eslint-plugin-jsx-a11y` + `@axe-core/react` + Playwright a11y 断言 + 5-7 个修复 PR + `docs/web-a11y-audit-2026-05.md`）
+- 灰度反馈修复 + 性能优化 + Release Notes
+
+### Schema 变更（汇总）
+
+```prisma
+// 新增
+model JaundiceRecord { ... }
+model Conversation { ... }
+model ConversationMessage { ... }
+model DailyCheckin { ... }   // (babyId, checkinDate) 唯一
+
+// 字段调整
+model User {
+  avatar      String?    // 复用，迁移到 COS URL
+  preferences String?    // 新增，JSON: { onboardingCompleted, fontScale, lang, ... }
+}
+```
+
+Migration 顺序：`add_user_preferences` → `add_jaundice_records` → `add_conversations` → `add_daily_checkins`，每个独立 PR。
+
+### 文档同步计划
+- `docs/web-architecture.md` 新增 §5.5 / §5.6 / §5.7 / §5.8
+- `docs/web-api-spec.md` 新增 8 类路由
+- `docs/web-coding-conventions.md` 新增「文件上传 / i18n / a11y checklist」
+- `docs/web-component-library.md` 新增 8+ 组件
+- `docs/web-ui-spec.md` 补日历视图色彩约定
+- `docs/devops-workflow.md` 补 COS 桶配置 + patrol 新任务
+
+---
+
 ## [v5.0.0-alpha] Saplings — 2026-05-06（Web 版功能对齐 alpha）
 
 > 范围：Web 版（`client/` + `server/` + `shared/`）功能对齐与未完成需求落地。

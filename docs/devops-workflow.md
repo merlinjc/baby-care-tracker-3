@@ -144,6 +144,102 @@ baby-care-tracker-web/
 | `AI_DAILY_QUOTA` | 否 | 默认 `100` |
 | `AI_FETCH_TIMEOUT_MS` | 否 | 默认 `30000`（ms） |
 | `PATROL_ENABLED` | 否 | 默认 `false` |
+| `COS_SECRET_ID` | 否 | 启用图片上传必填；缺失时 `/api/uploads` 返回 503，前端优雅降级 |
+| `COS_SECRET_KEY` | 否 | 同上 |
+| `COS_BUCKET` | 否 | 桶名，形如 `babycare-1300015547`（含 APPID 后缀） |
+| `COS_REGION` | 否 | 形如 `ap-beijing` |
+| `COS_MAX_UPLOAD_BYTES` | 否 | 服务端单文件最大字节数（multer + service 双层校验），默认 `2097152`（2MB） |
+| `COS_DOWNLOAD_CACHE_MAX_AGE` | 否 | 下载代理 Cache-Control max-age（秒），默认 `86400`（1 天）；设 0 禁用缓存 |
+
+---
+
+### 4.4 腾讯云 COS 配置流程（v7.2+ 服务端代理模式）
+
+**架构提醒**：v7.2 起 COS 走 **服务端代理模式**——所有上传 / 下载经 Express，密钥永远不暴露给客户端。这与第三方"客户端直传"的常见做法**显式不同**，请勿配置桶为公有读或开 CORS（不必要）。
+
+**何时需要**：启用 F12 用户头像、Sprint 2 F11 每日打卡照片等图片上传功能。
+**何时跳过**：仅做核心记录功能、不需要图片上传时，可暂不配置；缺配置时 `/api/uploads` 返回 503，前端会优雅降级为默认头像。
+
+**步骤**：
+
+1. **建桶**：[腾讯云 COS 控制台](https://console.cloud.tencent.com/cos/bucket) → 创建存储桶
+   - 区域：与服务器同区（生产 `ap-beijing`，与 Lighthouse 一致）
+   - 访问权限：**私有读私有写**（所有访问经我方服务端代理，密钥不暴露）
+   - 命名：形如 `babycare-{appid}`，APPID 后缀由腾讯云自动追加
+
+2. **CORS 设置**：**不需要配置**。
+   - 服务端代理模式下，浏览器只与我方域名通信，不会跨域请求 COS
+   - 如果你之前配过 CORS，可以保留也可以移除，对功能无影响
+
+3. **创建 API 密钥**：[访问管理控制台](https://console.cloud.tencent.com/cam/capi)
+   - 推荐做法：**新建子账号** + 生成 AccessKey，**不要用主账号密钥**
+   - 权限策略：自定义策略，仅授予对该桶的 `cos:PutObject` / `cos:GetObject` / `cos:HeadObject` / `cos:DeleteObject` 权限（最小权限原则）
+   - 桶资源：`qcs::cos:ap-beijing:uid/xxx:babycare-1300015547/*`
+
+4. **写入服务器 `docker/.env`**：
+   ```bash
+   COS_SECRET_ID=YOUR_TENCENT_CLOUD_SECRET_ID_HERE
+   COS_SECRET_KEY=YOUR_TENCENT_CLOUD_SECRET_KEY_HERE
+   COS_BUCKET=babycare-1300015547
+   COS_REGION=ap-beijing
+   COS_MAX_UPLOAD_BYTES=2097152      # 服务端兜底 2MB（客户端会先压到 ~1MB）
+   COS_DOWNLOAD_CACHE_MAX_AGE=86400  # 浏览器缓存 1 天
+   ```
+
+5. **重启服务**：`pnpm remote restart` 或 deploy.sh 触发的 docker compose up
+
+6. **验证**：
+   ```bash
+   # 路由通了应得 401（缺 token）
+   curl -i -X POST https://www.neo3.cn/api/uploads
+   # → 401 UNAUTHORIZED
+
+   # 缺凭证（在 .env 故意置空）应得 503
+   curl -i -X POST https://www.neo3.cn/api/uploads \
+     -H 'Authorization: Bearer <test-jwt>' \
+     -F 'file=@./test.jpg' -F 'kind=avatar' -F 'ext=jpg'
+   # → 503 UPLOAD_NOT_CONFIGURED
+
+   # 配完凭证 + 带 token 应得 201 + { key, size, contentType }
+   ```
+
+7. **下载验证**：用上一步返回的 key 直接 GET：
+   ```bash
+   curl -i https://www.neo3.cn/api/uploads/avatars/u1/abc.jpg \
+     -H 'Authorization: Bearer <test-jwt>'
+   # → 200 + Content-Type: image/jpeg + 流式 body
+   ```
+
+**Nginx 提示**：
+- 上传：`client_max_body_size 4m;`（COS_MAX_UPLOAD_BYTES 的 2x，给 multipart boundary 留余量）
+- 下载：`proxy_buffering on;`（让 nginx 帮忙缓冲流式响应）；`proxy_cache` 可选（key 是 immutable，加 nginx cache 能挡住重复回源 COS 的流量）
+
+**降级行为**：缺任一 `COS_*` 字段 → `/api/uploads` 返回 503 `UPLOAD_NOT_CONFIGURED` → 前端 ImageUploader toast 提示「图片上传服务未配置，请联系管理员」，主流程不阻塞，默认头像仍可显示。
+
+### 4.5 Patrol 巡检任务（v7.2+）
+
+后端启动时自动注册 patrol 任务（除非 `PATROL_ENABLED=false` 或 `NODE_ENV=test`）。当前任务清单：
+
+| 任务 | 周期 | 默认 dryRun | 作用 |
+|---|---|---|---|
+| `familyConsistency` | 每日 | true | 校验 `users.familyId` 与 `family_members` 一致性；规则 B 在 `PATROL_DRY_RUN=false` 时自动修复 |
+| `aiQuotaCleanup` | 每周 | true | 删除 60 天前的 `AIQuota` 记录（FR-E4） |
+| `dailyCheckinOrphanCleanup`（v7.2 T-S2-F11） | 每周（周日 04:00） | true | 列 COS `checkins/` 前缀对象 → DB `DailyCheckin.photoKey` 反查 → ≥ 30 天未引用的对象批量删除 |
+
+**调度实现**：原生 `setInterval` + 启动时校时，不引入 node-cron。
+**互斥锁**：通过 `RateLimit` 表实现"乐观锁式领导选举"，多实例部署只有一个实例真正执行（其余跳过）。
+
+**dailyCheckinOrphanCleanup 的 30 天阈值**：
+- 给手动恢复留窗口（防止"DB 已删但 1 周内发现是误删，回滚 DB 后对象还在"）
+- 也覆盖"上传成功但 create 落 DB 失败"的极端场景（最长延迟 30 天才会被清）
+
+**生产开启自动修复**：在 `docker/.env` 设：
+
+```
+PATROL_DRY_RUN=false
+```
+
+不设置时全部 patrol 仅统计 + 写 OperationLog，不做实际写入 / 删除。
 
 ---
 
@@ -206,6 +302,22 @@ pnpm dev:client   # 只启动前端
 ```
 
 > Vite dev server 已配置 `/api → :3000` 代理（见 `client/vite.config.ts`）。
+
+### 6.1.1 前端 Bundle 体积分析（v7.2+）
+
+```bash
+cd client
+pnpm build            # 常规生产构建（不包含 visualizer）
+pnpm build:analyze    # 等价于 ANALYZE=true pnpm build，额外产出 dist/stats.html
+```
+
+`build:analyze` 仅在 `ANALYZE=true` 环境变量下启用 `rollup-plugin-visualizer`，输出 treemap（含 gzip / brotli 大小）。普通构建保持精简，不引入分析插件。
+
+**v7.2 起的体积纪律**（参见 `web-architecture.md §5.5`）：
+- 应用入口 chunk gzip 应 ≤ **20 KB**（v7.2 实测 15.68 KB）
+- 单个 page chunk gzip 应 ≤ **15 KB**（重图表页可放宽到 25 KB）
+- vendor 组应保持稳定，新增大体积依赖前需评估是否新开 vendor chunk
+- 提 PR 前如有大改动，本地跑一次 `pnpm build` 看体积变化作为 review 依据
 
 ### 6.2 修改 Prisma Schema
 

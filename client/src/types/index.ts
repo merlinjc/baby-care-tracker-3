@@ -17,6 +17,12 @@ export type {
   AIQuotaStatus, ChatStreamEvent,
   // FR-F 扩展：按角色差异化
   CareRole,
+  // v7.2+ 用户个性化偏好
+  UserPreferences,
+  // v7.2+ 文件上传
+  UploadKind, UploadContext, UploadResult,
+  // v7.2+ T-S2-F11 每日打卡
+  DailyCheckin, DailyCheckinListQuery, DailyCheckinCreateInput, DailyCheckinPatchInput,
 } from '@baby-care-tracker/shared'
 
 export { Permission } from '@baby-care-tracker/shared'

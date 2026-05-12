@@ -28,6 +28,7 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { UserAvatar } from '@/components/ui/avatar'
+import { AvatarUploader } from '@/components/avatar-uploader'
 import { ThemeSelector } from '@/components/theme-selector'
 import { FontScaleSelector } from '@/components/font-scale-selector'
 import { staggerContainer, staggerItem } from '@/lib/motion'
@@ -35,12 +36,25 @@ import { staggerContainer, staggerItem } from '@/lib/motion'
 export function ProfilePage() {
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
+  const loadUser = useAuthStore((s) => s.loadUser)
   const family = useFamilyStore((s) => s.family)
+  const loadFamily = useFamilyStore((s) => s.loadFamily)
   const currentBaby = useBabyStore((s) => s.currentBaby)
   const babies = useBabyStore((s) => s.babies)
   const navigate = useNavigate()
   const confirm = useConfirm()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+
+  const handleAvatarChange = async (key: string) => {
+    // 1) 落库：把桶内 key 写到 User.avatar
+    await authService.updateProfile({ avatar: key })
+    // 2) 同步本地 zustand store（profile 自身刷新）
+    await loadUser()
+    // 3) 同步家庭成员列表（让其他成员页 / 家庭页看到新头像）
+    if (family?.id) {
+      await loadFamily()
+    }
+  }
 
   const handleLogout = async () => {
     const ok = await confirm({
@@ -76,7 +90,7 @@ export function ProfilePage() {
       color: 'var(--sleep)',
     },
     {
-      to: '/settings?tab=export',
+      to: '/export',
       icon: Download,
       label: '数据导出',
       detail: undefined,
@@ -112,7 +126,18 @@ export function ProfilePage() {
           className="flex items-center gap-5"
           style={{ backgroundColor: 'var(--brand-soft)' }}
         >
-          <UserAvatar user={{ nickname: user?.nickname, avatar: null }} size="xl" />
+          <AvatarUploader
+            kind="avatar"
+            value={user?.avatar}
+            onChange={handleAvatarChange}
+            disabled={!user}
+            ariaLabel="上传或更换头像"
+          >
+            <UserAvatar
+              user={{ nickname: user?.nickname, avatar: user?.avatar }}
+              size="xl"
+            />
+          </AvatarUploader>
           <div className="flex-1 min-w-0 flex flex-col gap-1">
             <h2 className="title-3 truncate" style={{ color: 'var(--brand-ink)' }}>
               {user?.nickname || '未登录'}

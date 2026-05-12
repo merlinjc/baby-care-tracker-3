@@ -26,8 +26,11 @@ import { Alert } from '@/components/ui/alert'
 import { Input } from '@/components/ui/input'
 import { FormField } from '@/components/ui/form-field'
 import { SegmentedControl } from '@/components/ui/segmented-control'
+import { BabyAvatar } from '@/components/ui/avatar'
+import { AvatarUploader } from '@/components/avatar-uploader'
+import { useActiveBaby } from '@/hooks/use-active-baby'
 import { staggerContainer, staggerItem, pressableSubtle } from '@/lib/motion'
-import type { TodayStats } from '@/types'
+import type { Baby, TodayStats } from '@/types'
 
 function getAgeDisplay(birthDate: string): string {
   const birth = new Date(birthDate)
@@ -47,10 +50,10 @@ function getAgeDisplay(birthDate: string): string {
 export function BabyPage() {
   const babies = useBabyStore((s) => s.babies)
   const currentBabyId = useBabyStore((s) => s.currentBabyId)
-  const selectBaby = useBabyStore((s) => s.selectBaby)
   const createBaby = useBabyStore((s) => s.createBaby)
   const updateBaby = useBabyStore((s) => s.updateBaby)
   const deleteBaby = useBabyStore((s) => s.deleteBaby)
+  const { switchBaby } = useActiveBaby()
   const family = useFamilyStore((s) => s.family)
   const { isAdmin, isViewer } = usePermission()
   const confirm = useConfirm()
@@ -128,6 +131,18 @@ export function BabyPage() {
   }
 
   const isFormOpen = showAdd || editingId !== null
+  const editingBaby: Baby | undefined = editingId
+    ? babies.find((b) => b.id === editingId)
+    : undefined
+
+  /**
+   * 编辑模式下：上传头像 → PATCH /babies/:id { avatar: key } → 同步本地 store
+   * 列表头像与首页 BabySwitcher 自动反映（依赖 baby-store + currentBaby）
+   */
+  const handleBabyAvatarChange = async (key: string) => {
+    if (!editingId) return
+    await updateBaby(editingId, { avatar: key })
+  }
 
   useEffect(() => {
     babies.forEach((baby) => {
@@ -237,6 +252,41 @@ export function BabyPage() {
                   aria-label="关闭"
                 />
               </div>
+              {/* 头像区：编辑模式可上传；新建模式占位提示 */}
+              <div className="flex items-center gap-3 py-1">
+                {editingId && editingBaby && family?.id ? (
+                  <AvatarUploader
+                    kind="baby-avatar"
+                    ctx={{ familyId: family.id, babyId: editingBaby.id }}
+                    value={editingBaby.avatar}
+                    onChange={handleBabyAvatarChange}
+                    ariaLabel="上传或更换宝宝头像"
+                    badgeSize={22}
+                  >
+                    <BabyAvatar baby={editingBaby} size="xl" />
+                  </AvatarUploader>
+                ) : (
+                  <BabyAvatar
+                    baby={{
+                      id: '__draft__',
+                      familyId: family?.id ?? '',
+                      name: name || '宝宝',
+                      gender,
+                      birthDate: birthDate || new Date().toISOString(),
+                      avatar: null,
+                    } as Baby}
+                    size="xl"
+                  />
+                )}
+                <p
+                  className="footnote"
+                  style={{ color: 'var(--label-tertiary)' }}
+                >
+                  {editingId
+                    ? '点击头像可更换'
+                    : '保存后可上传宝宝头像'}
+                </p>
+              </div>
               <FormField label="姓名" htmlFor="baby-name" required>
                 <Input
                   id="baby-name"
@@ -318,10 +368,6 @@ export function BabyPage() {
               const GenderIcon = baby.gender === 'male' ? Mars : Venus
               const genderColor =
                 baby.gender === 'male' ? 'var(--sleep)' : 'var(--temperature)'
-              const genderBg =
-                baby.gender === 'male' ? 'var(--sleep-bg)' : 'var(--temperature-bg)'
-              const genderFg =
-                baby.gender === 'male' ? 'var(--sleep-fg)' : 'var(--temperature-fg)'
               return (
                 <motion.div
                   key={baby.id}
@@ -331,7 +377,7 @@ export function BabyPage() {
                   <Card
                     as="article"
                     padding="md"
-                    onClick={() => selectBaby(baby.id)}
+                    onClick={() => switchBaby(baby.id)}
                     className="flex items-center gap-3 cursor-pointer"
                     style={
                       isCurrent
@@ -343,12 +389,7 @@ export function BabyPage() {
                         : undefined
                     }
                   >
-                    <div
-                      className="shrink-0 w-12 h-12 rounded-full flex items-center justify-center"
-                      style={{ backgroundColor: genderBg, color: genderFg }}
-                    >
-                      <User className="h-5 w-5" />
-                    </div>
+                    <BabyAvatar baby={baby} size="lg" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p

@@ -54,6 +54,7 @@ export function AddRecordMenu({
           aria-label="添加记录"
           leftIcon={<Plus className="h-3.5 w-3.5" />}
           rightIcon={<ChevronDown className="h-3 w-3" />}
+          data-onboarding-target="add-record-fab"
         >
           添加
         </Button>

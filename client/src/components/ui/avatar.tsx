@@ -10,14 +10,26 @@
  *
  * 2. 快捷式（Baby / User 专用）：
  *    <BabyAvatar baby={baby} size="md" />   // 根据 gender 自动配色 + 取首字
- *    <UserAvatar user={user} size="md" />   // 无头像时取昵称首字 + primary 底色
+ *    <UserAvatar user={user} size="md" />   // 无头像时取昵称首字 + 哈希配色
  *
  * Size：xs(24) / sm(32) / md(40) / lg(48) / xl(64)；完整覆盖从 TabBar 到 Profile 头像的全部需求。
+ *
+ * v7.2 F12-01：
+ * - `BabyAvatar` / `UserAvatar` 的 avatar 字段语义从"绝对 URL"改为"桶内 key"（由 T-S1-INF-02 引入），
+ *   组件内部自动调用 `buildImageUrl(keyOrUrl)` 拼 `/api/uploads/{key}`；对历史 http(s)://... 数据原样返回。
+ * - 未设置 avatar 时 fallback 升级为「哈希确定性色块 + 首字 SVG」：同一昵称永远同色，
+ *   取代原先固定 primary 背景的 ASCII fallback。SVG 由 `lib/default-avatar` 生成，0 KB 网络开销。
  */
 import * as AvatarPrimitive from '@radix-ui/react-avatar'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { forwardRef } from 'react'
 import { cn } from '@/lib/utils'
+import { buildImageUrl } from '@/lib/image-url'
+import {
+  firstGlyph,
+  getDefaultAvatarDataUri,
+  pickAvatarColor,
+} from '@/lib/default-avatar'
 import type { Baby } from '@/types'
 
 const avatarSizes = {
@@ -123,15 +135,16 @@ interface BabyAvatarProps {
 
 /** BabyAvatar - 宝宝头像（自动 gender 配色 + 名字首字 fallback） */
 export function BabyAvatar({ baby, size = 'md', bordered, className }: BabyAvatarProps) {
+  const avatarSrc = buildImageUrl(baby.avatar)
   return (
     <Avatar size={size} bordered={bordered} className={className}>
-      {baby.avatar && <AvatarImage src={baby.avatar} alt={baby.name} />}
+      {avatarSrc && <AvatarImage src={avatarSrc} alt={baby.name} />}
       <AvatarFallback
         bgColor={babyAvatarColor(baby.gender)}
         textSize={size}
         aria-label={baby.name}
       >
-        {baby.name.charAt(0)}
+        {firstGlyph(baby.name)}
       </AvatarFallback>
     </Avatar>
   )
@@ -142,11 +155,19 @@ interface UserAvatarProps {
   size?: AvatarSize
   bordered?: boolean
   className?: string
-  /** 自定义 fallback 背景色（默认 primary） */
+  /**
+   * 自定义 fallback 背景色（覆盖默认的"昵称哈希色"）。
+   * 不传时根据 nickname 确定性哈希到 8 档暖色之一，同一昵称永远同色。
+   */
   fallbackBgColor?: string
 }
 
-/** UserAvatar - 用户头像（无头像时取昵称首字 + primary 底色） */
+/**
+ * UserAvatar - 用户头像
+ *
+ * - `user.avatar` 可以是旧 URL 或新 COS key，内部 `buildImageUrl` 统一拼代理 URL
+ * - 无头像时用"昵称哈希色块 + 首字"兜底，不再是固定 primary 底色
+ */
 export function UserAvatar({
   user,
   size = 'md',
@@ -154,15 +175,26 @@ export function UserAvatar({
   className,
   fallbackBgColor,
 }: UserAvatarProps) {
-  const name = user.nickname ?? '?'
+  const nickname = user.nickname ?? ''
+  const name = nickname || '?'
+  const avatarSrc = buildImageUrl(user.avatar)
+  const bg = fallbackBgColor ?? pickAvatarColor(nickname)
   return (
     <Avatar size={size} bordered={bordered} className={className}>
-      {user.avatar && <AvatarImage src={user.avatar} alt={name} />}
-      <AvatarFallback bgColor={fallbackBgColor} textSize={size}>
-        {name.charAt(0)}
+      {avatarSrc && <AvatarImage src={avatarSrc} alt={name} />}
+      <AvatarFallback bgColor={bg} textSize={size}>
+        {firstGlyph(nickname)}
       </AvatarFallback>
     </Avatar>
   )
 }
+
+/**
+ * 生成默认 SVG 头像 dataURI（非 React 组件）。
+ *
+ * 用于需要把"默认头像"作为 `<img src>` 的场景（如 canvas 渲染、分享图、小组件）。
+ * 组件内展示优先使用 `<BabyAvatar>` / `<UserAvatar>` 自动走 fallback 链。
+ */
+export { getDefaultAvatarDataUri }
 
 export { avatarRootVariants }

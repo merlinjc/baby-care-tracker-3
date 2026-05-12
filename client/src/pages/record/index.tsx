@@ -9,6 +9,7 @@
  * - 业务逻辑（useInfiniteQuery / IntersectionObserver / 增删改）完全保留
  */
 import { useEffect, useState, useRef, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Calendar, ClipboardList, Droplets, Lock, Moon, Pencil, Ruler, Thermometer, Trash2, User, UserCircle } from 'lucide-react';
 import { motion } from 'framer-motion'
 import { useInfiniteQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query'
@@ -82,6 +83,7 @@ const recordTypeConfig: {
 }
 
 export function RecordPage() {
+  const { t } = useTranslation('record')
   const currentBaby = useBabyStore((s) => s.currentBaby)
   const { canEdit, isViewer } = usePermission()
   const confirm = useConfirm()
@@ -258,8 +260,8 @@ export function RecordPage() {
       const d = new Date(record.startTime)
       const key = d.toDateString()
       let label: string
-      if (key === todayKey) label = '今天'
-      else if (key === yesterdayKey) label = '昨天'
+      if (key === todayKey) label = t('group.today')
+      else if (key === yesterdayKey) label = t('group.yesterday')
       else label = d.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' })
 
       if (label !== currentLabel) {
@@ -579,11 +581,11 @@ export function RecordPage() {
                   style={{ color: 'var(--label-tertiary)' }}
                 >
                   <div className="spinner spinner--sm" />
-                  <span className="footnote">加载更多...</span>
+                  <span className="footnote">{t('infinite.loading_more')}</span>
                 </div>
               ) : (
                 <span className="caption-1" style={{ color: 'var(--label-tertiary)' }}>
-                  下拉加载更多
+                  {t('infinite.pull_to_load')}
                 </span>
               )}
             </div>
@@ -591,7 +593,7 @@ export function RecordPage() {
             records.length > 0 && (
               <div className="flex items-center justify-center py-4">
                 <span className="caption-1" style={{ color: 'var(--label-tertiary)' }}>
-                  — 没有更多了 —
+                  {t('infinite.no_more')}
                 </span>
               </div>
             )
@@ -601,7 +603,7 @@ export function RecordPage() {
 
       {isViewer && (
         <Alert variant="info" size="compact" icon={<Lock className="h-3.5 w-3.5" />}>
-          您是查看者，无法添加或修改记录
+          {t('viewer_alert')}
         </Alert>
       )}
 

@@ -1,0 +1,34 @@
+{
+  "greeting": {
+    "late_night": "夜深了",
+    "morning": "早上好",
+    "noon": "中午好",
+    "afternoon": "下午好",
+    "evening": "晚上好",
+    "fallback_name": "你好"
+  },
+  "header": {
+    "today_records": "{{name}} · 今日记录",
+    "no_baby": "尚未添加宝宝"
+  },
+  "no_family": {
+    "hint": "您还未加入家庭",
+    "cta": "创建或加入家庭"
+  },
+  "sections": {
+    "today_overview": "今日概览",
+    "ai_insight": "AI 每日洞察",
+    "ai_insight_fallback_subtitle": "· 快速模式",
+    "today_timeline": "今日时间线"
+  },
+  "actions": {
+    "refresh": "刷新",
+    "view_all": "查看全部",
+    "view_all_today_one": "查看全部 {{count}} 条今日记录",
+    "view_all_today_other": "查看全部 {{count}} 条今日记录"
+  },
+  "timeline": {
+    "empty_title": "今天还没有记录",
+    "empty_desc": "点击下方按钮添加第一条"
+  }
+}

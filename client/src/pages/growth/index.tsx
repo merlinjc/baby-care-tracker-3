@@ -9,14 +9,20 @@
  * - WHO 参考线 + 颜色保留（以业务色重映射）
  */
 import { useState, useEffect, useMemo } from 'react'
-import { Info, PlusCircle, TrendingUp } from 'lucide-react';
+import { Info, PlusCircle, TrendingUp, Calendar as CalendarIcon, Sparkles, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion'
+import { Link, useNavigate } from 'react-router-dom'
 import { useBabyStore } from '@/stores/baby-store'
 import { trendService } from '@/services/baby-extra'
 import { GrowthDialog } from '@/components/growth-dialog'
 import { useDialog } from '@/hooks/use-dialog'
 import { recordService } from '@/services/record'
 import { getWHOReferenceLines } from '@/lib/who-standards'
+import {
+  getPercentile,
+  getPercentileLabel,
+  isOutOfRange,
+} from '@/lib/who-percentile'
 import { LargeTitleHeader } from '@/components/ui/large-title-header'
 import { SectionHeader } from '@/components/ui/section-header'
 import { SegmentedControl } from '@/components/ui/segmented-control'
@@ -71,6 +77,7 @@ function getMonthAgeAtDate(birthDate: string, dateStr: string): number {
 
 export function GrowthPage() {
   const currentBaby = useBabyStore((s) => s.currentBaby)
+  const navigate = useNavigate()
   const growthDialog = useDialog()
   const [trendType, setTrendType] = useState<TrendType>('weight')
   const [points, setPoints] = useState<TrendDataPoint[]>([])
@@ -109,7 +116,8 @@ export function GrowthPage() {
   }, [currentBaby, trendType, showWHO])
 
   const ageMonths = currentBaby ? getAgeMonths(currentBaby) : 24
-  const chartMonths = Math.min(Math.max(ageMonths + 3, 12), 24)
+  // v7.2 F10：扩展到 60 月（5 岁）；同步 X 轴粒度
+  const chartMonths = Math.min(Math.max(ageMonths + 3, 12), 60)
 
   const chartPoints = useMemo(() => {
     if (!currentBaby) return []
@@ -177,14 +185,25 @@ export function GrowthPage() {
           }
           backTo="/discover"
           rightAction={
-            <Button
-              variant="tinted"
-              size="sm"
-              leftIcon={<PlusCircle className="h-3.5 w-3.5" />}
-              onClick={growthDialog.openDialog}
-            >
-              记录
-            </Button>
+            <div className="flex items-center gap-2">
+              <Link to="/growth/calendar" aria-label="成长日历">
+                <Button
+                  variant="plain"
+                  size="sm"
+                  leftIcon={<CalendarIcon className="h-3.5 w-3.5" />}
+                >
+                  日历
+                </Button>
+              </Link>
+              <Button
+                variant="tinted"
+                size="sm"
+                leftIcon={<PlusCircle className="h-3.5 w-3.5" />}
+                onClick={growthDialog.openDialog}
+              >
+                记录
+              </Button>
+            </div>
           }
         />
       </motion.div>
@@ -272,20 +291,24 @@ export function GrowthPage() {
                     )
                   })}
 
-                  {Array.from({ length: Math.floor(chartMonths / 3) + 1 }, (_, i) => i * 3)
-                    .filter((m) => m <= chartMonths)
-                    .map((month) => (
-                      <text
-                        key={`x-${month}`}
-                        x={toX(month)}
-                        y={chartH - 4}
-                        textAnchor="middle"
-                        fontSize="9"
-                        fill="var(--label-tertiary)"
-                      >
-                        {month}月
-                      </text>
-                    ))}
+                  {(() => {
+                    // 自适应 X 轴标签密度：≤24 月每 3 月，>24 月每 6 月
+                    const step = chartMonths <= 24 ? 3 : 6
+                    return Array.from({ length: Math.floor(chartMonths / step) + 1 }, (_, i) => i * step)
+                      .filter((m) => m <= chartMonths)
+                      .map((month) => (
+                        <text
+                          key={`x-${month}`}
+                          x={toX(month)}
+                          y={chartH - 4}
+                          textAnchor="middle"
+                          fontSize="9"
+                          fill="var(--label-tertiary)"
+                        >
+                          {month}月
+                        </text>
+                      ))
+                  })()}
 
                   {showWHO && whoRefs.filter((r) => r.month <= chartMonths).length > 1 && (
                     <>
@@ -320,27 +343,36 @@ export function GrowthPage() {
                     />
                   )}
 
-                  {chartPoints.map((p, i) => (
-                    <g key={i}>
-                      <circle
-                        cx={toX(p.monthAge)}
-                        cy={toY(p.value)}
-                        r="6"
-                        fill="transparent"
-                        className="cursor-pointer"
-                      />
-                      <circle
-                        cx={toX(p.monthAge)}
-                        cy={toY(p.value)}
-                        r="3.5"
-                        fill={cfg.color}
-                        stroke="var(--surface-1)"
-                        strokeWidth="1.5"
-                        className="pointer-events-none"
-                      />
-                      <title>{`${new Date(p.date).toLocaleDateString('zh-CN')}: ${p.value}${cfg.unit}`}</title>
-                    </g>
-                  ))}
+                  {chartPoints.map((p, i) => {
+                    const percentile = currentBaby
+                      ? getPercentile(p.value, p.monthAge, currentBaby.gender, trendTypeToWHOType[trendType])
+                      : null
+                    const tip = `${new Date(p.date).toLocaleDateString('zh-CN')}: ${p.value}${cfg.unit}${
+                      percentile !== null ? ' · ' + getPercentileLabel(percentile) : ''
+                    }`
+                    const out = isOutOfRange(percentile)
+                    return (
+                      <g key={i}>
+                        <circle
+                          cx={toX(p.monthAge)}
+                          cy={toY(p.value)}
+                          r="6"
+                          fill="transparent"
+                          className="cursor-pointer"
+                        />
+                        <circle
+                          cx={toX(p.monthAge)}
+                          cy={toY(p.value)}
+                          r={out ? '4.5' : '3.5'}
+                          fill={out ? '#C86464' : cfg.color}
+                          stroke="var(--surface-1)"
+                          strokeWidth="1.5"
+                          className="pointer-events-none"
+                        />
+                        <title>{tip}</title>
+                      </g>
+                    )
+                  })}
                 </svg>
 
                 {/* Legend */}
@@ -390,45 +422,86 @@ export function GrowthPage() {
                 .slice()
                 .reverse()
                 .slice(0, 10)
-                .map((p, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between px-5 py-3 min-w-0 gap-3"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div
-                        className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
-                        style={{ backgroundColor: cfg.bg, color: cfg.fg }}
-                      >
-                        <span className="caption-1 font-bold number-display">{p.monthAge}m</span>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="callout font-medium truncate" style={{ color: 'var(--label)' }}>
-                          {new Date(p.date).toLocaleDateString('zh-CN', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
-                          })}
-                        </p>
-                        <p className="caption-1" style={{ color: 'var(--label-tertiary)' }}>
-                          {p.monthAge} 月龄
-                        </p>
-                      </div>
-                    </div>
-                    <span
-                      className="metric-md number-display shrink-0"
-                      style={{ color: cfg.fg }}
+                .map((p, i) => {
+                  const percentile = currentBaby
+                    ? getPercentile(p.value, p.monthAge, currentBaby.gender, trendTypeToWHOType[trendType])
+                    : null
+                  const out = isOutOfRange(percentile)
+                  const handleAskAi = () => {
+                    if (!currentBaby) return
+                    const direction = (percentile ?? 50) <= 3 ? '偏低' : '偏高'
+                    const prompt = `${currentBaby.name} ${p.monthAge}月龄，最新${cfg.label} ${p.value}${cfg.unit}，${getPercentileLabel(percentile)}（${direction}），请给出科学育儿建议。`
+                    navigate('/ai-assistant', { state: { autoPrompt: prompt } })
+                  }
+
+                  return (
+                    <div
+                      key={i}
+                      className={`px-5 py-3 ${out ? 'bg-[color-mix(in_srgb,var(--danger)_8%,transparent)]' : ''}`}
                     >
-                      {p.value}
-                      <span
-                        className="caption-1 font-medium ml-1"
-                        style={{ color: 'var(--label-tertiary)' }}
-                      >
-                        {cfg.unit}
-                      </span>
-                    </span>
-                  </div>
-                ))}
+                      <div className="flex items-center justify-between min-w-0 gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div
+                            className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
+                            style={{ backgroundColor: cfg.bg, color: cfg.fg }}
+                          >
+                            <span className="caption-1 font-bold number-display">{p.monthAge}m</span>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="callout font-medium truncate" style={{ color: 'var(--label)' }}>
+                              {new Date(p.date).toLocaleDateString('zh-CN', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                              })}
+                            </p>
+                            <p className="caption-1 flex items-center gap-1.5" style={{ color: 'var(--label-tertiary)' }}>
+                              <span>{p.monthAge} 月龄</span>
+                              {percentile !== null && (
+                                <span
+                                  className={`inline-flex items-center px-1.5 py-px rounded-full text-[10px] font-semibold ${
+                                    out
+                                      ? 'bg-[var(--danger-bg)] text-[var(--danger)]'
+                                      : 'bg-[var(--surface-2)] text-[var(--label-secondary)]'
+                                  }`}
+                                >
+                                  {out && <AlertCircle className="h-2.5 w-2.5 mr-0.5" />}
+                                  {percentile <= 3 ? '<P3' : percentile >= 97 ? '>P97' : `P${percentile}`}
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                        <span
+                          className="metric-md number-display shrink-0"
+                          style={{ color: out ? 'var(--danger)' : cfg.fg }}
+                        >
+                          {p.value}
+                          <span
+                            className="caption-1 font-medium ml-1"
+                            style={{ color: 'var(--label-tertiary)' }}
+                          >
+                            {cfg.unit}
+                          </span>
+                        </span>
+                      </div>
+
+                      {/* 异常值：AI 咨询 */}
+                      {out && (
+                        <div className="mt-2 pl-12">
+                          <button
+                            type="button"
+                            onClick={handleAskAi}
+                            className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[var(--brand-ink)] hover:underline"
+                          >
+                            <Sparkles className="h-3 w-3" />
+                            向 AI 咨询建议
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
             </div>
           </Card>
         </motion.div>

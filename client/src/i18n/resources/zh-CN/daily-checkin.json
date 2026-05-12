@@ -1,0 +1,66 @@
+{
+  "card": {
+    "title": "今日打卡",
+    "subtitle_empty": "今天给宝宝拍一张吧",
+    "subtitle_empty_hint": "快门捕捉的温柔，会变成成长日历",
+    "cta_empty": "立即打卡",
+    "uploading": "上传中…",
+    "compressing": "处理图片…",
+    "ai_generating": "AI 正在为今天写小记…",
+    "subtitle_done": "{{time}} 已记",
+    "view_full": "查看完整"
+  },
+  "ai_summary": {
+    "label": "AI 小记",
+    "edited_pill": "已人工修改",
+    "regenerate": "重新生成",
+    "regenerate_confirm_title": "重新生成 AI 小记？",
+    "regenerate_confirm_desc": "这会扣除一次 AI 配额，并覆盖当前小记。",
+    "regenerate_confirm_ok": "继续",
+    "regenerate_confirm_cancel": "取消",
+    "edit": "编辑",
+    "save": "保存",
+    "cancel": "取消",
+    "empty": "暂无小记",
+    "generate": "生成 AI 小记"
+  },
+  "calendar": {
+    "page_title": "{{name}} 的成长日历",
+    "subtitle": "{{year}} 年 {{month}} 月 · 共 {{count}} 天打卡",
+    "weekday": {
+      "mon": "一",
+      "tue": "二",
+      "wed": "三",
+      "thu": "四",
+      "fri": "五",
+      "sat": "六",
+      "sun": "日"
+    },
+    "cell_supplement_tip": "点击补打卡",
+    "cell_expired_tip": "超过 7 天，无法补打卡",
+    "cell_future_tip": "未来日期",
+    "switch_prev": "上一月",
+    "switch_next": "下一月",
+    "export": "导出",
+    "export_png": "导出图片",
+    "export_pdf": "导出 PDF",
+    "share": "分享",
+    "rendering": "渲染中 {{current}}/{{total}}…",
+    "rendering_done": "已生成"
+  },
+  "detail": {
+    "title": "{{date}} 的打卡",
+    "caption_label": "今天的小事",
+    "caption_placeholder": "想给将来的自己留点什么？",
+    "delete": "删除打卡",
+    "delete_confirm_title": "确定要删除这天的打卡吗？",
+    "delete_confirm_desc": "删除后日历该日恢复未打卡状态。",
+    "replace_photo": "替换照片"
+  },
+  "errors": {
+    "duplicate": "今天已经打过卡了",
+    "window_expired": "该日期超过 7 天补打卡窗口",
+    "ai_quota_exceeded": "今日 AI 额度已用完，明天再试",
+    "ai_failed": "AI 小记暂时无法生成，可稍后重试"
+  }
+}

@@ -1,15 +1,16 @@
 import { Outlet, NavLink, Navigate } from 'react-router-dom';
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Check, ChevronDown, Clipboard, Compass, Home, User, UserCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth-store';
-import { useQueryClient } from '@tanstack/react-query';
 import { useFamilyStore } from '@/stores/family-store';
 import { useBabyStore } from '@/stores/baby-store';
+import { useActiveBaby } from '@/hooks/use-active-baby';
 import { Footer } from '@/components/footer';
-import type { Baby } from '@/types';
 import { getAgeLabel } from '@/lib/date';
+import { toast } from '@/components/ui/toast';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -18,30 +19,40 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, BabyAvatar } from '@/components/ui/avatar';
 
+/**
+ * OnboardingHost 懒加载包装：
+ * 引导组件只对首次启动有意义（绝大多数用户进来时已完成），所以它的代码不应进入
+ * 入口 chunk。MainLayout 渲染时才动态拉，无 fallback（流程允许首启 200-300ms
+ * 之后再弹）。
+ */
+const OnboardingHostLazy = lazy(() =>
+  import('@/components/onboarding/onboarding-host').then((m) => ({
+    default: m.OnboardingHost,
+  })),
+);
+
+/**
+ * 导航项静态结构 — label 不在这里写死，改在渲染时通过 t() 取，
+ * 避免组件外的对象引用导致 i18n 切换不刷新。
+ */
 const navItems = [
-  { to: '/', icon: Home, label: '首页' },
-  { to: '/record', icon: Clipboard, label: '记录' },
-  { to: '/discover', icon: Compass, label: '发现' },
-  { to: '/profile', icon: UserCircle, label: '我的' },
+  { to: '/', icon: Home, labelKey: 'tabs.home' as const },
+  { to: '/record', icon: Clipboard, labelKey: 'tabs.record' as const },
+  { to: '/discover', icon: Compass, labelKey: 'tabs.discover' as const },
+  { to: '/profile', icon: UserCircle, labelKey: 'tabs.profile' as const },
 ];
 
 /**
  * SidebarBabyCard v7 — 桌面 Sidebar 底部当前宝宝卡（iOS 风圆润）
+ *
+ * v7.2 T-S1-F6-02：selectBaby + 手工 invalidate 切到 useActiveBaby().switchBaby，
+ * 切换同时同步 URL `?babyId=`，保持视觉与交互不变。
  */
 function SidebarBabyCard() {
-  const babies = useBabyStore((s) => s.babies);
-  const currentBaby = useBabyStore((s) => s.currentBaby);
-  const selectBaby = useBabyStore((s) => s.selectBaby);
-  const queryClient = useQueryClient();
+  const { t } = useTranslation('nav');
+  const { babies, currentBaby, switchBaby } = useActiveBaby();
 
   if (babies.length === 0) return null;
-
-  const handleSelect = (baby: Baby) => {
-    selectBaby(baby.id);
-    queryClient.invalidateQueries({ queryKey: ['todayStats', baby.id] });
-    queryClient.invalidateQueries({ queryKey: ['records', baby.id] });
-    queryClient.invalidateQueries({ queryKey: ['activeSleep', baby.id] });
-  };
 
   return (
     <DropdownMenu>
@@ -79,8 +90,12 @@ function SidebarBabyCard() {
                 </div>
               </Avatar>
               <div className="flex-1 min-w-0 text-left">
-                <p className="text-[14px] font-semibold text-[var(--label-secondary)]">选择宝宝</p>
-                <p className="text-[12px] text-[var(--label-tertiary)]">{babies.length} 位可选</p>
+                <p className="text-[14px] font-semibold text-[var(--label-secondary)]">
+                  {t('sidebar.select_baby')}
+                </p>
+                <p className="text-[12px] text-[var(--label-tertiary)]">
+                  {t('sidebar.babies_available', { count: babies.length })}
+                </p>
               </div>
             </>
           )}
@@ -100,7 +115,7 @@ function SidebarBabyCard() {
         {babies.map((baby) => {
           const isCurrent = baby.id === currentBaby?.id;
           return (
-            <DropdownMenuItem key={baby.id} onSelect={() => handleSelect(baby)}>
+            <DropdownMenuItem key={baby.id} onSelect={() => switchBaby(baby.id)}>
               <BabyAvatar baby={baby} size="sm" />
               <div className="flex-1 min-w-0 text-left">
                 <p className="text-[14px] text-[var(--label)] truncate">{baby.name}</p>
@@ -126,12 +141,23 @@ function SidebarBabyCard() {
  * - 桌面 Sidebar：圆角 Brand Logo + 激活态 tinted filled + spring icon
  * - 移动端 TabBar：iOS 标准 hairline 分隔 + 激活色 --brand + bold icon 切换
  * - 内容区默认 surface-0 底
+ *
+ * v7.2 F8-02：4 个 NavLink label 与 SidebarBabyCard 文案接入 i18n（nav 命名空间）。
+ * "Baby Care" 作为品牌名保留英文。
  */
 export function MainLayout() {
+  const { t } = useTranslation('nav');
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const family = useFamilyStore((s) => s.family);
   const loadFamily = useFamilyStore((s) => s.loadFamily);
   const loadBabies = useBabyStore((s) => s.loadBabies);
+  const babies = useBabyStore((s) => s.babies);
+
+  // v7.2 T-S1-F6-02：在 layout 顶部统一挂一次 URL ↔ store 同步层。
+  // 子页面 / SidebarBabyCard / BabySwitcher 都只读 store.currentBaby，
+  // 切换时调 useActiveBaby().switchBaby（已挂载副作用，不会重复执行 effect）。
+  // useActiveBaby 内部已无副作用（除了 effect 依赖），返回值此处不需要使用。
+  useActiveBaby();
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -141,6 +167,31 @@ export function MainLayout() {
       }
     }
   }, [isAuthenticated, family?.id, loadFamily, loadBabies]);
+
+  // v7.2 T-S1-F2-05：黄疸记录 localStorage → 云端一次性迁移
+  // 仅在 isAuthenticated && babies.length > 0 后 1.5s 触发；幂等（lib 内部判断）。
+  // 用动态 import 让 jaundice service / lib 不污染入口 chunk（绝大多数用户不进 jaundice 页）。
+  const jaundiceMigrationFired = useRef(false);
+  useEffect(() => {
+    if (!isAuthenticated || babies.length === 0) return;
+    if (jaundiceMigrationFired.current) return;
+    jaundiceMigrationFired.current = true;
+    const timer = setTimeout(async () => {
+      try {
+        const { migrateJaundiceToCloud } = await import(
+          '@/lib/migrations/jaundice-to-cloud'
+        );
+        const res = await migrateJaundiceToCloud(babies.map((b) => b.id));
+        if (res.migrated > 0) {
+          toast.success(`已同步 ${res.migrated} 条黄疸记录到云端`);
+        }
+      } catch (e) {
+        // 防御性兜底：迁移层应不抛错；这里仅留日志
+        console.warn('[MainLayout] 黄疸迁移异常', e);
+      }
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [isAuthenticated, babies]);
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
@@ -193,7 +244,7 @@ export function MainLayout() {
               }
             >
               <item.icon className="w-5 h-5" />
-              {item.label}
+              {t(item.labelKey)}
             </NavLink>
           ))}
         </nav>
@@ -257,7 +308,7 @@ export function MainLayout() {
                       isActive ? 'font-semibold' : 'font-medium',
                     )}
                   >
-                    {item.label}
+                    {t(item.labelKey)}
                   </span>
                 </>
               )}
@@ -265,6 +316,11 @@ export function MainLayout() {
           ))}
         </div>
       </nav>
+
+      {/* v7.2 T-S1-F1：首次使用引导（动态 import 避免污染入口 chunk） */}
+      <Suspense fallback={null}>
+        <OnboardingHostLazy />
+      </Suspense>
     </div>
   );
 }

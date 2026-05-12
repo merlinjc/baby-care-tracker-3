@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import type { AuthUser } from '@/types'
+import type { AuthUser, UserPreferences } from '@/types'
 import { authService } from '@/services/auth'
 import { config } from '@/config'
 
@@ -27,6 +27,15 @@ interface AuthStore {
   logout: () => void
   loadUser: () => Promise<void>
   setLoading: (loading: boolean) => void
+  /**
+   * v7.2+：更新用户偏好（顶层 key 级深合并）。
+   *
+   * - 仅传想修改的子集即可，未传 key 保留原值
+   * - 调 PATCH /auth/profile 后同步 store.user.preferences
+   * - 失败时 throw 给调用方，由 UI 决定 toast / 重试
+   * - 业务调用：F1 引导完成 / F8 语言切换 / 主题 / 字体档跨设备种子等
+   */
+  updatePreferences: (patch: Partial<UserPreferences>) => Promise<void>
 }
 
 export const useAuthStore = create<AuthStore>()(
@@ -94,6 +103,11 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       setLoading: (isLoading: boolean) => set({ isLoading }),
+
+      updatePreferences: async (patch) => {
+        const updated = await authService.updatePreferences(patch)
+        set({ user: updated })
+      },
     }),
     {
       name: config.tokenKey,

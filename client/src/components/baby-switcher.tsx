@@ -5,40 +5,30 @@
  * - 头像迁移到 <BabyAvatar>（带 gender 配色 + name fallback + bordered）
  * - 每个头像外包 <Tooltip> 显示宝宝名
  *
+ * v7.2 T-S1-F6-02：
+ * - selectBaby + 手工 invalidate 切到 useActiveBaby().switchBaby，
+ *   切换同时同步 URL `?babyId=`，分享链接对方可见同一胎；
+ * - 仅替换调用入口，视觉与交互完全一致。
+ *
  * 设计要点保持不变：
  * - babies.length <= 1 时不渲染
  * - 显示前 3 个其他宝宝头像（重叠 -8px）+ 「+N」灰色圆补尾
- * - 点击头像调 selectBaby（baby-store 已实现）
- * - React Query 自动通过 key 中的 babyId 触发对应数据 invalidate
  */
-import { useQueryClient } from '@tanstack/react-query'
-import { useBabyStore } from '@/stores/baby-store'
+import { useActiveBaby } from '@/hooks/use-active-baby'
 import { cn } from '@/lib/utils'
 import { BabyAvatar, type AvatarSize } from '@/components/ui/avatar'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import type { Baby } from '@/types'
 
 const MAX_AVATAR = 3
 
 export function BabySwitcher({ size = 'md' as AvatarSize }: { size?: AvatarSize } = {}) {
-  const babies = useBabyStore((s) => s.babies)
-  const currentBaby = useBabyStore((s) => s.currentBaby)
-  const selectBaby = useBabyStore((s) => s.selectBaby)
-  const queryClient = useQueryClient()
+  const { babies, currentBaby, switchBaby } = useActiveBaby()
 
   if (babies.length <= 1) return null
 
   const others = babies.filter((b) => b.id !== currentBaby?.id)
   const visible = others.slice(0, MAX_AVATAR)
   const more = others.length - visible.length
-
-  const handleClick = (baby: Baby) => {
-    selectBaby(baby.id)
-    // 触发对应 baby 的 React Query 数据刷新
-    queryClient.invalidateQueries({ queryKey: ['todayStats', baby.id] })
-    queryClient.invalidateQueries({ queryKey: ['records', baby.id] })
-    queryClient.invalidateQueries({ queryKey: ['activeSleep', baby.id] })
-  }
 
   return (
     <div className="flex items-center -space-x-2">
@@ -47,7 +37,7 @@ export function BabySwitcher({ size = 'md' as AvatarSize }: { size?: AvatarSize 
           <TooltipTrigger asChild>
             <button
               type="button"
-              onClick={() => handleClick(b)}
+              onClick={() => switchBaby(b.id)}
               className={cn(
                 'transition-transform hover:scale-110 hover:z-10 focus-visible:z-10',
                 'focus-visible:outline-none rounded-full',

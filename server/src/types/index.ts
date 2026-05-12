@@ -2,6 +2,7 @@
 export type {
   User,
   AuthUser,
+  UserPreferences,
   Family,
   FamilyMember,
   FamilyDetail,
@@ -37,6 +38,15 @@ export type {
   AIQuotaStatus,
   ChatStreamEvent,
   CareRole,
+  // v7.2+ 文件上传
+  UploadKind,
+  UploadContext,
+  UploadResult,
+  // v7.2+ T-S2-F11 每日打卡
+  DailyCheckin,
+  DailyCheckinListQuery,
+  DailyCheckinCreateInput,
+  DailyCheckinPatchInput,
 } from '@shared/types/index';
 
 export {

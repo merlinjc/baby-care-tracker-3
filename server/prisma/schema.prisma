@@ -15,12 +15,20 @@ model User {
   nickname     String
   avatar       String?
   familyId     String?
+  /// 用户个性化偏好（JSON 字符串，SQLite/MySQL 通用）。
+  /// 服务端通过 `auth.service` 的深合并工具按顶层 key 增量更新，
+  /// 已知键：onboardingCompleted / onboardingSkippedSteps / lang /
+  /// langManuallySet / fontScale / themeMode（v7.2+，见 shared/types UserPreferences）。
+  /// 不要直接覆写整段字符串。
+  preferences  String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   records           Record[]
   vaccineRecords    VaccineRecord[]
   milestoneRecords  MilestoneRecord[]
+  jaundiceRecords   JaundiceRecord[]
+  dailyCheckins     DailyCheckin[]
   familyMemberships FamilyMember[]
   createdFamilies   Family[]         @relation("FamilyCreator")
 }
@@ -71,6 +79,8 @@ model Baby {
   records          Record[]
   vaccineRecords   VaccineRecord[]
   milestoneRecords MilestoneRecord[]
+  jaundiceRecords  JaundiceRecord[]
+  dailyCheckins    DailyCheckin[]
 
   @@index([familyId])
 }
@@ -185,6 +195,81 @@ model MilestoneRecord {
   // 打卡式：同一 baby 下每个里程碑名称仅一条记录
   @@unique([babyId, name])
   @@index([babyId, familyId])
+}
+
+/// 黄疸观察记录（v7.2 T-S1-F2）
+///
+/// 字段语义对齐：
+///   - recordDate：测量当日（UTC 00:00 落库；前端按本地时区显示）
+///   - dayAge：日龄，可在前端通过出生日期 + recordDate 推算，也可单独传
+///   - kramerZone：Kramer 五分区法 1-5；null 表示皮肤未见明显黄染
+///   - scleralIcterus：巩膜是否黄染
+///   - tcb / tsb：经皮 / 血清胆红素 mg/dL
+///   - category：'physiologic' | 'pathologic' | 'breast_milk'
+///   - symptoms / treatments：JSON 字符串数组（SQLite/MySQL 通用）
+///
+/// 与客户端 lib/jaundice 的字段映射：
+///   client.date <-> recordDate
+///   client.ageDays <-> dayAge
+///   client.scleraYellow <-> scleralIcterus
+///   client.jaundiceType <-> category
+///   client.symptoms <-> symptoms (JSON.parse)
+///   client.actions <-> treatments (JSON.parse)
+model JaundiceRecord {
+  id             String   @id @default(cuid())
+  babyId         String
+  familyId       String
+  recordDate     DateTime
+  dayAge         Int?
+  kramerZone     Int?
+  scleralIcterus Boolean?
+  tcb            Float?
+  tsb            Float?
+  category       String?
+  symptoms       String?  // JSON string
+  treatments     String?  // JSON string
+  note           String?
+  createdBy      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  baby    Baby @relation(fields: [babyId], references: [id], onDelete: Cascade)
+  creator User @relation(fields: [createdBy], references: [id])
+
+  @@index([babyId, familyId, recordDate])
+  @@index([familyId])
+}
+
+/// 每日打卡（v7.2 T-S2-F11）
+///
+/// 产品语义：每个 baby 每天最多一张照片 + AI 小记。
+/// 字段说明：
+///   - checkinDate：本地时区的 YYYY-MM-DD（前端 `daily-checkin-date.todayLocalYmd()`）
+///                 不存 DateTime，避免时区漂移；查询用字符串区间过滤
+///   - photoKey：COS 桶内对象 key（INF-02 方案 B），展示时拼 `/api/uploads/{key}`
+///   - aiSummary：AI 生成的小记（markdown），可被用户编辑
+///   - aiSummaryAt：AI 生成时间；用户编辑后置 null（标识"已人工修改"）
+model DailyCheckin {
+  id          String    @id @default(cuid())
+  babyId      String
+  familyId    String
+  checkinDate String // YYYY-MM-DD（本地时区）
+  photoKey    String // COS key，非 URL
+  photoWidth  Int?
+  photoHeight Int?
+  caption     String?
+  aiSummary   String?
+  aiSummaryAt DateTime?
+  createdBy   String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  baby    Baby @relation(fields: [babyId], references: [id], onDelete: Cascade)
+  creator User @relation(fields: [createdBy], references: [id])
+
+  @@unique([babyId, checkinDate])
+  @@index([babyId, familyId, checkinDate])
+  @@index([familyId])
 }
 
 model OperationLog {

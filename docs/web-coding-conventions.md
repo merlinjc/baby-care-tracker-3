@@ -1044,4 +1044,496 @@ AI 助手页 (`pages/ai-assistant/index.tsx`) 通过：
 - 详情弹窗在已达成态展示"达成日期 + 备注"两栏，主按钮 = 保存修改、次按钮 = 取消打卡（红色 plain 按钮）；未达成态主按钮 = 标记达成。
 - 不要在该页引入"自由添加里程碑"的 UI；如果未来要扩展自定义里程碑，需要在 schema 上加 `kind: 'standard' | 'custom'` 字段，再独立设计入口。
 
+## 17. 路由懒加载约定（v7.2+ F9）
 
+### 17.1 所有 page 必须懒加载
+
+`client/src/app/routes.tsx` 内**所有** page 必须通过 `React.lazy + 动态 import()` 引入，不得直接 `import { XxxPage }` 顶层导入。
+
+```tsx
+// ✅ 正确
+const HomePage = lazy(() =>
+  import('@/pages/home').then((m) => ({ default: m.HomePage })),
+)
+
+// ❌ 错误（破坏代码分割）
+import { HomePage } from '@/pages/home'
+```
+
+布局组件（`MainLayout` / `AuthLayout`）作为首屏必要框架，保持 eager 加载。
+
+### 17.2 命名导出 → default 的适配
+
+现有 page 都是**命名导出**（`export function XxxPage() {}`），`React.lazy` 要求返回 `{ default }`。统一在 `.then(m => ({ default: m.XxxPage }))` 处转换，不在 page 文件本身改导出形式。
+
+新增 page 时**保持命名导出**，确保跨文件 grep 与 IDE 跳转友好。
+
+### 17.3 Suspense 包装
+
+每条路由用工具函数 `lazyEl(El)` 包装，不在 `routes.tsx` 各 element 重复写 `<Suspense fallback={...}>`：
+
+```tsx
+const lazyEl = (El: LazyExoticComponent<ComponentType>) => (
+  <Suspense fallback={<RouteFallback />}>
+    <El />
+  </Suspense>
+)
+
+// 使用
+{ path: '/', element: lazyEl(HomePage) }
+```
+
+fallback 统一用 `client/src/app/layout/route-fallback.tsx`：
+- 占满 60vh 避免布局抖动
+- 200ms 延迟出现，快速切换不闪烁
+- a11y：`role="status"` / `aria-live="polite"` / `aria-label="正在加载"`
+
+### 17.4 manualChunks 维护
+
+`client/vite.config.ts` 的 `manualChunks` 是函数式（Vite 8 / Rolldown 仅支持函数形式）。新增 vendor 依赖时按以下顺序决策：
+
+1. 若属于现有分组（React / Radix / framer-motion / lucide / 工具类），自动归并，**无需改 vite 配置**；
+2. 若是独立的、超过 50KB 的新依赖（如 echarts / pdf-lib / browser-image-compression），单独开 `vendor-{name}` 分组并在 vite.config.ts 加判定；
+3. 小型工具类（< 10KB）一律走默认归并到对应 page chunk，避免 chunk 数膨胀。
+
+### 17.5 体积纪律
+
+参考 `devops-workflow.md §6.1.1`：
+- 应用入口 chunk gzip 应 ≤ **20 KB**
+- 单个 page chunk gzip 应 ≤ **15 KB**（重图表页可放宽到 25 KB）
+- 提 PR 前如有体积敏感改动（新增大依赖 / 大型新页面），本地 `pnpm build` 看体积变化作为 review 依据
+- 大改动可用 `pnpm build:analyze` 输出 `dist/stats.html` 配合 review
+
+### 17.6 不变量
+
+- ❌ 不要在 page 顶层 import 其他 page 文件（破坏代码分割）
+- ❌ 不要把 page 共享的纯函数 / 类型放到 page 文件内导出（应放到 `@/lib` / `@/types`，否则其他 page 引用时会强制下载整个 page chunk）
+- ❌ 不要在 page 文件外把 page 用 `lazy()` 再二次包装（统一在 `routes.tsx` 一处管理）
+- ✅ 路由切换的过渡感由 `<RouteFallback>` 统一负责，不要在每个 page 内部再写一层"页面加载中"
+
+
+
+## 18. 用户偏好 `User.preferences` 写入约定（v7.2+）
+
+### 18.1 入口统一收敛
+
+所有"跨设备 / 跨会话保持"的用户个性化配置必须走 `User.preferences`，不要再为每种偏好新增独立字段或独立表。
+
+**写入入口（按优先级）**：
+
+```typescript
+// ✅ 业务最常用：经过 store，立即同步 UI
+const updatePreferences = useAuthStore((s) => s.updatePreferences)
+await updatePreferences({ onboardingCompleted: true })
+
+// ✅ 不在 React 上下文时：直接调 service
+await authService.updatePreferences({ lang: 'en-US' })
+
+// ⚠️ 也允许（向后兼容）但语义不够明确：
+await authService.updateProfile({
+  preferences: { onboardingCompleted: true },
+})
+```
+
+### 18.2 顶层 key 级深合并语义
+
+**只传想改的字段**，不要先读再合再整段写。后端 `auth.service.updateProfile` 会按顶层 key 合并：
+
+```typescript
+// ✅ 正确：只更新一个键
+await updatePreferences({ onboardingCompleted: true })
+
+// ❌ 错误：自己合并（竞态 + 多余网络）
+const cur = useAuthStore.getState().user!.preferences ?? {}
+await updatePreferences({ ...cur, onboardingCompleted: true })
+```
+
+特殊语义：
+- `undefined` = 不更新该键（保留原值）
+- `null` / `false` / `''` / `[]` = 显式赋值（按字面意义）
+- 未知键 = 透传保留（不会丢，便于灰度 / 跨版本兼容）
+
+### 18.3 类型契约
+
+- 新增已知键 → 必须先在 `shared/types/index.ts#UserPreferences` 加字段
+- 然后在 `server/src/schemas/auth.schema.ts#userPreferencesPatchSchema` 加 zod 校验
+- 客户端 store / hook 自动通过 `Partial<UserPreferences>` 拿到类型推导
+- 旧版客户端不知道新键 → 透传 `passthrough()` 保留即可
+
+### 18.4 与本地 zustand persist 的关系
+
+`font-scale-store` / `theme-store` 仍保留本地 zustand persist，作为**运行时副本**：
+
+| 维度 | 本地 zustand | `User.preferences` |
+|------|-------------|---------------------|
+| 用途 | 首屏 0 延迟应用 | 跨设备同步种子 |
+| 写入触发 | 用户在当前设备切换时 | 用户切换后 best-effort 同步一次 |
+| 读取优先 | ✓（首屏立即用） | ✗（仅首次登录初始化本地用） |
+| 失败容忍 | — | 失败不阻塞 UI |
+
+**约定**：
+- 本地切换主题 / 字体档时：先更新本地 zustand → 再 fire-and-forget 调 `updatePreferences`（失败 toast 但不撤销本地变更）
+- 首次登录拉到 `user.preferences` 后：仅当本地 zustand 仍是默认值时用 preferences 覆盖（避免覆盖用户在新设备上已经做过的选择）
+
+### 18.5 反例 / 禁忌
+
+- ❌ 不要把"用户业务数据"（如宝宝、家庭、记录）塞进 preferences。这里只放"用户对 App 的偏好设置"
+- ❌ 不要在 service 里直接 `prisma.user.update({ preferences: JSON.stringify(...) })` 绕过深合并 —— 会把其他键全冲掉
+- ❌ 不要为单个偏好键新增独立的 PATCH 端点（如 `/auth/onboarding`）。请直接调 `updatePreferences({ onboardingCompleted: true })`
+- ✅ 大型 / 嵌套结构的偏好需要持久化时，再讨论"是不是应该建独立表"
+
+## 19. 文件上传 / 下载约定（v7.2+ T-S1-INF-02 服务端代理）
+
+### 19.1 架构提醒：服务端代理，不是直传
+
+v7.2 起 COS 走「**服务端代理**」模式（方案 B）：
+- 上传：客户端 → POST /api/uploads (multipart) → Express → cos.putObject
+- 下载：`<img src="/api/uploads/{key}">` → Express → cos.getObjectStream
+- COS 桶为**私有读私有写**，密钥仅在服务端持有
+
+**❌ 不要试图实现客户端直传 COS**（复古方案 A），具体表现：
+- 不要在前端配置 COS SDK / 读 COS_SECRET_KEY
+- 不要写 `fetch(uploadUrl, { method: 'PUT' })` 类的代码
+- 不要给桶配置 CORS（不必要）
+
+### 19.2 统一走 `<ImageUploader>` + `uploadService.upload`
+
+所有图片类上传必须走 `uploadService.upload(file, kind, ctx)`：
+
+```typescript
+// ✅ 正确：业务层用通用组件，onChange 收到 key（不是 URL！）
+<ImageUploader kind="avatar" onChange={async (key) => {
+  await authService.updateProfile({ avatar: key })
+}}>
+  {({ openPicker, isUploading }) => (
+    <button onClick={openPicker}>
+      <img src={buildImageUrl(user.avatar)} />
+      {isUploading && <ProgressOverlay />}
+    </button>
+  )}
+</ImageUploader>
+
+// ❌ 禁止：自己写 fetch / FormData 直传 COS
+const fd = new FormData()
+fd.append('file', file)
+await fetch('https://xxx.cos.ap-beijing.myqcloud.com/...', { method: 'PUT', body: fd })
+```
+
+`uploadService.upload` 已包含：
+1. 自动压缩（avatar 长边 512px / daily-checkin 长边 1080px / JPEG 0.85 / 目标 ≤1MB）
+2. EXIF GPS 元数据剥离
+3. multipart POST 到 `/api/uploads`
+4. 上传进度回调（onProgress: 0-1）
+
+### 19.3 Kind 与上下文契约
+
+| kind | 必填 ctx | 用途 |
+|------|---------|------|
+| `avatar` | — | 用户头像（写入 User.avatar） |
+| `baby-avatar` | familyId, babyId | 宝宝头像（写入 Baby.avatar） |
+| `daily-checkin` | familyId, babyId, date(YYYY-MM-DD) | 每日打卡照片 |
+
+**新增 kind 流程**：
+1. `shared/types/index.ts#UploadKind` 加新值
+2. `server/src/services/upload.service.ts#REQUIRED_CONTEXT` 加必填字段
+3. `server/src/services/upload.service.ts#buildKey` 加 case 分支
+4. `server/src/services/upload.service.ts#isValidKey` 前缀白名单加新前缀
+5. `client/src/services/upload.ts#MAX_DIMENSION_BY_KIND` 加压缩长边
+6. 单元测试覆盖新 kind 的 ctx 校验、key 拼接、isValidKey
+
+### 19.4 DB 字段语义：存 key，不存 URL
+
+```typescript
+// ✅ 正确：DB 字段存 key
+User.avatar = 'avatars/u1/abc123def456.jpg'
+
+// 展示时拼成代理 URL
+<img src={buildImageUrl(user.avatar)} />
+//      → /api/uploads/avatars/u1/abc123def456.jpg
+
+// ❌ 错误：把 publicUrl 写入 DB
+User.avatar = 'https://babycare-1300015547.cos.ap-beijing.myqcloud.com/...'
+//   桶切换 / 区域迁移时全表数据失效；密钥泄露语义
+```
+
+`buildImageUrl` 对已是 `http(s)://` 开头的字符串原样返回，兼容历史数据 / 第三方 URL（如微信扫码登录头像）。
+
+### 19.5 落库职责分离
+
+upload.service **只代理对象，不写业务库**。业务接口拿到 key 后自行落库：
+
+```typescript
+// ✅ 正确：组件层组合 upload + 业务 API
+const handleAvatarChange = async (key: string) => {
+  await authService.updateProfile({ avatar: key })
+  // React Query invalidate
+}
+
+// ❌ 错误：在 upload.service 里直接落库
+//   会让 upload 与具体业务耦合，无法支撑 daily-checkin 等场景
+```
+
+### 19.6 失败降级与用户感知
+
+- **后端缺 COS 配置 (503 `UPLOAD_NOT_CONFIGURED`)**：`<ImageUploader>` 内部 toast「图片上传服务未配置，请联系管理员」，**保留原 value**，业务主流程不阻塞
+- **格式不支持 (400 `UPLOAD_INVALID_EXT`)**：toast「不支持的图片格式，请使用 JPG / PNG / WebP」
+- **文件过大 (400 `UPLOAD_TOO_LARGE`)**：toast「图片过大，请选择小一点的图片」（理论上客户端已压到 1MB，超大才会触发）
+- **限流 (429 `RATE_LIMITED`)**：toast「上传过于频繁，请稍后再试」
+- **网络错误 / COS 5xx**：toast 显示原始错误前缀「上传失败：xxx」
+- **用户主动取消** (`abort` / `canceled`)：静默不 toast
+
+业务侧调用方**不需要 try/catch**：组件已经处理了所有错误展示。
+
+### 19.7 下载与缓存
+
+下载走 `GET /api/uploads/{key}`，由 Express 流式代理：
+- `<img src>` 标签自动带同源 cookie，axios `withCredentials: true` 已配置；同源访问下 JWT 通过 cookie 传递（v7.2 沿用现有方案）
+- 响应头：`Cache-Control: public, max-age=86400, immutable`（默认 1 天）
+- key 是 32 字符 hex 不会复用，`immutable` 缓存策略安全
+
+**何时改 max-age**：
+- 头像 / 宝宝头像：默认 1 天即可（用户偶尔换）
+- 打卡照片：可考虑设置更长（如 30 天），key 永远不变
+- 调试期：可临时设 `COS_DOWNLOAD_CACHE_MAX_AGE=0` 禁用缓存
+
+### 19.8 安全 / 合规
+
+- ❌ 禁止把上传文件原始 File 通过 `URL.createObjectURL` 长期持有，会内存泄漏
+- ❌ 禁止扩展白名单到 SVG / GIF（XSS 风险 / 体积过大）
+- ❌ 禁止在客户端代码中导入 `cos-nodejs-sdk-v5` 或类似 SDK
+- ❌ 禁止把 EXIF 保留开关 (`preserveExif: true`) 暴露给业务层 —— 隐私优先
+- ✅ 大文件需求（>10MB 视频）应单独评估，当前 `uploadService` 仅适配图片场景
+- ✅ 跨家庭权限校验：当前下载只校验 JWT，未来若打卡照片需要"仅家庭成员可见"，应在 GET 路由加 `familyId` 校验
+
+### 19.9 manualChunks 提醒
+
+`browser-image-compression` 包体积约 836KB（gzip 后 ~50-80KB）。F12 / F11 接入后如发现首屏体积明显增加，应将其加入 `vite.config.ts#manualChunks` 单独成 chunk（参考 `vendor-motion`）。
+
+---
+
+## 20. i18n 文案约定（v7.2+ T-S1-F8）
+
+> 引入版本：v7.2 Sprint 1（F8 i18n 框架预埋）
+> 框架：`react-i18next` + `i18next-browser-languagedetector`
+> 完整指南：`client/src/i18n/README.md`
+
+### 20.1 强制接入范围
+
+以下 5 个高频页面 + 1 个公共 layout 在 v7.2 Sprint 1 内必须将所有可见中文走 `t()`，不允许新增硬编码中文字符串：
+
+- `pages/home/**`
+- `pages/record/**`
+- `pages/report/**`
+- `pages/ai-assistant/**`
+- `pages/settings/**`
+- `app/layout/main-layout.tsx`
+
+未列入的页面（discover / profile / baby / family / growth / vaccine / milestone / jaundice / auth）保留原样，v7.3+ 渐进迁移；新增功能在这些页面也建议优先走 i18n。
+
+### 20.2 命名空间（NS）划分
+
+每个页面对应一个独立 NS，公共复用文案归 `common` / `nav`：
+
+| 命名空间 | 用途 | 文件 |
+|---|---|---|
+| `common` | 按钮 / 状态 / 时间词 / 错误码 / 单位 | `resources/zh-CN/common.json` |
+| `nav` | 导航 / TabBar / Sidebar / 页面标题 | `resources/zh-CN/nav.json` |
+| `home` / `record` / `report` / `ai` / `settings` | 各高频页内文案 | 由 F8-03/04 按需新增 |
+
+**新增 NS 的步骤**（必须三步同时做，否则 `useTranslation('xxx')` 会回落到 common）：
+
+1. 新建 `resources/zh-CN/{ns}.json`
+2. 在 `client/src/i18n/index.ts` 的 `RESOURCES` 与 `NAMESPACES` 同步加入引用
+3. 业务层 `useTranslation('{ns}')`
+
+### 20.3 Key 命名规则
+
+- **嵌套对象 + 小写下划线**：`hero.title` / `quota.left` / `actions.save`
+- **占位符 camelCase**：`{{babyName}}` / `{{count}}` / `{{date}}`
+- **复数后缀**：i18next 自带 `_one` / `_other`；中文两种 form 文案常一致，但保留二元写法便于切英文时无痛
+- **错误码 → 文案**：归 `common.errors.{code}`（lowercase 错误码），如 `common.errors.network`
+
+### 20.4 业务层使用
+
+```tsx
+// ✅ 标准写法
+import { useTranslation } from 'react-i18next'
+
+export function HomePage() {
+  const { t } = useTranslation('home')
+  return <h1>{t('hero.title')}</h1>
+}
+
+// ✅ 跨 NS（多 NS 一次引）
+const { t } = useTranslation(['home', 'common'])
+t('hero.title')                          // 默认 home
+t('actions.save', { ns: 'common' })       // 显式 common
+
+// ✅ 占位符 / 复数
+t('time.minutes_ago', { count: 5 })       // → "5 分钟前"
+t('records', { count: 1 })                // → "1 条记录" (records_one)
+```
+
+### 20.5 反例
+
+```tsx
+// ❌ 在强制接入范围内的页面继续硬编码中文
+<h1>欢迎回来</h1>
+
+// ❌ 拼接 i18n 与硬编码片段
+<p>{t('greeting')}，今天是个好日子</p>
+//        ✅ 应该改为：t('greeting_with_suffix') 整句一并入资源
+
+// ❌ 在 useEffect 里调用 changeLanguage（触发整树重渲染）
+useEffect(() => { i18n.changeLanguage('en-US') }, [])
+//        ✅ 应该交给 LanguageSwitcher 组件统一管理（v7.2 暂未启用）
+
+// ❌ 把变量插入 t() 的 key
+const ns = isReport ? 'report' : 'home'
+t(`${ns}.title`)
+//        ✅ 应该提前 useTranslation(ns)，t() 只接受字面量 key（也利于静态分析）
+```
+
+### 20.6 跨设备语言种子（与 §18 联动）
+
+切换语言（Sprint 1 仅 zh-CN，但接口已就绪）：
+
+```ts
+// LanguageSwitcher 内部（v7.2 仅占位，v7.3+ 启用）
+import { useAuthStore } from '@/stores/auth-store'
+import i18n from '@/i18n'
+
+async function setLanguage(lang: string) {
+  // 1. 立刻切本地语言
+  await i18n.changeLanguage(lang)         // 同时写 localStorage('baby_care_lang')
+
+  // 2. 异步同步到云端，作为跨设备种子
+  await useAuthStore.getState().updatePreferences({
+    lang,
+    langManuallySet: true,
+  })
+}
+```
+
+### 20.7 性能边界
+
+- `vendor-i18n` chunk gzip 应保持 < 50KB（当前 ~16KB），新增大型 NS 资源若导致超阈值，应改为 `i18next-http-backend` 按需异步加载
+- 单个 NS JSON 不超过 200 行，否则拆分（如 `home` 可分 `home.hero` / `home.timeline`）
+- 不要在 render 中动态拼 key（如 `t(\`hero.${type}\`)`），会失去 ESLint / 静态分析能力；改用 switch + 字面量 key
+
+### 20.8 ESLint 防回退（计划，Sprint 3 a11y）
+
+将引入自定义规则 `no-hardcoded-chinese`：
+
+- 仅对强制接入范围内的页面生效
+- 检测 JSX text / 字符串字面量直接出现 `[\u4e00-\u9fff]+`
+- Sprint 1 不强制，靠 PR review
+
+
+
+## 21. 每日打卡 + AI 小记约定（v7.2+ T-S2-F11）
+
+### 21.1 日期写入：本地时区，永远是字符串
+
+`DailyCheckin.checkinDate` 与 `daily-checkin-date.ts` 全套 API 一律使用 **本地时区的 `YYYY-MM-DD` 字符串**，永远不要：
+
+```ts
+// ❌ 把 Date 转成 ISO 再切片
+checkinDate: new Date().toISOString().slice(0, 10)
+//        ✅ 应该用：
+import { todayLocalYmd } from '@/lib/daily-checkin-date'
+checkinDate: todayLocalYmd()
+```
+
+理由：toISOString 是 UTC，跨时区会漂移一天（北京时间 23:00 = UTC 15:00 但日期已变）。后端不做时区换算，前端写什么就落什么，按字符串字典序范围查询。
+
+### 21.2 photoKey 不是 URL，展示统一拼代理
+
+DB 与 API 中 `photoKey` 是 COS 桶内 key（如 `checkins/family1/baby1/2026-05-15-abc.jpg`），**永远不要直接当 src**：
+
+```ts
+// ❌
+<img src={checkin.photoKey} />
+//   ✅ 必须用 buildImageUrl 拼成 /api/uploads/{key}
+import { buildImageUrl } from '@/lib/image-url'
+<img src={buildImageUrl(checkin.photoKey)} />
+```
+
+### 21.3 7d 补打卡窗口前后端各做一次
+
+前端 `PhotoUploader` / `CalendarCell` 状态判断都靠 `lib/daily-checkin-date.isWithinCheckinWindow(ymd)`；后端 `daily-checkin.service.create` 还会再做一次校验（`utils/checkin-date.ts` 同义函数）。**不要绕过任一层**。
+
+### 21.4 AI 小记：编辑 vs 重新生成 必须区分
+
+```ts
+// 用户编辑 caption / aiSummary：调 update，service 自动把 aiSummaryAt 置 null
+useUpdateCheckin(babyId).mutateAsync({ date, patch: { aiSummary: edited } })
+
+// 用户主动"重新生成"：调 generate，会扣配额，UI 必须先 confirm
+useGenerateAiSummary(babyId).mutateAsync({ date, role })
+```
+
+UI 区分依据：`!!checkin.aiSummary && !checkin.aiSummaryAt` → "已人工修改" pill。
+
+### 21.5 替换照片场景 autoGenerateAi=false
+
+打开详情抽屉做"替换照片"时，**禁止**自动重新生成 AI 小记，避免覆盖用户已编辑过的内容：
+
+```tsx
+<PhotoUploader autoGenerateAi={false} ... />
+```
+
+新打卡（首次创建）走默认 `autoGenerateAi=true`。
+
+### 21.6 删除：DB 立即删，COS 异步清
+
+不要在 `delete` 路由里直接调 `cos.deleteObject`：
+
+- DB `prisma.dailyCheckin.delete()` 立即生效（家庭成员立即看不到）
+- COS 对象由 `utils/patrol.runDailyCheckinOrphanCleanup` 周日 04:00 异步扫，30 天阈值后才删（防误删）
+- 这给运维"恢复误删"留了 30 天窗口
+
+## 22. PDF / Canvas 导出约定（v7.2+ T-S2-F11 / F4）
+
+### 22.1 pdf-lib 永远动态 import
+
+pdf-lib 体积大（gzip 175 KB），**禁止**在任何静态 import 路径中引用：
+
+```ts
+// ❌ 顶层 import 会污染入口 / 路由 chunk
+import { renderPagesToPdf } from '@/lib/pdf-export'
+
+// ✅ 在用户触发"导出 PDF"时再动态加载
+async function handleExportPdf() {
+  const { renderPagesToPdf, downloadBlob } = await import('@/lib/pdf-export')
+  // ...
+}
+```
+
+`vite.config.ts` 已把 pdf-lib 拆为独立 `vendor-pdf` chunk，但只有动态 import 才能让 chunk 真正按需加载。
+
+### 22.2 calendar-canvas 同样动态
+
+`lib/calendar-canvas.ts` 引用了较大的 canvas 计算 + Image 加载逻辑，且仅在「日历导出」「报告 PDF 附带日历」时才用，应通过 `await import('@/lib/calendar-canvas')` 加载。
+
+### 22.3 文件大小目标
+
+| 场景 | 软上限 | 硬上限 |
+|---|---|---|
+| 月视图 PNG | 400 KB | 800 KB |
+| 月度 PDF | 8 MB | 12 MB |
+| 报告 PDF（仅报告页） | 1.5 MB | 2 MB |
+| 报告 + 1 个月日历 PDF | 8 MB | 12 MB |
+
+`pdf-export.ts` 在总输入超 8 MB 时 console.warn；UI 应在用户尝试导出大量月份时给"分别下载"建议。
+
+### 22.4 进度反馈
+
+任何超过 1 秒的渲染都必须有进度提示：
+
+```ts
+toast.info(t('share_dialog.rendering_calendar', { current: i, total: months.length }))
+// 或 setProgress(...) 内部状态 + JSX 实时显示
+```
+
+不要让用户看着按钮 disabled 但没有任何反馈。

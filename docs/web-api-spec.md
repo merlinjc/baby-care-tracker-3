@@ -303,14 +303,53 @@ interface AuthUserResponse {
 
 ### 2.5 PATCH /api/auth/profile
 
-更新当前用户信息。
+更新当前用户信息。**v7.2+ 新增 `preferences` 字段**，用于增量更新用户个性化偏好。
 
 **请求体**：
 
 ```typescript
 interface UpdateProfileRequest {
-  nickname?: string;   // 昵称，1-20 字符
-  avatar?: string;     // 头像 URL
+  nickname?: string;              // 昵称，1-20 字符
+  avatar?: string | null;         // 头像 URL；显式传 null 清空
+  /** v7.2+：用户偏好（顶层 key 级深合并语义） */
+  preferences?: Partial<UserPreferences>;
+}
+
+interface UserPreferences {
+  onboardingCompleted?: boolean;          // F1：首次引导是否完成
+  onboardingSkippedSteps?: string[];      // F1：已跳过的步骤 ID
+  lang?: string;                          // F8：当前语言（如 'zh-CN'）
+  langManuallySet?: boolean;              // F8：是否手动切换过
+  fontScale?: 'sm' | 'md' | 'lg' | 'xl';  // v7.1 字体档跨设备种子
+  themeMode?: 'light' | 'warm-night' | 'system';  // v7.1 主题模式跨设备种子
+  // 未知键允许透传（前后端跨版本兼容）
+}
+```
+
+**`preferences` 深合并语义**（关键）：
+
+- 服务端按**顶层 key 级别**做部分更新，未传的 key 保留原值
+- 客户端只需传想要修改的子集，无需先拉再合再写
+- 显式传 `null` 视为"将该 key 设为 null"（不删除）；如需"清空"请用合理默认值
+- 未知键透传保留（便于灰度发布、跨版本兼容）
+- 库里实际持久化为 JSON 字符串（`User.preferences`）；脏数据解析失败时 `getMe` 返回 `preferences: null`，不抛错
+
+**示例**：
+
+```bash
+# 标记首次引导完成
+PATCH /api/auth/profile
+{ "preferences": { "onboardingCompleted": true } }
+
+# 切换语言（不影响 onboardingCompleted）
+PATCH /api/auth/profile
+{ "preferences": { "lang": "en-US", "langManuallySet": true } }
+
+# 同时改昵称与字体档
+PATCH /api/auth/profile
+{
+  "nickname": "Alice",
+  "preferences": { "fontScale": "lg" }
 }
 ```
 
@@ -318,7 +357,7 @@ interface UpdateProfileRequest {
 
 ```typescript
 interface AuthUserResponse {
-  user: AuthUser;
+  user: AuthUser;   // 完整 user 对象，含合并后的 preferences（已反序列化为对象）
 }
 ```
 
@@ -327,7 +366,13 @@ interface AuthUserResponse {
 | 状态码 | 错误码 | 触发条件 |
 |-------|--------|---------|
 | 401 | `UNAUTHORIZED` | Token 无效或过期 |
-| 422 | `VALIDATION_ERROR` | 字段校验失败 |
+| 422 | `VALIDATION_ERROR` | 字段校验失败（如 fontScale 取值不在白名单） |
+
+**前端调用约定**：
+
+- 业务代码请优先使用 `useAuthStore().updatePreferences(patch)` 或 `authService.updatePreferences(patch)`，语义比直接调 `updateProfile` 更明确
+- 该接口写后会同步 `auth-store.user.preferences`，UI 立即生效
+- 不要绕过该接口在本地保存"用户偏好"（双写不一致）。本地缓存仅作为运行时副本（如 `font-scale-store` / `theme-store` 的 zustand persist），跨设备同步走该接口
 
 ---
 
@@ -1521,6 +1566,122 @@ interface DeleteMilestoneResponse {
 
 ---
 
+## 7a. 黄疸记录接口（v7.2+ T-S1-F2）
+
+> **背景**：v7.2 之前黄疸记录在前端 `localStorage` 落地。v7.2 起改为云端同步：多设备 / 家庭成员可见同一份数据，离线编辑能力交给前端 React Query 缓存。
+>
+> **字段映射**（client lib/jaundice ↔ server JaundiceRecord）：
+> - `date` ↔ `recordDate`
+> - `ageDays` ↔ `dayAge`
+> - `scleraYellow` ↔ `scleralIcterus`
+> - `jaundiceType` ↔ `category`
+> - `actions` ↔ `treatments`
+> - `symptoms` / `kramerZone` / `tcb` / `tsb` / `note` 同名透传
+>
+> 客户端 `services/jaundice.ts` 内部双向映射，UI 层继续使用 client 字段名。
+
+### 7a.1 GET /api/babies/:id/jaundice
+
+获取宝宝黄疸记录列表（按 `recordDate` 倒序，默认 100 条）。
+
+**Query**：
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|-----|------|
+| `startDate` | string (ISO) | 否 | 闭区间起 |
+| `endDate` | string (ISO) | 否 | 闭区间止；与 startDate 二选一/同时使用，要求 start ≤ end |
+| `limit` | number | 否 | 默认 100，上限 500 |
+
+**Response 200**：
+
+```json
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "id": "ckxxx",
+        "babyId": "ckxxx",
+        "familyId": "ckxxx",
+        "recordDate": "2026-05-01T00:00:00.000Z",
+        "dayAge": 5,
+        "kramerZone": 3,
+        "scleralIcterus": true,
+        "tcb": 12.3,
+        "tsb": null,
+        "category": "physiologic",
+        "symptoms": ["吃奶正常", "尿色清亮"],
+        "treatments": ["加强喂养", "多晒太阳"],
+        "note": "观察中",
+        "createdBy": "ckxxx",
+        "createdAt": "2026-05-01T03:00:00.000Z",
+        "updatedAt": "2026-05-01T03:00:00.000Z"
+      }
+    ],
+    "total": 1
+  }
+}
+```
+
+### 7a.2 POST /api/babies/:id/jaundice
+
+创建一条黄疸记录。
+
+**Body**：除 `recordDate` 必填，其余全部可选。详见 `server/src/schemas/jaundice.schema.ts`。
+
+| 字段 | 类型 | 校验 |
+|------|------|-----|
+| `recordDate` | string (ISO) | 必填，可解析的日期 |
+| `dayAge` | number | 1 ≤ x ≤ 3650 |
+| `kramerZone` | 1-5 \| null | 5 分区，null 表示未见黄染 |
+| `scleralIcterus` | boolean | — |
+| `tcb` / `tsb` | number | 0 ≤ x ≤ 50 (mg/dL) |
+| `category` | enum | physiologic \| pathologic \| breast_milk \| null |
+| `symptoms` / `treatments` | string[] | 每项 ≤ 32 字符，最多 20 项 |
+| `note` | string | ≤ 500 字符 |
+
+**Response 201**：`{ success: true, data: { record: { ... } } }`，结构与 7a.1 单条一致。
+
+**权限**：`RECORD_CREATE`（admin / editor）。
+
+### 7a.3 GET /api/babies/:id/jaundice/:recordId
+
+获取单条详情。**响应**：`{ success: true, data: { record: { ... } } }`。
+
+### 7a.4 PATCH /api/babies/:id/jaundice/:recordId
+
+部分更新（所有字段可选；至少传一个字段）。可显式传 `null` 清空（如 `note: null`、`kramerZone: null`、`tcb: null`）。
+
+**权限矩阵**：
+
+| 角色 | 改自己创建的 | 改他人创建的 |
+|------|--------------|--------------|
+| admin | ✅ | ✅ |
+| editor | ✅ | ❌ 403 PERMISSION_DENIED |
+| viewer | ❌ 403 | ❌ 403 |
+
+### 7a.5 DELETE /api/babies/:id/jaundice/:recordId
+
+删除一条记录。权限矩阵同 7a.4（admin 可删任意，editor 仅删自己）。
+
+**Response 200**：`{ success: true, data: { message: "已删除" } }`。
+
+### 7a.6 错误码
+
+| HTTP | code | 说明 |
+|------|------|-----|
+| 400 | `INVALID_PARAMS` | recordDate 无法解析 / kramerZone 越界 / category 非法等 |
+| 403 | `PERMISSION_DENIED` | 跨家庭访问 / viewer 创建 / editor 改他人 |
+| 404 | `NOT_FOUND` | 记录不存在或不属于该 baby |
+
+### 7a.7 客户端一次性迁移
+
+老用户（v7.1 及之前）登录后，`MainLayout` 在 `isAuthenticated && babies.length > 0` 后 1.5s 内动态 import `lib/migrations/jaundice-to-cloud`，将 `localStorage["baby_care_jaundice:{babyId}"]` 全量上传，成功后清理对应 key 并 `toast.success("已同步 N 条黄疸记录到云端")`。
+
+迁移幂等：标记 key `baby_care_jaundice_migrated === 'v1'` 时跳过。失败保留 localStorage 下次重试。
+
+---
+
 ## 8. 趋势接口
 
 ### 8.1 GET /api/babies/:id/trends
@@ -1758,18 +1919,49 @@ interface AIQuotaResponse {
 
 ```typescript
 interface ExportQuery {
-  babyId: string;           // 必填，宝宝 ID
-  format: 'csv' | 'json';  // 必填，导出格式
-  recordType?: RecordType;  // 可选，记录类型筛选（不传则导出全部）
-  startDate?: string;       // 可选，开始日期
-  endDate?: string;         // 可选，结束日期
+  babyId: string;            // 必填，宝宝 ID
+  format: 'csv' | 'json';    // 必填，导出格式
+  /**
+   * v7.2+ 多选数据类型：逗号分隔字符串（如 `feeding,sleep,vaccine`）。
+   * 取值范围：feeding | sleep | diaper | temperature | growth | vaccine | milestone | jaundice。
+   * 留空 / 不传 → 默认导出 5 个 Record 子类型（保持 v7.1 行为）。
+   * 与历史 `recordType` 互斥：同时传时 types 优先。
+   */
+  types?: string;
+  /** @deprecated v7.2+ 改用 types；保留以兼容旧前端 */
+  recordType?: RecordType;
+  startDate?: string;        // 可选，开始日期 ISO
+  endDate?: string;          // 可选，结束日期 ISO
 }
 ```
 
 **成功响应** `200`：
 
 - `format=csv`：`Content-Type: text/csv; Content-Disposition: attachment; filename=export_{babyId}_{date}.csv`
+  - v7.2 多选时 CSV 按 section 分块输出，section 之间空行 + `# section: <type>` 注释行：
+    ```
+    # section: records
+    id,recordType,...
+    ...
+
+    # section: vaccines
+    id,name,dose,...
+    ...
+
+    # section: jaundice
+    id,recordDate,...,symptoms,...
+    "...","s1|s2",...    ← symptoms / treatments 数组在 CSV 中以 `|` 分隔
+    ```
 - `format=json`：`Content-Type: application/json; Content-Disposition: attachment; filename=export_{babyId}_{date}.json`
+  - v7.2 多选时返回 `{ records?, vaccines?, milestones?, jaundice? }`，未选中的字段不出现：
+    ```jsonc
+    {
+      "records": [/* feeding/sleep/diaper/temperature/growth */],
+      "vaccines": [/* ... */],
+      "milestones": [/* ... */],
+      "jaundice": [/* symptoms/treatments 已还原为数组 */]
+    }
+    ```
 
 **权限要求**：家庭成员均可导出
 
@@ -1782,8 +1974,266 @@ interface ExportQuery {
 | 401 | `UNAUTHORIZED` | 未认证 |
 | 403 | `PERMISSION_DENIED` | 非家庭成员 |
 | 404 | `BABY_NOT_FOUND` | 宝宝不存在 |
-| 422 | `VALIDATION_ERROR` | 参数校验失败 |
+| 422 | `VALIDATION_ERROR` | 参数校验失败 / types 包含未知类型 |
 | 429 | `RATE_LIMITED` | 导出次数超限 |
+
+### 10.2 客户端导出独立页 `/export`（v7.2+ T-S1-F3）
+
+替代旧 `/settings?tab=export` 的简易入口，提供：
+
+- 4 卡片矩阵：宝宝（多胎切换）/ 范围（7d/30d/90d/all/custom）/ 类型（8 个 Checkbox）/ 格式（CSV/JSON）
+- 「开始导出」按钮：`exportService.exportData({...}, onProgress)`
+- 历史列表：`localStorage["baby_care_export_history"]` FIFO 上限 10 条；
+  支持「重新下载」（用同样的 params 重发请求，不依赖 7d 链接）
+- 旧 deep link `/settings?tab=export` 自动 `replace` 重定向到 `/export`
+
+---
+
+## 11. 文件上传 / 下载接口（v7.2+，方案 B 服务端代理）
+
+> **架构说明**：v7.2 起所有图片读写**全部经 Express 代理**，COS 桶设为「私有读私有写」，密钥仅在服务端持有。
+> - 上传：客户端 multipart → Express → `cos.putObject`
+> - 下载：客户端 `<img src="/api/uploads/{key}">` → Express `cos.getObjectStream` → 流式回包
+> - **DB 字段存 key**（如 `avatars/u1/abc.jpg`），而非完整 URL
+
+### 11.1 POST /api/uploads — 上传图片
+
+接收 `multipart/form-data`，由服务端代理写入 COS。
+
+**请求**（`multipart/form-data`）：
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `file` | File | ✓ | 图片文件，mimetype 必须为 `image/jpeg` / `image/png` / `image/webp`；服务端兜底大小限制 `COS_MAX_UPLOAD_BYTES`（默认 2MB） |
+| `kind` | string | ✓ | `avatar` / `baby-avatar` / `daily-checkin` |
+| `ext` | string | ✓ | 文件扩展名（含或不含点都可），白名单：jpg/jpeg/png/webp |
+| `babyId` | string | 见 ctx | baby-avatar / daily-checkin 必填 |
+| `familyId` | string | 见 ctx | baby-avatar / daily-checkin 必填 |
+| `date` | string | 见 ctx | daily-checkin 必填，YYYY-MM-DD |
+
+**成功响应** `201`：
+
+```typescript
+interface UploadResult {
+  /** 桶内对象 key，前端落库 + 拼接代理 URL 用 */
+  key: string;
+  /** 上传后的字节数 */
+  size: number;
+  /** 内容类型 */
+  contentType: string;
+}
+```
+
+**Key 拼接规则**：
+
+| kind | key 模板 | 必填 ctx |
+|------|---------|---------|
+| `avatar` | `avatars/{userId}/{cuid}.{ext}` | — |
+| `baby-avatar` | `babies/{familyId}/{babyId}/{cuid}.{ext}` | familyId, babyId |
+| `daily-checkin` | `checkins/{familyId}/{babyId}/{date}-{cuid}.{ext}` | familyId, babyId, date |
+
+`{cuid}` 为 32 字符随机十六进制串。所有 ctx 字符串字段拒绝包含 `/` `\` `..`（防 path traversal）。
+
+**前端流程**：
+
+```typescript
+// 客户端：使用 services/upload.ts 一行调用
+import { uploadService, buildImageUrl } from '@/services/upload'
+
+const { key } = await uploadService.upload(file, 'avatar')  // 自动压缩 + EXIF 剥离 + multipart POST
+await authService.updateProfile({ avatar: key })             // 落库 key（不是 URL！）
+
+// 展示：拼成 /api/uploads/{key} 走代理下载
+<img src={buildImageUrl(user.avatar)} />
+```
+
+**ext 白名单**：仅允许 `jpg` / `jpeg` / `png` / `webp`。`jpeg` 会被服务端归一化为 `jpg`。
+
+**限流**：20 次 / 分钟 / 用户。
+
+**错误响应**：
+
+| 状态码 | 错误码 | 触发条件 |
+|-------|--------|---------|
+| 401 | `UNAUTHORIZED` | 未认证 |
+| 400 | `UPLOAD_INVALID_EXT` | ext 或 mimetype 不在白名单 |
+| 400 | `UPLOAD_MISSING_CONTEXT` | kind 对应的 ctx 字段缺失 |
+| 400 | `UPLOAD_TOO_LARGE` | 文件超过 `COS_MAX_UPLOAD_BYTES` |
+| 400 | `INVALID_PARAMS` | date 格式不合法 / 缺 file 字段 / ctx 含非法字符 |
+| 422 | `VALIDATION_ERROR` | zod schema 校验失败 |
+| 429 | `RATE_LIMITED` | 上传次数超限 |
+| 503 | `UPLOAD_NOT_CONFIGURED` | 后端缺 `COS_SECRET_ID/SECRET_KEY/BUCKET/REGION` 任一字段 |
+
+---
+
+### 11.2 GET /api/uploads/:key — 下载图片（流式代理）
+
+通过 Express 流式代理 COS `getObjectStream`，密钥不暴露给客户端。
+
+**请求**：
+
+```
+GET /api/uploads/avatars/u1/abc123def456...jpg
+Authorization: Bearer <jwt>
+```
+
+> 注意：path 中的 `/` 是 key 的一部分，URL 不需要 encode。
+
+**成功响应** `200`：
+- `Content-Type`: 与 COS 对象一致（`image/jpeg` 等）
+- `Content-Length`: 字节数
+- `Cache-Control: public, max-age={COS_DOWNLOAD_CACHE_MAX_AGE}, immutable`（默认 1 天）
+- Body: 图片二进制流
+
+由于 key 32 字符 hex 不会复用（用户换头像 / 重新打卡都会生成新 key），`immutable` 缓存策略安全。
+
+**错误响应**：
+
+| 状态码 | 错误码 | 触发条件 |
+|-------|--------|---------|
+| 401 | `UNAUTHORIZED` | 未认证 |
+| 400 | `INVALID_PARAMS` | key 非法（不以 avatars/ / babies/ / checkins/ 开头 / 含 `..` `\` / 控制字符 / 长度 > 256） |
+| 404 | `NOT_FOUND` | 对象不存在 |
+| 503 | `UPLOAD_NOT_CONFIGURED` | 后端缺 COS 配置 |
+
+**`<img>` 标签使用注意**：浏览器 `<img>` 不会自动带 Authorization 头，**只会带 cookie**。当前 v7.2 通过同源 + JWT cookie 维持鉴权（前端 axios 已配置 `withCredentials`），如有跨域 / 公开访问需求请走「带签名的临时 GET URL」方案（未来版本扩展）。
+
+---
+
+### 11.3 配套 DB 字段语义说明
+
+v7.2 起以下字段**统一存桶内 key**，不再存完整 URL：
+
+| 字段 | 旧（v7.1）| 新（v7.2）|
+|------|----------|----------|
+| `User.avatar` | URL 或 null | key（如 `avatars/u1/abc.jpg`）或 null |
+| `Baby.avatar` | URL 或 null | key（如 `babies/f1/b1/abc.jpg`）或 null |
+| `DailyCheckin.photoUrl`（Sprint 2 F11）| — | key（如 `checkins/f1/b1/2026-05-11-abc.jpg`） |
+
+**展示**：前端用 `buildImageUrl(key)` 拼成 `/api/uploads/{key}`。
+**写入**：上传 API 返回的 `key` 直接作为字段值落库。
+
+---
+
+## 12. 每日打卡接口（v7.2+ T-S2-F11）
+
+> **背景**：v7.2 Sprint 2 主线功能。"一天一张照片 + AI 小记"沉淀为可回顾的成长资产。
+> 字段语义见 §11（文件上传）下的 `DailyCheckin.photoKey` 与 `shared/types#DailyCheckin`。
+
+挂载点：`/api/babies/:id/checkins`
+
+### 12.1 GET /api/babies/:id/checkins
+
+列出某宝宝某区间内的打卡记录。
+
+**Query**：
+- `startDate`（YYYY-MM-DD，可选）
+- `endDate`（YYYY-MM-DD，可选）
+- 不传时默认本月 [01, 月末]
+
+**Response 200**：
+
+```json
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "id": "ck1",
+        "babyId": "b1",
+        "familyId": "f1",
+        "checkinDate": "2026-05-15",
+        "photoKey": "checkins/f1/b1/2026-05-15-abc.jpg",
+        "photoWidth": 1080,
+        "photoHeight": 1440,
+        "caption": "今天好天气",
+        "aiSummary": "小宝今天笑得像花儿。",
+        "aiSummaryAt": "2026-05-15T10:32:01.000Z",
+        "createdBy": "u1",
+        "creator": { "id": "u1", "nickname": "妈妈", "avatar": "avatars/u1/x.jpg" },
+        "createdAt": "2026-05-15T10:30:00.000Z",
+        "updatedAt": "2026-05-15T10:32:01.000Z"
+      }
+    ],
+    "total": 1,
+    "range": { "startDate": "2026-05-01", "endDate": "2026-05-31" }
+  }
+}
+```
+
+### 12.2 POST /api/babies/:id/checkins
+
+创建打卡。
+
+**Body**（zod schema）：
+
+```json
+{
+  "checkinDate": "2026-05-15",      // 必填，YYYY-MM-DD
+  "photoKey": "checkins/...jpg",    // 必填，必须以 checkins/ 开头
+  "photoWidth": 1080,               // 可选 int
+  "photoHeight": 1440,              // 可选 int
+  "caption": "今天好天气"             // 可选，≤ 200 字
+}
+```
+
+**业务校验**：
+- `checkinDate` 必须落在 `[today-7d, today]`（**7d 补打卡窗口**）
+- `checkinDate` 不早于 `baby.birthDate`
+- 同 `(babyId, checkinDate)` 已有记录 → 409
+
+**响应**：`{ success: true, data: { checkin: DailyCheckin } }`
+
+### 12.3 GET /api/babies/:id/checkins/:date
+
+取指定日（YYYY-MM-DD）的单条打卡。
+
+**响应**：`{ success: true, data: { checkin: DailyCheckin } }`，未找到 → 404 `CHECKIN_NOT_FOUND`。
+
+### 12.4 PATCH /api/babies/:id/checkins/:date
+
+部分更新（最少一个字段；空对象 422）。
+
+**Body 可选字段**：
+- `photoKey`（替换照片）
+- `photoWidth` / `photoHeight`
+- `caption`（可为 null 清空）
+- `aiSummary`（可为 null 清空）— 传入此字段表示**用户人工编辑**，后端会同时把 `aiSummaryAt` 置 null 标识"已人工修改"
+
+**权限**：editor 仅能改自己创建的；admin 全部。
+
+### 12.5 DELETE /api/babies/:id/checkins/:date
+
+删除打卡。DB 立即删；COS 对象由 patrol `dailyCheckinOrphanCleanup` 异步清（30d 阈值）。
+
+**权限**：editor 仅能删自己创建的；admin 全部。
+
+### 12.6 POST /api/babies/:id/checkins/:date/ai-summary
+
+生成 / 重新生成 AI 小记。
+
+**Body**：
+
+```json
+{ "role": "mom" }   // 可选，CareRole 枚举；不传则用中立顾问视角
+```
+
+**流程**：
+1. 必须先存在该日打卡（404 `CHECKIN_NOT_FOUND`）
+2. 权限同 PATCH（editor 仅自己 / admin 全部）
+3. 收集当天 records / milestones / jaundice 摘要 → 拼 prompt
+4. `aiService.chat(...)` 内含 quota 扣减 + 失败回滚
+5. 成功落 `aiSummary + aiSummaryAt = now()`；失败 DB 不变 + 错误透传
+
+**新错误码**：
+- `CHECKIN_NOT_FOUND` (404)
+- `CHECKIN_DUPLICATE` (409)
+- `CHECKIN_WINDOW_EXPIRED` (400) — 日期超 7d 窗口
+- `CHECKIN_DATE_INVALID` (400) — 日期格式 / 早于出生日
+- `CHECKIN_PHOTO_MISSING` (400)
+- `QUOTA_EXCEEDED` (429) — AI 配额耗尽（沿用 ai 既有）
+
+**速率限制**：AI 小记走 `aiRateLimit`（与 `/api/ai/*` 一致，每用户 24h 内 20 次）。
 
 ---
 

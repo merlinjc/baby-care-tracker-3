@@ -1,0 +1,59 @@
+{
+  "actions": {
+    "save": "保存",
+    "cancel": "取消",
+    "confirm": "确认",
+    "delete": "删除",
+    "edit": "编辑",
+    "back": "返回",
+    "close": "关闭",
+    "submit": "提交",
+    "retry": "重试",
+    "loading": "加载中...",
+    "more": "更多",
+    "ok": "好的",
+    "got_it": "知道了"
+  },
+  "states": {
+    "empty": "暂无数据",
+    "loading": "加载中...",
+    "error": "出错了",
+    "no_more": "— 没有更多了 —",
+    "offline": "网络已断开"
+  },
+  "time": {
+    "today": "今天",
+    "yesterday": "昨天",
+    "tomorrow": "明天",
+    "week": "本周",
+    "month": "本月",
+    "now": "刚刚",
+    "minutes_ago": "{{count}} 分钟前",
+    "hours_ago": "{{count}} 小时前",
+    "days_ago": "{{count}} 天前"
+  },
+  "validation": {
+    "required": "请填写",
+    "invalid": "格式不正确",
+    "too_long": "超出最大长度",
+    "too_short": "长度不足"
+  },
+  "errors": {
+    "network": "网络错误，请稍后重试",
+    "unknown": "未知错误",
+    "permission_denied": "您没有此操作的权限",
+    "not_found": "未找到对应资源",
+    "rate_limited": "操作过于频繁，请稍后再试"
+  },
+  "units": {
+    "ml": "毫升",
+    "min": "分钟",
+    "hour": "小时",
+    "day": "天",
+    "kg": "千克",
+    "cm": "厘米",
+    "celsius": "°C",
+    "times": "次",
+    "times_with_count": "{{count}} 次"
+  }
+}

@@ -212,21 +212,22 @@ DELETE /babies/:id?cursor=2500
 
 **关键约束**：业务组件必须消费语义类（`.heading-*` / `.body-*` / `.caption`）或 CSS 变量 `var(--text-*)`，**禁止**写死 `text-[14px]` 等任意值样式，否则字体缩放会失效。特大档位同时放宽 `btn-*` / `chip` / `input-base` 的 padding，以满足触屏目标 ≥ 48px 的无障碍要求。
 
-### 5.2 黄疸记录（客户端本地存储 MVP，v5.0.0+）
+### 5.2 黄疸记录（v5 本地 MVP → v7.2 云端化）
 
-发现页新增"黄疸记录"子入口（`/jaundice`）。设计决策：
+发现页新增"黄疸记录"子入口（`/jaundice`）。
 
-- **不新增后端字段 / 表 / 接口**：黄疸作为"观察类"数据而非核心育儿记录，本期以 `localStorage` 落地，快速验证产品价值。
-- 存储位置：`client/src/lib/jaundice.ts`
-  - key：`baby_care_jaundice:${babyId}`
-  - value：按 `date` 降序的 `JaundiceRecord[]` JSON 数组
-- 字段覆盖医学上常用维度：日龄、Kramer 分区（Ⅰ-Ⅴ）、巩膜黄染、经皮胆红素 TcB、血清胆红素 TSB、主观分类（生理性 / 病理性 / 母乳性）、伴随表现（多选）、处置（多选）、备注。
-- 子页 `/jaundice`（`pages/jaundice/index.tsx`）：
-  - PageHeader + 新增按钮（canEdit 才出现）
-  - 教育提示条（提醒就医门槛）
-  - 迷你 SVG 趋势图（最近 10 次有数值的记录 + 12 / 17 mg/dL 虚线警戒）
-  - 时间线卡片列表（Kramer 分区 / TcB / TSB / 伴随表现 / 处置 / 备注）
-- 后续若需要跨端同步，再抽出同名类型到 `shared/types`，新增 `recordType = 'jaundice'` 或独立 `jaundice_records` 表 + 接口；当前本地存储与未来后端方案零冲突（迁移时一次性把本地数据 POST 上去即可）。
+**v5.0.0 MVP（已退役）**：在 `client/src/lib/jaundice.ts` 用 `localStorage[baby_care_jaundice:${babyId}]` 落地，快速验证产品价值。
+
+**v7.2 T-S1-F2 云端化**：
+
+- **新增 `JaundiceRecord` 表**（`server/prisma/schema.prisma`）：`recordDate` / `dayAge` / `kramerZone` / `scleralIcterus` / `tcb` / `tsb` / `category` / `symptoms[JSON]` / `treatments[JSON]` / `note` / `createdBy`；索引 `[babyId, familyId, recordDate]`。
+- **5 个端点**：`GET / POST / GET-id / PATCH / DELETE` 挂在 `/api/babies/:id/jaundice/*`，权限矩阵与 milestone 一致（admin 任意，editor 仅自己，viewer 拒绝）。
+- **客户端仍用 client 字段名**：`services/jaundice.ts` 内部双向映射 `date↔recordDate / ageDays↔dayAge / scleraYellow↔scleralIcterus / jaundiceType↔category / actions↔treatments`，UI 层（`pages/jaundice/index.tsx`、`components/jaundice-dialog.tsx`）保持不变。
+- **React Query 集成**：`hooks/use-jaundice.ts` 提供 `useJaundiceRecords / useCreateJaundice / useUpdateJaundice / useDeleteJaundice`，query key `['jaundice', babyId]`。
+- **一次性迁移**：`lib/migrations/jaundice-to-cloud.ts` 在 `MainLayout` `isAuthenticated && babies.length > 0` 后 1.5s 触发（动态 import，不污染入口 chunk）；幂等（标记 `baby_care_jaundice_migrated === 'v1'`）；失败保留 localStorage 下次重试；migrated > 0 时 toast。
+- **lib/jaundice.ts 收敛**：保留类型 / 常量 / `computeAgeDays / classifyTsb`；删除 `saveJaundiceRecord / deleteJaundiceRecord`；`listJaundiceRecords` 重命名 `readLocalJaundiceRecords` 仅供迁移用。
+
+字段覆盖医学上常用维度：日龄、Kramer 分区（Ⅰ-Ⅴ）、巩膜黄染、经皮胆红素 TcB、血清胆红素 TSB、主观分类（生理性 / 病理性 / 母乳性）、伴随表现（多选）、处置（多选）、备注。子页交互保持 v5 设计（教育提示条 + 迷你 SVG 趋势图 + 时间线卡片列表）。
 
 ### 5.3 成长报告（v5.0.0+）
 
@@ -257,6 +258,476 @@ DELETE /babies/:id?cursor=2500
 - **前端 UI**：`pages/milestone/index.tsx` 主体 = 28 项标准里程碑列表，每行右侧一个圆形 toggle；点击 toggle 直接打卡 / 取消打卡（取消需二次确认）；点击行打开详情弹窗，已达成态可编辑达成日期 / 备注。删除了"自由添加"表单和"标准推荐"抽屉（与主列表重复）。
 - **既有调用方影响**：`milestoneService.list` 返回结构不变，`discover` / `report` / `share-canvas` 等读侧无需调整；语义上"已达成里程碑数"始终是"截至今天累计打卡数"，跟报告周期无强绑定（报告页的 `本期里程碑 N 项` 仍按 `achievedDate` 过滤，因此打卡日 = 当天即落入"本期"）。
 - **数据迁移**：dev/prod 库历史可能存在 `(babyId, name)` 重复行；提供一次性脚本 `server/prisma/scripts/dedupe-milestones.ts` 先做去重（保留 `createdAt` 最早的一条），再 `prisma db push` 让 unique 索引生效。
+
+### 5.5 路由级代码分割（v7.2 F9）
+
+为消除 v7.1 之前的"单 chunk 930KB"问题，v7.2 引入路由级 + vendor 级双重代码分割：
+
+```
+client/src/app/routes.tsx
+  ├─ 14 个 page 全部 React.lazy + 动态 import()
+  ├─ 命名导出 → default：.then(m => ({ default: m.XxxPage }))
+  └─ lazyEl(El) 通用 Suspense 包装，fallback = <RouteFallback>
+
+client/src/app/layout/route-fallback.tsx
+  ├─ 200ms 延迟出现，快速切换近乎无感
+  ├─ role="status" / aria-live / aria-label，a11y 完备
+  └─ surface-0 背景与 MainLayout 一致，无颜色撕裂
+
+client/vite.config.ts > build.rollupOptions.output.manualChunks
+  函数式（Vite 8 / Rolldown 仅支持函数形式），按依赖目录归组：
+  ├─ vendor-react   (react / react-dom / react-router-dom / scheduler)
+  ├─ vendor-query   (@tanstack/react-query)
+  ├─ vendor-radix   (@radix-ui/*，13 个子包)
+  ├─ vendor-motion  (framer-motion)
+  ├─ vendor-icons   (lucide-react)
+  └─ vendor-utils   (axios / clsx / tailwind-merge / cva / zustand)
+```
+
+**Bundle 分析**：`pnpm build:analyze` 通过 `ANALYZE=true` 环境变量启用 `rollup-plugin-visualizer`，产出 `client/dist/stats.html`（treemap，含 gzip + brotli）。普通 `pnpm build` 不引入该插件。
+
+**收益（v7.2 F9 实测，2026-05-11）**：
+- 应用入口 chunk gzip：289 KB → **15.68 KB**（↓ 94.6%）
+- 首屏首页加载 gzip（vendor + entry + home）：289 KB → **231 KB**（↓ 20.0%）
+- chunk 数：1 → **49**（长缓存命中率显著提升，更新业务代码不会让用户重新下载 React / Radix / framer-motion）
+- 切换 page 增量：仅 2-11 KB gzip（如打开 settings 仅多 2.37 KB，milestone 8.62 KB）
+- `>500KB chunks` build 警告：消除
+
+### 5.6 用户偏好 `User.preferences`（v7.2 T-S1-INF-01）
+
+为支持「首次引导是否完成」「语言」「字体档 / 主题跨设备种子」等跨端、跨会话的个性化设置，v7.2 在 `User` 上新增 `preferences` 字段：
+
+```
+User.preferences  TEXT (SQLite) / TEXT (MySQL)   ← JSON 字符串
+```
+
+**为什么是 JSON 字符串而非独立表 / JSONB**：
+- 偏好键稀疏 + 不需要按键索引查询
+- 单条用户只有一行偏好，写竞争不存在
+- SQLite/MySQL/Postgres 跨数据库通用，零迁移成本
+- 前后端跨版本演进时未知键可透传保留
+
+**写入语义（关键）**：
+- 写口收敛到 `PATCH /api/auth/profile` 的 `preferences` 入参，服务端 `auth.service.updateProfile` 走"**顶层 key 级深合并**"：
+  - 先读旧 preferences，反序列化为对象（脏数据时 fallback 为 null）
+  - 用 `mergePreferences(base, patch)` 把 patch 中非 `undefined` 的 key 覆盖到 base
+  - 写回 JSON 字符串
+- 客户端只需传"想修改的子集"，无需 `先 fetch → 合 → 整段 PUT` 这种竞态模式
+- 显式传 `null` 视为"设为 null"，不删除；要"清空"请用合理默认值（`onboardingCompleted: false` 等）
+- 未知键透传保留：便于灰度发布、跨小程序/Web 端版本不一致
+
+**类型契约**：
+- 共享类型 `shared/types/index.ts#UserPreferences`（已知键带严格类型）
+- Zod 校验 `server/src/schemas/auth.schema.ts#userPreferencesPatchSchema`（已知键校验 + `.passthrough()` 允许未知键）
+- 前端 store action `useAuthStore().updatePreferences(patch)` 调一次 API 后同步 `user.preferences`，UI 立即生效
+
+**读侧**：
+- `sanitizeUser()` 把 `preferences` 字段反序列化为对象输出（旧用户从未写过 → `null`）
+- `getMe` / `login` / `register` / `updateProfile` 返回的 `AuthUser` 均带 `preferences: UserPreferences | null`
+
+**与本地 zustand persist 的关系**：
+- `font-scale-store` / `theme-store` 仍保留本地 zustand persist，作为运行时副本（保证首屏渲染时立即应用，无网络等待）
+- `User.preferences.fontScale / themeMode` 仅作为**跨设备同步种子**：
+  - 用户首次登录时，如本地无值 → 用 preferences 的值初始化本地 store
+  - 用户切换后写一次 preferences（best-effort，失败不阻塞 UI）
+- 这是有意为之的"双写不一致容忍"设计：跨设备最终一致即可，运行时优先本地以保证 0 延迟
+
+### 5.7 文件上传 / 下载链路（v7.2 T-S1-INF-02 方案 B 服务端代理）
+
+为支持头像 / 宝宝头像 / 每日打卡照片等图片上传，v7.2 采用「**客户端 multipart 提交 + 服务端代理 COS putObject/getObjectStream**」架构。**密钥仅在服务端持有**，客户端永远拿不到 COS URL。
+
+```
+─────────── 上传链路 ───────────
+
+┌─ Browser ──────────────────────────────────────────────────────┐
+│  ImageUploader (component)                                      │
+│   ↓ 1. 选图 → uploadService.upload()                             │
+│  browser-image-compression                                       │
+│   ↓ 2. 压缩 + EXIF 剥离                                           │
+│      - avatar / baby-avatar: 长边 512px / JPEG 0.85 / ≤1MB        │
+│      - daily-checkin:        长边 1080px / JPEG 0.85 / ≤1MB       │
+│      - preserveExif: false（剥 GPS 防泄露）                       │
+│   ↓ 3. FormData → POST /api/uploads (multipart/form-data)       │
+└──┬──────────────────────────────────────────────────────────────┘
+   │ Bearer JWT + presignRateLimit（20 次/分钟/用户）
+   ▼
+┌─ Express :3000 ────────────────────────────────────────────────┐
+│  routes/uploads.ts                                              │
+│   ↓ authenticate + multer.single('file')                        │
+│   ↓ multer 限制：fileSize=COS_MAX_UPLOAD_BYTES (默认 2MB)        │
+│   ↓                + mimetype 白名单 (jpeg/png/webp)             │
+│   ↓ validateBody(uploadFieldsSchema) zod 校验 form fields        │
+│  upload.service.putObject(userId, kind, ext, buffer, ctx)       │
+│   ↓ 1. isConfigured() → 缺 COS_* 任一 → 503                      │
+│   ↓ 2. normalizeExt() + validateContext()                       │
+│   ↓ 3. buildKey() → avatars/{userId}/{cuid}.{ext} 等             │
+│   ↓ 4. cos.putObject({ Bucket, Region, Key, Body, ContentType })│
+│  返回 { key, size, contentType }                                 │
+└──┬──────────────────────────────────────────────────────────────┘
+   │  201 Created
+   ▼
+┌─ Browser ──────────────────────────────────────────────────────┐
+│  业务层落库 key（不是 URL！）                                     │
+│   PATCH /auth/profile { avatar: key }                           │
+│   POST  /babies/:id/checkins { photoUrl: key, ... }             │
+└─────────────────────────────────────────────────────────────────┘
+
+
+─────────── 下载链路 ───────────
+
+┌─ Browser ──────────────────────────────────────────────────────┐
+│  <img src={buildImageUrl(user.avatar)} />                       │
+│   等价于 <img src="/api/uploads/avatars/u1/abc.jpg" />           │
+└──┬──────────────────────────────────────────────────────────────┘
+   │ 同源 cookie（含 JWT）
+   ▼
+┌─ Express :3000 ────────────────────────────────────────────────┐
+│  GET /api/uploads/* → routes/uploads.ts                          │
+│   ↓ authenticate                                                 │
+│   ↓ isValidKey() 防 path traversal（前缀白名单 / 拒 .. \）         │
+│  upload.service.getObjectStream(key)                             │
+│   ↓ cos.getObjectStream({ Bucket, Region, Key })                 │
+│   ↓ 拿到 Stream + headers                                         │
+│  res.setHeader('Cache-Control': public,max-age=86400,immutable)  │
+│  stream.pipe(res)  ← 流式转发，零内存累积                         │
+└──┬──────────────────────────────────────────────────────────────┘
+   │
+   ▼
+┌─ Tencent Cloud COS（私有读私有写）─────────────────────────────┐
+│  仅 SecretId/Key 持有方（我方 server）可读写                     │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**关键设计要点**：
+
+| 设计 | 选择 | 理由 |
+|------|------|------|
+| 服务端代理 | 客户端 → Express → COS（双向） | **密钥不暴露给客户端**；可加业务级权限 / 日志 / 审计 |
+| 桶 ACL | 私有读私有写 | 所有访问必经我方服务，绕过 Express 无法拿到任何对象 |
+| 上传内存模式 | multer memoryStorage（限 2MB）| 单图场景，写入 Buffer 直接 putObject，无 disk 临时文件 |
+| 下载流式 | `getObjectStream + pipe(res)` | 大文件零内存累积；保留 Content-Length / Content-Type |
+| 客户端压缩 | 长边 512/1080px + JPEG 0.85 + 目标 ≤1MB | 减小服务端存储开销与下游加载时间 |
+| EXIF GPS 剥离 | 客户端 `preserveExif: false` | 避免泄露宝宝家庭地址 |
+| key 不可枚举 | randomUUID 32 字符 hex 后缀 | 即使被遍历端点也无法猜出他人 key |
+| 路径校验 | isValidKey 前缀白名单 + 拒 `..` `\` 控制字符 | 防 path traversal 攻击 |
+| 缓存策略 | `Cache-Control: public, max-age=86400, immutable` | 32 字符 hex key 不会复用，激进缓存安全 |
+| 鉴权方式 | 业务 + 上传 + 下载全部 JWT | 同源 cookie 支撑 `<img src>` 自动鉴权 |
+| ext 白名单 | jpg / jpeg / png / webp | 阻止上传可执行文件；jpeg 归一化为 jpg |
+| 限流 | 20 次/分钟/用户（仅上传） | 防恶意刷写 COS；下载读不限流（依赖浏览器/CDN 缓存） |
+| 缺配置降级 | 503 UPLOAD_NOT_CONFIGURED + 前端 toast | 业务主流程不阻塞 |
+
+**DB 字段语义变更（关键）**：
+
+v7.2 起以下字段**统一存桶内 key**，不再存完整 URL：
+
+| 字段 | v7.1 及之前 | v7.2 起 |
+|------|------------|---------|
+| `User.avatar` | URL 或 null | key（如 `avatars/u1/abc.jpg`） |
+| `Baby.avatar` | URL 或 null | key（如 `babies/f1/b1/abc.jpg`） |
+| `DailyCheckin.photoUrl`（Sprint 2 F11）| — | key（如 `checkins/f1/b1/2026-05-11-abc.jpg`） |
+
+**展示**：前端用 `buildImageUrl(key)` 拼成 `/api/uploads/{key}` 作为 `<img src>`。
+**写入**：上传 API 返回的 `key` 直接作为字段值落库。
+
+> **历史数据兼容**：`buildImageUrl` 对已是 `http(s)://` 开头的字符串原样返回，避免破坏老数据 / 第三方头像（如微信扫码登录拿到的 unionid 头像 URL）。
+
+**与 prisma 落库的解耦**：
+- upload.service 只负责把对象写入 COS / 流式读出，**不写业务库**
+- 业务接口（`PATCH /auth/profile`、`POST /babies/:id/checkins` 等）拿到 `key` 后自行落库
+- 已被覆盖的旧文件（用户换头像后的老 key）依靠 patrol 任务异步清理（v7.2 Sprint 2 F11 时落地 `checkinPhotoCleanup`）
+
+**前端组件**：
+- `client/src/services/upload.ts`：核心 service，导出 `uploadService.upload()` + `buildImageUrl(key)`
+- `client/src/components/ui/image-uploader.tsx`：通用 render-prop UI 组件
+- onChange 回调收到的是 **key**（而非 URL），与 DB 字段语义一致
+
+**复用方**：
+- v7.2 Sprint 1 F12：用户头像 + Baby 头像
+- v7.2 Sprint 2 F11：每日打卡照片
+
+---
+
+### 5.8 i18n 框架（v7.2 T-S1-F8）
+
+**目录与依赖**：
+
+```
+client/src/i18n/
+├── index.ts                          # i18next 初始化（同步 import 资源）
+├── README.md                         # 使用指南
+└── resources/zh-CN/
+    ├── common.json                   # actions / states / time / errors / units
+    └── nav.json                      # tabs / sidebar / page_titles
+```
+
+依赖：`i18next` + `react-i18next` + `i18next-browser-languagedetector`，单独打入 `vendor-i18n` chunk（gzip ~16KB）。
+
+**初始化时序**：
+
+```
+main.tsx
+  ├── import '@/i18n'                 ← 同步副作用 import，必须在 App 之前
+  │   └── i18n.use(LanguageDetector).use(initReactI18next).init({...})
+  │       检测顺序：localStorage('baby_care_lang') → navigator.language
+  │       fallbackLng: 'zh-CN'
+  │       supportedLngs: ['zh-CN']    ← v7.2 仅 zh-CN，其他 locale 走 fallback
+  └── createRoot(...).render(<App />)
+```
+
+**与 React.lazy 路由的兼容**：
+
+显式 `react.useSuspense: false`，避免 i18n 资源 hydration 与路由 Suspense fallback 重复触发 loading；资源同步 import 后第一次 render 即可读到。
+
+**接入边界（Sprint 1）**：
+
+| 模块 | 命名空间 | 接入任务 |
+|---|---|---|
+| `app/layout/main-layout` | `nav` | T-S1-F8-02 |
+| `pages/home` | `home` | T-S1-F8-03 |
+| `pages/record` | `record` | T-S1-F8-03 |
+| `pages/report` | `report` | T-S1-F8-04 |
+| `pages/ai-assistant` | `ai` | T-S1-F8-04 |
+| `pages/settings` | `settings` | T-S1-F8-04 |
+
+未接入页面（discover / profile / baby / family / growth / vaccine / milestone / jaundice / auth）保持原样硬编码中文，v7.3+ 渐进迁移。
+
+**跨设备语言种子**（与 INF-01 联动）：
+
+`User.preferences.lang` 字段在登录后由 `auth-store.user` 注入；F8-05 LanguageSwitcher 切换时同时写 `localStorage('baby_care_lang')` 与 `updatePreferences({ lang })`，下次跨设备登录时能继承用户选择。v7.2 仅写入；UI 暂不读取（因仅 zh-CN 可用）。
+
+**复用方**：
+
+- F1 Onboarding（步骤标题 / 跳过按钮文案）
+- 后续所有新功能默认走 i18n（不再允许直接 JSX 中文字面量在新增的 5 高频页面）
+
+---
+
+### 5.9 多宝快捷切换 + URL 参数（v7.2 T-S1-F6）
+
+为支持「分享带 babyId 的链接」「跨设备打开同一胎」，v7.2 引入 URL ↔ store 的双向同步层：
+
+```
+URL ?babyId=xxx        ← 用户分享 / 跨设备打开
+     │ 命中
+     ▼
+zustand baby-store      ← persist 到 localStorage
+     │ 命中
+     ▼
+babies[0]              ← 兜底
+```
+
+**核心实现**：`client/src/hooks/use-active-baby.ts`：
+
+- 纯函数 `resolveActiveBabyId(urlBabyId, babies, currentBabyId)` 三级优先级解析；URL babyId 不在 babies 时返回 `shouldClearUrl: true` 优雅降级。
+- `useActiveBaby()` 在 `MainLayout` 顶部挂一次：useEffect 同步 URL → store + 清除非法 URL；返回 `switchBaby(id)` 给 BabySwitcher / SidebarBabyCard / BabyPage 列表使用，切换时同时改 store + URL（router 的 `replace: true` 不污染 history）+ invalidate `['todayStats' | 'records' | 'activeSleep', babyId]` 三个 React Query。
+- 子页面（home / report / growth / jaundice / record / milestone / vaccine 等）只读 `useBabyStore(s => s.currentBaby)`，不再调 `selectBaby`。
+
+**接入点**：`MainLayout` 顶部、`BabySwitcher`、`SidebarBabyCard`、`BabyPage` 列表点击切换；查看者无切换权限不触发。
+
+---
+
+### 5.10 数据导出独立页（v7.2 T-S1-F3）
+
+**演进**：v7.1 导出功能寄生在 `Settings → 资料 tab` 内，仅 2 个按钮（CSV / JSON），固定导出当前 baby 全部 5 类 Record 数据，不可选范围 / 不可选类型 / 没有历史。v7.2 拆出独立页 `/export`，配套后端多类型扩展。
+
+**前端**：`client/src/pages/export/index.tsx`：
+
+- 4 张选择卡片：宝宝 / 时间范围（7d/30d/90d/all/custom）/ 数据类型（8 个 Checkbox）/ 导出格式（CSV/JSON）
+- 类型 8 选：feeding / sleep / diaper / temperature / growth / vaccine / milestone / jaundice
+- 进度：`exportService.exportData(params, onProgress)` 接 axios `onDownloadProgress`，按钮文案显示百分比
+- 历史：`lib/export-history.ts` localStorage FIFO 上限 10 条；只存"文件名 + 元数据 + types[]"，重新下载用相同 params 重发请求（**不依赖后端 7d 链接**）
+- 旧 deep link `/settings?tab=export` 在 SettingsPage 挂载时检测并 `replace` 重定向到 `/export`
+
+**后端**：`server/src/services/export.service.ts`：
+
+- 新增 `types[]` 多选参数（zod schema 用 `.transform` 把逗号分隔字符串解析为 enum 数组）
+- 保留 `recordType` 单选向后兼容（types 优先）
+- 多类型聚合输出：
+  - JSON：`{ records?, vaccines?, milestones?, jaundice? }`，未选中字段不出现，避免误用
+  - CSV：多 section 输出，section 之间空行 + `# section: <type>` 注释行；jaundice 的 `symptoms / treatments` 数组在 CSV 中以 `|` 分隔
+- 时间窗 `startDate / endDate` 同时作用于 4 张表（Record.startTime / Vaccine.vaccinatedDate / Milestone.achievedDate / Jaundice.recordDate）
+- 跨家庭隔离：`getFamilyIdForUser` + `baby.familyId` 校验
+
+---
+
+### 5.11 首次使用引导（v7.2 T-S1-F1）
+
+**目标**：新账号首次登录看到 4 步引导（添加宝宝 / 邀请家人 / 记录第一条 / 试问 AI），引导自动跳过老用户已满足的步骤；跳过 / 完成跨设备生效。
+
+**步骤定义**：`client/src/lib/onboarding-steps.ts`：
+
+```typescript
+export const ONBOARDING_STEPS: OnboardingStep[] = [
+  { id: 'create-baby', targetPath: '/baby', skippable: false,
+    isAlreadySatisfied: (ctx) => ctx.babiesCount > 0 },
+  { id: 'invite-family', targetPath: '/family', skippable: true,
+    isAlreadySatisfied: (ctx) => ctx.familyMemberCount > 1 },
+  { id: 'first-record', target: '[data-onboarding-target="add-record-fab"]',
+    targetPath: '/record', skippable: true,
+    isAlreadySatisfied: (ctx) => ctx.hasAnyRecord },
+  { id: 'try-ai', targetPath: '/ai-assistant', skippable: true },
+]
+```
+
+**触发链路**：
+
+```
+MainLayout 挂载
+  └→ <Suspense><OnboardingHostLazy /></Suspense>   ← 动态 import 不污染入口 chunk
+       └→ OnboardingHost 决策（StrictMode 防御 useRef）
+            ├→ user.preferences.onboardingCompleted ? 不弹
+            ├→ 计算 ctx { babiesCount, familyMemberCount, hasAnyRecord }
+            │     └→ hasAnyRecord 用 firstBabyId 查 1 条记录，React Query 缓存 30s
+            ├→ findFirstPendingStep(ctx, skipped) === -1 ? 静默 PATCH onboardingCompleted=true
+            └→ 找到 pending step i ? 打开 OnboardingOverlay（stepIndex=i）
+```
+
+**Overlay 实现**：`components/onboarding/onboarding-overlay.tsx`：
+
+- 基于 Radix Dialog（焦点陷阱 / Esc / aria-modal 全部交给 radix）
+- 三段式：步骤 indicator（动态宽圆点） / Lucide icon + title + description / 按钮组
+- 目标元素高亮：`querySelector(step.target)` + `getBoundingClientRect`，用 `box-shadow: 0 0 0 9999px <mask>` 在矩形外侧绘制半透蒙层，矩形内部留白 + brand 描边
+- `MutationObserver` + `scrollIntoView`：目标元素未渲染时持续观察 DOM；视口外自动滚入；3s 兜底降级为居中卡（不影响主流程）
+- 用户行为：「下一步」/「跳过此步」/「去试试」/「Esc / 关闭」/「完成」
+
+**状态保存**：
+
+- 完成 / 跳过整个流程 → `PATCH /api/auth/profile { preferences: { onboardingCompleted: true, onboardingSkippedSteps: [...] } }`
+- 单步跳过 → 仅追加 `onboardingSkippedSteps`（不结束流程，下次启动按 skipped 过滤）
+- localStorage 不另存任何引导状态（避免双向同步）；强制触发用 `?onboarding=1`
+
+**强制触发 / 测试**：访问 `https://app/?onboarding=1` 即使 `onboardingCompleted=true` 也会重新弹；用户操作（go / skip-all / complete）后会自动 replace URL 清除该参数。
+
+### 5.12 每日打卡 + AI 小记 + 成长日历（v7.2 T-S2-F11）
+
+**目标**：用户每天为宝宝拍一张照片 + 一段话 + AI 自动生成的"成长小记"，沉淀为月视图日历可回顾、可导出的成长资产。Sprint 2 主线功能。
+
+**数据流**：
+
+```
+首页 DailyCheckinCard (今日态)
+  ↓ 点击 → PhotoUploader
+  ↓ ImageUploader (压缩 1080px + EXIF 剥离)
+  ↓ POST /api/uploads (kind=daily-checkin, ctx={familyId, babyId, date})
+  ↓ → photoKey
+  ↓ POST /api/babies/:id/checkins { checkinDate, photoKey, caption? }
+  ↓ → DailyCheckin (aiSummary=null)
+  ↓ async POST /api/babies/:id/checkins/:date/ai-summary { role? }
+  ↓ → DailyCheckin (aiSummary + aiSummaryAt)
+首页卡片更新（已打卡态）；GrowthCalendar 当月数据 invalidate
+```
+
+**关键设计**：
+
+| 维度 | 选择 | 理由 |
+|---|---|---|
+| `checkinDate` 类型 | `String YYYY-MM-DD`（本地时区） | 不做时区换算，避免跨时区漂移；按字符串字典序范围查询性能足够 |
+| `photoKey` vs URL | DB 存桶内 key（INF-02 方案 B） | 与头像统一；展示拼 `/api/uploads/{key}` 走代理 |
+| 唯一约束 | `@@unique([babyId, checkinDate])` | "一天一张"产品规则；DB 兜底 + 前端友好提示 |
+| 7d 补打卡窗口 | service 层 `isWithinCheckinWindow` 校验 | 产品规则；前后端各做一次（前端 UX，后端权威） |
+| AI 小记基调 | 温柔感性（不同于 dailyInsight 的客观洞察） | 区分语境；prompt 里 60 字限制 + 角色微调 |
+| AI 失败行为 | 配额回滚 + DB 不变；UI 显式 "明天再试" | 避免覆盖已有 aiSummary；用户可手动重试 |
+| AI 编辑后 | `aiSummaryAt = null`（"已人工修改" pill） | 让"重新生成"覆盖时用户清楚自己曾改过 |
+| 删除策略 | DB 立即删；COS 异步清（patrol 30d 阈值） | 防误删 + 给运维兜底窗口 |
+
+**前端分层**：
+
+```
+services/daily-checkin.ts         (axios 包装)
+hooks/use-daily-checkins.ts       (React Query：按月 / 单日 / mutation)
+components/daily-checkin/
+  ├─ photo-uploader.tsx           (ImageUploader 业务封装 + create + asyncAi)
+  ├─ daily-checkin-card.tsx       (首页三态卡片)
+  ├─ ai-summary-panel.tsx         (AI 小记展示 / 编辑 / 重新生成)
+  └─ daily-checkin-detail.tsx     (单日详情抽屉：替换 / 删除 / caption 编辑)
+components/growth-calendar/
+  ├─ growth-calendar.tsx          (月视图主组件 + 四态判断)
+  ├─ calendar-cell.tsx            (单元格：future/supplement/expired/checked)
+  ├─ calendar-month-switcher.tsx  (◀▶ 切月)
+  └─ calendar-export-menu.tsx     (导出 PNG / PDF / 分享)
+pages/growth/calendar/index.tsx   (独立路由 /growth/calendar，URL ?year/?month/?date)
+lib/daily-checkin-date.ts         (本地时区纯函数：windowCheck / getMonthGrid)
+lib/calendar-canvas.ts            (月视图 → A4 PNG，2DPR + onProgress)
+lib/pdf-export.ts                 (pdf-lib 拼页 + downloadBlob)
+```
+
+**后端分层**：
+
+```
+prisma/schema.prisma#DailyCheckin                 (@@unique([babyId, checkinDate]))
+schemas/daily-checkin.schema.ts                   (Zod：YMD 正则 + photoKey checkins/ 前缀)
+services/daily-checkin.service.ts
+  ├─ list / getByDate / create / update / remove  (基础 CRUD + 跨家庭 + 权限矩阵)
+  ├─ generateAiSummary                            (调 aiService.chat + 落 aiSummary/aiSummaryAt)
+  └─ collectDayContext                            (records/milestones/jaundice 摘要)
+routes/checkins.ts                                (5 端点 + AI 小记端点)
+utils/patrol.ts#runDailyCheckinOrphanCleanup     (周日 04:00 + 30d 阈值)
+utils/checkin-date.ts                             (服务端最小日期工具，与 client 同义)
+```
+
+**性能 / 体积**：
+- pdf-lib 独立 chunk `vendor-pdf`（gzip 175 KB），仅在 calendar / report 路由动态 import
+- calendar 路由 chunk gzip 5 KB
+- 月视图 PNG ≤ 400 KB（jpeg quality 0.88，2DPR）
+- 月度 PDF ≤ 8 MB（按设计 §10 风险阈值）
+
+### 5.13 WHO 百分位增强（v7.2 T-S2-F10）
+
+**演进**：v7.1 已在生长曲线（`pages/growth/index.tsx`）叠加 5 条 WHO 参考线，但仅覆盖 0-24 月，且数据点 hover 不显示百分位标签，无异常值告警。Sprint 2 完成数据扩展 + 百分位反向插值 + 异常 AI 咨询。
+
+**数据扩展**：
+- `lib/who-standards.ts`：0-24 月（1/3 月粒度）→ **0-60 月**（24-60 月按 3 月粒度）
+- 体积影响：~2 KB → ~4 KB（gzip ~1 KB），仍同步打入入口
+
+**新 lib `lib/who-percentile.ts`**：
+
+```ts
+getPercentile(value, ageMonths, gender, metric): number | null
+  // 算法：
+  //   1) 按月龄在 5 档参考点上分段线性插值得到该月的 PercentileData
+  //   2) 把 value 投影到 [P3, P15, P50, P85, P97] 上做"分段线性百分位"反算
+  //   3) value ≤ P3 → 3；value ≥ P97 → 97（边界饱和）
+  //   4) 月龄超 0-60 → null
+  // 不引入 LMS 官方 Z 分数算法（精度足够 + 零依赖）
+
+getPercentileLabel(p): string  // "P75（中上水平）" / "<P3 偏低" 等
+isOutOfRange(p): boolean        // < 3 / > 97 / null = 异常
+getReferenceLinePoints(...)     // 给图表渲染：5 条曲线点位
+```
+
+**UI 增强**：
+- 数据点 hover title 增加 `{value}{unit} · P75（中上水平）`
+- 历史记录列表行尾 Badge：`P50` / `<P3 ⚠`
+- 异常行整行红底高亮 + 「向 AI 咨询」按钮（autoPrompt 协议跳 `/ai-assistant`）
+- chartMonths 上限 24 → 60；X 轴标签自适应（≤24 月每 3 月，>24 月每 6 月）
+
+### 5.14 报告分享 Dialog + PDF 导出（v7.2 T-S2-F4）
+
+**演进**：v7.1 报告页"分享"直接 `renderReportImage` + `navigator.share`，无预览、无 PDF、无日历联动。Sprint 2 引入 `<ReportShareDialog>`：
+
+```
+ReportShareDialog (open=true)
+  ├─ 预览（renderReportImage 产出的 jpeg，2DPR）
+  ├─ Checkbox：附带成长日历（自动拉取期间 checkin 数量；为 0 时禁用）
+  └─ 三个 action：
+      ├─ 保存图片（PNG/JPG）→ downloadBlob
+      ├─ 导出 PDF
+      │   ├─ 拉期间内 checkins → groupCheckinsByMonth
+      │   ├─ 每月调 renderCalendarImage → Blob
+      │   └─ renderReportWithCalendarPdf([reportImage, ...calendarImages])
+      └─ 系统分享（仅 navigator.share 支持时显示）
+```
+
+**关键设计**：
+- pdf-lib + calendar-canvas 全部 `await import(...)`，不污染 report 路由 chunk
+- 进度态 toast：`生成封面… → 渲染日历 i/total… → 合成 PDF…`
+- PDF 元数据：title / author / subject 三字段填充，便于派生工具检索
+- 触发链路：`pages/report` `<分享>` 按钮 → 打开 Dialog（取代直接 share）
+
+**PDF 文件大小目标**：
+- 仅报告 < 1.5 MB
+- 含 1 个月日历 < 8 MB
+- pdf-export.ts 设软上限 8 MB，超过 console.warn 提示分别下载
 
 ---
 

@@ -1,48 +1,113 @@
-import { createBrowserRouter } from 'react-router-dom';
-import { MainLayout } from '@/app/layout/main-layout';
-import { AuthLayout } from '@/app/layout/auth-layout';
-import { HomePage } from '@/pages/home';
-import { RecordPage } from '@/pages/record';
-import { DiscoverPage } from '@/pages/discover';
-import { ProfilePage } from '@/pages/profile';
-import { LoginPage } from '@/pages/auth/login';
-import { RegisterPage } from '@/pages/auth/register';
-import { WechatCallbackPage } from '@/pages/auth/wechat-callback';
-import { BabyPage } from '@/pages/baby';
-import { FamilyPage } from '@/pages/family';
-import { GrowthPage } from '@/pages/growth';
-import { VaccinePage } from '@/pages/vaccine';
-import { MilestonePage } from '@/pages/milestone';
-import { AiAssistantPage } from '@/pages/ai-assistant';
-import { JaundicePage } from '@/pages/jaundice';
-import { ReportPage } from '@/pages/report';
-import { SettingsPage } from '@/pages/settings';
+/**
+ * 路由表（F9 路由级代码分割版）
+ *
+ * 改造点：
+ * - 14 个 page 全部走 React.lazy + 动态 import()，每个 page 单独 chunk
+ * - 统一通过 lazyEl() 包装，避免在每个 route 重复写 Suspense
+ * - MainLayout / AuthLayout 保持 eager 加载（首屏必要框架）
+ *
+ * 命名导出 → default 的转换：
+ *   现有 page 都是命名导出（export function HomePage(){}），React.lazy 要求
+ *   返回 default 导出的 Promise，因此用 .then(m => ({ default: m.HomePage })) 适配。
+ */
+import { createBrowserRouter } from 'react-router-dom'
+import { lazy, Suspense, type LazyExoticComponent, type ComponentType } from 'react'
+import { MainLayout } from '@/app/layout/main-layout'
+import { AuthLayout } from '@/app/layout/auth-layout'
+import { RouteFallback } from '@/app/layout/route-fallback'
+
+// ─── Main Layout 内的页面 ──────────────────────────────────────────────
+const HomePage = lazy(() =>
+  import('@/pages/home').then((m) => ({ default: m.HomePage })),
+)
+const RecordPage = lazy(() =>
+  import('@/pages/record').then((m) => ({ default: m.RecordPage })),
+)
+const DiscoverPage = lazy(() =>
+  import('@/pages/discover').then((m) => ({ default: m.DiscoverPage })),
+)
+const ProfilePage = lazy(() =>
+  import('@/pages/profile').then((m) => ({ default: m.ProfilePage })),
+)
+const BabyPage = lazy(() =>
+  import('@/pages/baby').then((m) => ({ default: m.BabyPage })),
+)
+const FamilyPage = lazy(() =>
+  import('@/pages/family').then((m) => ({ default: m.FamilyPage })),
+)
+const GrowthPage = lazy(() =>
+  import('@/pages/growth').then((m) => ({ default: m.GrowthPage })),
+)
+const GrowthCalendarPage = lazy(() =>
+  import('@/pages/growth/calendar').then((m) => ({ default: m.GrowthCalendarPage })),
+)
+const VaccinePage = lazy(() =>
+  import('@/pages/vaccine').then((m) => ({ default: m.VaccinePage })),
+)
+const MilestonePage = lazy(() =>
+  import('@/pages/milestone').then((m) => ({ default: m.MilestonePage })),
+)
+const AiAssistantPage = lazy(() =>
+  import('@/pages/ai-assistant').then((m) => ({ default: m.AiAssistantPage })),
+)
+const JaundicePage = lazy(() =>
+  import('@/pages/jaundice').then((m) => ({ default: m.JaundicePage })),
+)
+const ReportPage = lazy(() =>
+  import('@/pages/report').then((m) => ({ default: m.ReportPage })),
+)
+const SettingsPage = lazy(() =>
+  import('@/pages/settings').then((m) => ({ default: m.SettingsPage })),
+)
+const ExportPage = lazy(() =>
+  import('@/pages/export').then((m) => ({ default: m.ExportPage })),
+)
+
+// ─── Auth Layout 内的页面 ──────────────────────────────────────────────
+const LoginPage = lazy(() =>
+  import('@/pages/auth/login').then((m) => ({ default: m.LoginPage })),
+)
+const RegisterPage = lazy(() =>
+  import('@/pages/auth/register').then((m) => ({ default: m.RegisterPage })),
+)
+const WechatCallbackPage = lazy(() =>
+  import('@/pages/auth/wechat-callback').then((m) => ({ default: m.WechatCallbackPage })),
+)
+
+// 通用 Suspense 包装，避免每个 route 重复声明
+const lazyEl = (El: LazyExoticComponent<ComponentType>) => (
+  <Suspense fallback={<RouteFallback />}>
+    <El />
+  </Suspense>
+)
 
 export const router = createBrowserRouter([
   {
     element: <MainLayout />,
     children: [
-      { path: '/', element: <HomePage /> },
-      { path: '/record', element: <RecordPage /> },
-      { path: '/discover', element: <DiscoverPage /> },
-      { path: '/profile', element: <ProfilePage /> },
-      { path: '/baby', element: <BabyPage /> },
-      { path: '/family', element: <FamilyPage /> },
-      { path: '/growth', element: <GrowthPage /> },
-      { path: '/vaccine', element: <VaccinePage /> },
-      { path: '/milestone', element: <MilestonePage /> },
-      { path: '/ai-assistant', element: <AiAssistantPage /> },
-      { path: '/jaundice', element: <JaundicePage /> },
-      { path: '/report', element: <ReportPage /> },
-      { path: '/settings', element: <SettingsPage /> },
+      { path: '/', element: lazyEl(HomePage) },
+      { path: '/record', element: lazyEl(RecordPage) },
+      { path: '/discover', element: lazyEl(DiscoverPage) },
+      { path: '/profile', element: lazyEl(ProfilePage) },
+      { path: '/baby', element: lazyEl(BabyPage) },
+      { path: '/family', element: lazyEl(FamilyPage) },
+      { path: '/growth', element: lazyEl(GrowthPage) },
+      { path: '/growth/calendar', element: lazyEl(GrowthCalendarPage) },
+      { path: '/vaccine', element: lazyEl(VaccinePage) },
+      { path: '/milestone', element: lazyEl(MilestonePage) },
+      { path: '/ai-assistant', element: lazyEl(AiAssistantPage) },
+      { path: '/jaundice', element: lazyEl(JaundicePage) },
+      { path: '/report', element: lazyEl(ReportPage) },
+      { path: '/settings', element: lazyEl(SettingsPage) },
+      { path: '/export', element: lazyEl(ExportPage) },
     ],
   },
   {
     element: <AuthLayout />,
     children: [
-      { path: '/login', element: <LoginPage /> },
-      { path: '/register', element: <RegisterPage /> },
-      { path: '/auth/wechat/callback', element: <WechatCallbackPage /> },
+      { path: '/login', element: lazyEl(LoginPage) },
+      { path: '/register', element: lazyEl(RegisterPage) },
+      { path: '/auth/wechat/callback', element: lazyEl(WechatCallbackPage) },
     ],
   },
-]);
+])
