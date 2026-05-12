@@ -17,6 +17,7 @@
 
     /* TS 6.0+ baseUrl 被标记 deprecated，但项目仍用它做 paths 解析；
        等迁移到 TS 7 时再下掉 baseUrl */
+    "ignoreDeprecations": "6.0",
 
     /* Path aliases */
     "baseUrl": ".",
